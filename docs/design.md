@@ -153,4 +153,3 @@ Ideas not in a phase yet (tournaments, more games, bots, replays):
 - Server downtime counts against the player whose clock was running.
 - The WebSocket takes the session token in its URL, so it must not be logged
   by a proxy.
-- Dark theme only.
