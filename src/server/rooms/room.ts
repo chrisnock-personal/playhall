@@ -379,7 +379,8 @@ export class Room {
     const guests = Object.values(players).some((p) => p.guest);
     const note = result.aborted ? 'The game was stopped, so it doesn\u2019t count.'
       : !this.rec.settings.ranked ? 'This room is casual: games here don\u2019t count for the leaderboards.'
-        : guests ? 'A guest played, so this game doesn\u2019t count for the leaderboards.' : null;
+        : guests ? 'A guest played, so this game doesn\u2019t count for the leaderboards.'
+          : Object.keys(players).length < 2 ? 'A game with one player is practice: it doesn\u2019t count for the leaderboards.' : null;
     this.hooks.gameOver({ rec: this.rec, result, state: this.rec.game.state, players, counted: note === null, note });
     this.nextPlayers(result);
     this.touch();
@@ -574,6 +575,7 @@ export class Room {
         settings: this.rec.settings,
         locked: !!this.rec.passwordHash,
         moveTimer: !!this.game.turn,
+        minPlayers: this.minPlayers,
       },
       seats: this.game.seats.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,

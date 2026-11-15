@@ -5,6 +5,7 @@ import { checkers } from './checkers';
 import { snakes } from './snakes';
 import { ludo } from './ludo';
 import { seaBattle } from './seabattle';
+import { blackjack } from './blackjack';
 
 // Every built-in game, by id. Adding a game = writing its module here and its
 // stage in src/client/games/.
@@ -15,6 +16,7 @@ export const GAMES: Record<string, GameModule<any, any>> = {
   [snakes.id]: snakes,
   [ludo.id]: ludo,
   [seaBattle.id]: seaBattle,
+  [blackjack.id]: blackjack,
 };
 
 export function gameList() {

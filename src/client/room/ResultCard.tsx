@@ -14,7 +14,7 @@ export function ResultCard({ snap, send }: { snap: RoomSnapshot; send(m: ClientM
   const winner = r.players.find((p) => p.outcome === 'win');
   const title = winner ? `${winner.name} wins${result ? ` by ${result.reason}` : ''}` : `Draw${result ? ` by ${result.reason}` : ''}`;
   const [a, b] = r.players;
-  const canStart = snap.you.host && snap.seats.every((s) => s.userId);
+  const canStart = snap.you.host && snap.seats.filter((s) => s.userId).length >= snap.room.minPlayers;
 
   return (
     <div className="result-card" role="status">

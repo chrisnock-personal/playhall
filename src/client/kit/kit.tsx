@@ -174,7 +174,7 @@ export function GameActions({ snap, send, minPlayers, resign = true, children }:
   useEffect(() => { setConfirm(false); }, [snap.game.status]);
   const playing = snap.game.status === 'playing';
   const seated = snap.seats.filter((s) => s.userId).length;
-  const need = minPlayers ?? snap.seats.length;
+  const need = minPlayers ?? snap.room.minPlayers;
   const ready = seated >= need;
   const result = snap.game.result;
   const winnerLabel = result?.winner ? snap.seats.find((s) => s.id === result.winner)?.label : null;

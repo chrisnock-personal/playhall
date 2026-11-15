@@ -118,8 +118,10 @@ the logo's pawn are drawn to sit beside them.
    (2-4 players, places for everyone, the move timer rolls or moves for you).
 4. **Done**: hidden information: **Sea Battle** (secret simultaneous
    placement, fleets revealed at the end).
-5. Cards and chips: **Blackjack**, **Colour Clash**, then **Texas Hold'em**
-   (the biggest: betting, side pots, timeouts).
+5. Cards and chips: **Blackjack done** (1-4 players against the house, play
+   chips, sessions of 5/10/20 hands; one-player sessions are practice and
+   don't count); **Colour Clash**, then **Texas Hold'em** (the biggest:
+   betting, side pots, timeouts).
 
 Every game ships its own **How to play** (the goal and short sections on
 turns, moves and endings), shown in the room's Rules tab and in the lobby.

@@ -5,6 +5,7 @@ import { checkersClient } from './checkers';
 import { snakesClient } from './snakes';
 import { ludoClient } from './ludo';
 import { seaBattleClient } from './seabattle';
+import { blackjackClient } from './blackjack';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -13,4 +14,5 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [snakesClient.id]: snakesClient,
   [ludoClient.id]: ludoClient,
   [seaBattleClient.id]: seaBattleClient,
+  [blackjackClient.id]: blackjackClient,
 };

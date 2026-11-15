@@ -86,6 +86,8 @@ export interface RoomSnapshot {
     locked: boolean;
     /** The game has turns, so the move timer applies. */
     moveTimer: boolean;
+    /** Fewest players needed to start. */
+    minPlayers: number;
   };
   seats: SeatView[];
   members: MemberView[];
