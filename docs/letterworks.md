@@ -45,3 +45,21 @@ Letterworks has its own.
 - Tile counts and values: generate from a letter-frequency table and tune by
   simulation (self-play with a simple bot) so the game plays well.
 - Two-letter words: ENABLE has a short list; consider a help panel.
+
+## Pieces (mockups approved 2026-11-15)
+
+- **Tile:** cream with a heavy letter and its value bottom right, in the kit's
+  wood style. States: picked up (lifted, amber outline), placed this turn
+  (pale with an amber ring), last move (gold), makes a word that isn't
+  allowed (rose ring).
+- **Blank:** empty on the rack; once played, its letter shows in blue italic,
+  worth 0, chosen from an A-Z picker.
+- **Bonus squares:** warm reds for word bonuses (3W #B5523B, 2W #D9917E), cool
+  blues for letter bonuses (3L #2E7A8C, 2L #8CC3CF), the star on a 2W colour;
+  each keeps its label until covered.
+- **Rack:** a wooden rack under the board (full width on a phone, tiles at
+  least 44px); a tile bag with the count left. Drag, or tap a tile then a square.
+- **Tile set (draft, to tune by simulation):** E 11, A 8, I 8, O 8, T 7, N 6,
+  R 6, S 5, D 5, L 4, U 3, C 3, M 3, H 3, P 2, G 2, B 2, F 2, W 2, Y 2,
+  K 1, V 1, J 1, X 1, Q 1, Z 1, and 2 blanks (100). Values: A1 B3 C3 D2 E1
+  F4 G3 H3 I1 J9 K5 L1 M3 N1 O1 P3 Q9 R1 S1 T1 U2 V5 W4 X8 Y4 Z9.
