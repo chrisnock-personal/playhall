@@ -1,5 +1,6 @@
-// The room WebSocket: /ws?room=CODE&token=JWT[&pass=ROOM_PASS]. One connection per open room
-// tab. Every change in a room sends each connection its own snapshot (what a
+// The room WebSocket: /ws?room=CODE, then a first message { t: 'hello', token,
+// pass? } (the session token stays out of URLs and so out of access logs).
+// One connection per open room tab. Every change in a room sends each connection its own snapshot (what a
 // player may see differs from a watcher), coalesced to one send per tick.
 
 import type { IncomingMessage, Server } from 'node:http';
@@ -40,13 +41,27 @@ export class RoomSockets {
 
   private async accept(ws: WebSocket, req: IncomingMessage): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://x');
-    const user = this.auth.verify(url.searchParams.get('token'));
+    // Wait for the hello; keep anything sent after it until the room is ready.
+    const early: string[] = [];
+    const hello = await new Promise<{ token?: string; pass?: string } | null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), 5000);
+      let got = false;
+      ws.on('message', (data) => {
+        if (got) { early.push(String(data)); return; }
+        got = true; clearTimeout(timer);
+        try { const m = JSON.parse(String(data)); resolve(m?.t === 'hello' ? m : null); } catch { resolve(null); }
+      });
+      ws.once('close', () => { clearTimeout(timer); resolve(null); });
+    });
+    ws.removeAllListeners('message');
+    if (ws.readyState !== ws.OPEN) return;
+    const user = this.auth.verify(typeof hello?.token === 'string' ? hello.token : null);
     if (!user) { ws.close(4401, 'Sign in again'); return; }
     const room = await this.getManager().get(url.searchParams.get('room') ?? '');
     if (!room) { ws.close(4404, 'No such room'); return; }
     if (room.isBanned(user.id)) { ws.close(4409, 'The host removed you from this room'); return; }
     if (!room.admitsWithoutPassword(user.id)
-      && !this.auth.verifyRoomPass(url.searchParams.get('pass'), user.id, room.rec.code, room.rec.passwordHash!)) {
+      && !this.auth.verifyRoomPass(typeof hello?.pass === 'string' ? hello.pass : null, user.id, room.rec.code, room.rec.passwordHash!)) {
       ws.close(4403, 'This room needs its password');
       return;
     }
@@ -58,7 +73,7 @@ export class RoomSockets {
     room.join(user);
 
     ws.on('pong', () => { conn.alive = true; });
-    ws.on('message', (data) => {
+    const onMessage = (data: unknown) => {
       let msg: ClientMessage;
       try { msg = JSON.parse(String(data)); } catch { return; }
       try {
@@ -70,7 +85,9 @@ export class RoomSockets {
           this.send(ws, { t: 'error', message: 'Something went wrong' });
         }
       }
-    });
+    };
+    ws.on('message', onMessage);
+    for (const m of early) onMessage(m);
     ws.on('close', () => {
       set!.delete(conn);
       if (set!.size === 0) this.conns.delete(room);

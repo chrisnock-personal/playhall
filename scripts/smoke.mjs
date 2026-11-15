@@ -20,7 +20,8 @@ async function api(path, { body, token, method } = {}) {
 }
 
 function connect(code, token) {
-  const ws = new WebSocket(`${wsBase}/ws?room=${code}&token=${encodeURIComponent(token)}`);
+  const ws = new WebSocket(`${wsBase}/ws?room=${code}`);
+  ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', token })));
   const c = { ws, snap: null, errors: [], waiters: [] };
   ws.on('message', (d) => {
     const m = JSON.parse(String(d));
@@ -90,7 +91,8 @@ assert.ok(board.unranked.some((r) => r.userId === alex.user.id && r.points === 3
 // Private rooms: no way in without the password; a pass works until the
 // password changes; the host gets in without one.
 const closedWith = (code, token, pass) => new Promise((resolve) => {
-  const ws = new WebSocket(`${wsBase}/ws?room=${code}&token=${encodeURIComponent(token)}${pass ? `&pass=${encodeURIComponent(pass)}` : ''}`);
+  const ws = new WebSocket(`${wsBase}/ws?room=${code}`);
+  ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', token, ...(pass ? { pass } : {}) })));
   let snap = false;
   ws.on('message', (d) => { if (JSON.parse(String(d)).t === 'snapshot') { snap = true; ws.close(); } });
   ws.on('close', (c) => resolve(snap ? 'in' : c));
@@ -105,6 +107,12 @@ assert.equal(await closedWith(priv.code, host.token), 'in');
 await api(`/rooms/${priv.code}/password`, { method: 'PUT', token: host.token, body: { password: 'new password' } });
 assert.equal(await closedWith(priv.code, priya.token, pass), 4403, 'an old pass stops working');
 await api(`/rooms/${priv.code}`, { method: 'DELETE', token: host.token });
+
+// The session token in the URL (the old way) is ignored: no hello, no entry.
+assert.equal(await new Promise((resolve) => {
+  const ws = new WebSocket(`${wsBase}/ws?room=${room.code}&token=${encodeURIComponent(host.token)}`);
+  ws.on('close', (c) => resolve(c));
+}), 4401, 'a token in the URL is not accepted');
 
 // Letterworks: racks are private, a word off the list is refused with nothing
 // changed, a real two-letter word from the rack scores.

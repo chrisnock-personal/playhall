@@ -37,9 +37,10 @@ export function useRoom(code: string, token: string, pass: string | null): RoomC
 
     const connect = () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}${pass ? `&pass=${encodeURIComponent(pass)}` : ''}`);
+      // The token goes in the first message, never the URL (#24).
+      const ws = new WebSocket(`${proto}://${location.host}/ws?room=${encodeURIComponent(code)}`);
       wsRef.current = ws;
-      ws.onopen = () => { retry = 0; setState('open'); };
+      ws.onopen = () => { ws.send(JSON.stringify({ t: 'hello', token, ...(pass ? { pass } : {}) })); retry = 0; setState('open'); };
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data) as ServerMessage;
         if (msg.t === 'snapshot') { setSnap(msg.snapshot); setReceivedAt(Date.now()); }
