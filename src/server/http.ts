@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
-import type { Auth } from './auth';
+import bcrypt from 'bcryptjs';
+import { rateLimit, roomPassword, type Auth } from './auth';
 import type { RoomManager } from './rooms/manager';
 import type { RoomSockets } from './ws';
 import { RoomError } from './rooms/room';
@@ -27,7 +28,10 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.post('/api/rooms', auth.requireUser, async (req, res) => {
     const b = req.body ?? {};
+    const pw = roomPassword(b.password);
+    if ('error' in pw) { res.status(400).json({ error: pw.error }); return; }
     const room = await rooms.create(req.user!, {
+      passwordHash: pw.password ? await bcrypt.hash(pw.password, 11) : null,
       name: b.name, gameId: b.gameId, listed: typeof b.listed === 'boolean' ? b.listed : undefined,
       seatPolicy: b.seatPolicy, ranked: typeof b.ranked === 'boolean' ? b.ranked : undefined, guestsCanPlay: typeof b.guestsCanPlay === 'boolean' ? b.guestsCanPlay : undefined,
       gameConfig: b.gameConfig, hostSeat: typeof b.hostSeat === 'string' ? b.hostSeat : null,
@@ -39,6 +43,28 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     const room = await rooms.get(String(req.params.code));
     if (!room) { res.status(404).json({ error: 'No such room' }); return; }
     res.json({ room: room.summary() });
+  });
+
+  // Private rooms: swap the room password for a pass that opens the room.
+  app.post('/api/rooms/:code/pass', auth.requireUser, rateLimit(10, 60_000), async (req, res) => {
+    const room = await rooms.get(String(req.params.code));
+    if (!room) { res.status(404).json({ error: 'No such room' }); return; }
+    const hash = room.rec.passwordHash;
+    if (!hash) { res.json({ pass: null }); return; }
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!(await bcrypt.compare(password, hash))) { res.status(403).json({ error: 'That\u2019s not the room password' }); return; }
+    res.json({ pass: auth.signRoomPass(req.user!.id, room.rec.code, hash) });
+  });
+
+  // The host sets, changes or removes the password ({ password: null }).
+  app.put('/api/rooms/:code/password', auth.requireUser, async (req, res) => {
+    const room = await rooms.get(String(req.params.code));
+    if (!room) { res.status(404).json({ error: 'No such room' }); return; }
+    if (!room.isHost(req.user!.id)) { res.status(403).json({ error: 'Only the host can do that' }); return; }
+    const pw = roomPassword(req.body?.password);
+    if ('error' in pw) { res.status(400).json({ error: pw.error }); return; }
+    room.setPassword(pw.password ? await bcrypt.hash(pw.password, 11) : null);
+    res.json({ locked: !!pw.password });
   });
 
   app.delete('/api/rooms/:code', auth.requireUser, async (req, res) => {

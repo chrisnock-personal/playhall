@@ -1,4 +1,4 @@
-// The room WebSocket: /ws?room=CODE&token=JWT. One connection per open room
+// The room WebSocket: /ws?room=CODE&token=JWT[&pass=ROOM_PASS]. One connection per open room
 // tab. Every change in a room sends each connection its own snapshot (what a
 // player may see differs from a watcher), coalesced to one send per tick.
 
@@ -44,6 +44,11 @@ export class RoomSockets {
     if (!user) { ws.close(4401, 'Sign in again'); return; }
     const room = await this.getManager().get(url.searchParams.get('room') ?? '');
     if (!room) { ws.close(4404, 'No such room'); return; }
+    if (!room.admitsWithoutPassword(user.id)
+      && !this.auth.verifyRoomPass(url.searchParams.get('pass'), user.id, room.rec.code, room.rec.passwordHash!)) {
+      ws.close(4403, 'This room needs its password');
+      return;
+    }
 
     const conn: Conn = { ws, user, alive: true };
     let set = this.conns.get(room);

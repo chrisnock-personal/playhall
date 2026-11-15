@@ -1,6 +1,7 @@
 // Local accounts (username + password) and guests (just a display name).
 // Both get the same kind of session token; a guest's says guest: true.
 
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Router, type NextFunction, type Request, type Response } from 'express';
@@ -30,11 +31,29 @@ export class Auth {
   verify(token: string | null | undefined): SessionUser | null {
     if (!token) return null;
     try {
-      const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { name: string; guest: boolean };
-      if (!p.sub || typeof p.name !== 'string') return null;
+      const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { name: string; guest: boolean; scope?: string };
+      if (!p.sub || typeof p.name !== 'string' || p.scope) return null;
       return { id: p.sub, name: p.name, guest: !!p.guest };
     } catch {
       return null;
+    }
+  }
+
+  // ---- private rooms ----
+  // A correct room password gets a pass for that room and person, tied to the
+  // current password: changing the password makes every old pass invalid.
+
+  signRoomPass(userId: string, code: string, passwordHash: string): string {
+    return jwt.sign({ scope: 'room-pass', room: code, pv: fingerprint(passwordHash) }, this.secret, { subject: userId, expiresIn: '7d' });
+  }
+
+  verifyRoomPass(token: string | null, userId: string, code: string, passwordHash: string): boolean {
+    if (!token) return false;
+    try {
+      const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { scope?: string; room?: string; pv?: string };
+      return p.scope === 'room-pass' && p.sub === userId && p.room === code && p.pv === fingerprint(passwordHash);
+    } catch {
+      return false;
     }
   }
 
@@ -111,6 +130,15 @@ export class Auth {
 
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 11);
 
+const fingerprint = (hash: string) => crypto.createHash('sha256').update(hash).digest('hex').slice(0, 16);
+
+/** A room password from a request body: null for none, or an error message. */
+export function roomPassword(v: unknown): { password: string | null } | { error: string } {
+  if (v === undefined || v === null || v === '') return { password: null };
+  if (typeof v !== 'string' || v.length < 4 || v.length > 100) return { error: 'Room passwords are 4-100 characters' };
+  return { password: v };
+}
+
 function cleanUsername(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const u = v.trim().toLowerCase();
@@ -125,7 +153,7 @@ export function cleanName(v: unknown): string | null {
 }
 
 /** A small in-memory limiter per client address. */
-function rateLimit(max: number, windowMs: number) {
+export function rateLimit(max: number, windowMs: number) {
   const hits = new Map<string, { n: number; reset: number }>();
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = req.ip ?? 'unknown';

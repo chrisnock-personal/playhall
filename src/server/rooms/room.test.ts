@@ -24,7 +24,7 @@ function setup(settings: Partial<RoomSettings> = {}) {
   const rec: RoomRecord = {
     id: 'r1', code: 'ABC123', name: 'Test', gameId: 'chess', hostId: host.id, hostName: host.name,
     settings: { ...DEFAULT_SETTINGS, gameConfig: { initialSeconds: 60, incrementSeconds: 0 }, ...settings },
-    seats: {}, game: { status: 'idle', state: null, startedAt: null, players: null },
+    seats: {}, game: { status: 'idle', state: null, startedAt: null, players: null }, passwordHash: null,
   };
   const room = new Room(rec, hooks);
   for (const u of [host, alex, priya, guest]) room.join(u);

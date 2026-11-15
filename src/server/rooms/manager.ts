@@ -14,7 +14,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 interface RoomRow {
   id: string; code: string; name: string; game_id: string; host_id: string; host_name: string;
-  settings: RoomSettings; seats: RoomRecord['seats']; game: RoomRecord['game'];
+  settings: RoomSettings; seats: RoomRecord['seats']; game: RoomRecord['game']; password_hash: string | null;
 }
 
 export interface CreateRoomInput {
@@ -26,6 +26,8 @@ export interface CreateRoomInput {
   ranked?: boolean;
   gameConfig?: unknown;
   hostSeat?: string | null;
+  /** Already hashed. */
+  passwordHash?: string | null;
 }
 
 export class RoomManager {
@@ -50,7 +52,7 @@ export class RoomManager {
 
   private async load(code: string): Promise<Room | null> {
     const { rows } = await this.db.query<RoomRow>(
-      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash
          FROM rooms r JOIN users u ON u.id = r.host_id
         WHERE r.code = $1 AND r.closed_at IS NULL`, [code]);
     const row = rows[0];
@@ -63,7 +65,7 @@ export class RoomManager {
       id: row.id, code: row.code, name: row.name, gameId: row.game_id,
       hostId: row.host_id, hostName: row.host_name,
       settings: { ...DEFAULT_SETTINGS, ...row.settings },
-      seats: row.seats, game: row.game,
+      seats: row.seats, game: row.game, passwordHash: row.password_hash,
     };
     const history: ChatLine[] = chat.map((c) => ({
       id: c.line_id, channel: c.channel, kind: c.kind, userId: c.user_id, name: c.name, text: c.body, at: Number(c.at),
@@ -104,8 +106,8 @@ export class RoomManager {
     this.saveTimers.set(rec.id, setTimeout(() => {
       this.saveTimers.delete(rec.id);
       this.db.query(
-        `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, updated_at = now() WHERE id = $1`,
-        [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game)],
+        `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, updated_at = now() WHERE id = $1`,
+        [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash],
       ).catch((err) => console.error('[rooms] save failed:', err.message));
     }, SAVE_DELAY_MS));
   }
@@ -149,11 +151,11 @@ export class RoomManager {
       const code = newCode();
       try {
         const { rows } = await this.db.query<{ id: string }>(
-          `INSERT INTO rooms (code, name, game_id, host_id, settings, seats, game)
-           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-          [code, name, game.id, host.id, JSON.stringify(settings), JSON.stringify(seats), JSON.stringify(gameRec)]);
+          `INSERT INTO rooms (code, name, game_id, host_id, settings, seats, game, password_hash)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+          [code, name, game.id, host.id, JSON.stringify(settings), JSON.stringify(seats), JSON.stringify(gameRec), input.passwordHash ?? null]);
         return this.adopt({
-          id: rows[0].id, code, name, gameId: game.id, hostId: host.id, hostName: host.name, settings, seats, game: gameRec,
+          id: rows[0].id, code, name, gameId: game.id, hostId: host.id, hostName: host.name, settings, seats, game: gameRec, passwordHash: input.passwordHash ?? null,
         }, []);
       } catch (err) {
         if ((err as { code?: string }).code !== '23505') throw err;
@@ -165,7 +167,7 @@ export class RoomManager {
   /** Rooms listed in the lobby, plus any the user hosts. */
   async list(userId: string): Promise<RoomSummary[]> {
     const { rows } = await this.db.query<RoomRow>(
-      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash
          FROM rooms r JOIN users u ON u.id = r.host_id
         WHERE r.closed_at IS NULL AND ((r.settings->>'listed')::boolean OR r.host_id = $1)
         ORDER BY r.updated_at DESC LIMIT 100`, [userId]);
@@ -178,7 +180,7 @@ export class RoomManager {
         configLabel: game.describeConfig(game.parseConfig(r.settings.gameConfig)),
         hostName: r.host_name, status: r.game.status,
         seats: game.seats.map((s) => ({ id: s.id, label: s.label, userId: r.seats[s.id]?.userId ?? null, name: r.seats[s.id]?.name ?? null })),
-        watching: 0, listed: !!r.settings.listed, ranked: r.settings.ranked !== false,
+        watching: 0, listed: !!r.settings.listed, ranked: r.settings.ranked !== false, locked: !!r.password_hash,
       };
     });
   }

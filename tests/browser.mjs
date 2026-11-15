@@ -108,6 +108,21 @@ try {
   await gp.click('button:has-text("Yes, resign")');
   await hp.waitForSelector('.result-card:has-text("guest")');
 
+  // A private room asks for its password, then lets you in.
+  const priv = (await api('/rooms', { name: 'Private test', gameId: 'chess', listed: false, password: 'open sesame' }, host.token)).room;
+  const xp = await open(null);
+  await xp.goto(`${base}/#/r/${priv.code}`);
+  await xp.fill('input[autocomplete="nickname"]', 'Kai');
+  await xp.click('button.btn.primary.wide');
+  await xp.waitForSelector('h1:has-text("This room is private")');
+  await xp.fill('input[type=password]', 'wrong');
+  await xp.click('button:has-text("Go in")');
+  await xp.waitForSelector('.form-error');
+  errors.splice(0, errors.length, ...errors.filter((e) => !/403/.test(e)));   // the browser logs the refused request
+  await xp.fill('input[type=password]', 'open sesame');
+  await xp.click('button:has-text("Go in")');
+  await xp.waitForSelector('.board cg-board');
+
   // Leaderboard and stats pages.
   await hp.goto(`${base}/#/leaderboard`);
   await hp.waitForSelector('.board-page h1');
@@ -115,7 +130,7 @@ try {
   await hp.waitForSelector('.stats-page h1');
 
   assert.deepEqual(errors, [], 'no errors in the browser');
-  console.log('PASS: a game on the real board, chat, layouts, room rules, a phone watcher, the result card, leaderboards and stats');
+  console.log('PASS: a game on the real board, chat, layouts, room rules, a phone watcher, the result card, a private room, leaderboards and stats');
 } finally {
   await browser.close();
 }

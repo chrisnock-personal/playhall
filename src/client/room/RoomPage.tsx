@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Session } from '../api';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { api, readRoomPass, saveRoomPass, type Session } from '../api';
 import type { Channel, RoomSnapshot } from '../../shared/protocol';
 import { useRoom } from '../useRoom';
 import { GAME_CLIENTS } from '../games';
@@ -13,8 +13,13 @@ import { ResultCard } from './ResultCard';
 import { Icon } from '../ui';
 
 export function RoomPage({ code, session, onSignOut }: { code: string; session: Session; onSignOut(): void }) {
-  const conn = useRoom(code, session.token);
+  const [pass, setPass] = useState<string | null>(() => readRoomPass(code));
+  const conn = useRoom(code, session.token, pass);
   const { snap } = conn;
+
+  if (conn.state === 'locked') {
+    return <PasswordGate code={code} session={session} hadPass={!!pass} onPass={(p) => { saveRoomPass(code, p); setPass(p); }} />;
+  }
 
   if (conn.state === 'gone') {
     return (
@@ -141,6 +146,39 @@ function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<ty
 
       {toast && <div className="toast" role="status">{toast}</div>}
       {settingsOpen && <SettingsDialog snap={snap} send={conn.send} game={game} token={session.token} onClose={() => setSettingsOpen(false)} />}
+    </div>
+  );
+}
+
+function PasswordGate({ code, session, hadPass, onPass }: { code: string; session: Session; hadPass: boolean; onPass(pass: string): void }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(hadPass ? 'The room password has changed since you were last here.' : null);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await api<{ pass: string | null }>(`/rooms/${code}/pass`, { token: session.token, body: { password } });
+      if (r.pass) onPass(r.pass);
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="center-page">
+      <form className="card narrow" onSubmit={submit}>
+        <h1>This room is private</h1>
+        <p className="muted">Room {code} needs a password. Ask the host for it.</p>
+        <label className="field"><span>Room password</span>
+          <input type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+        </label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="row">
+          <button className="btn primary" disabled={busy || !password}>Go in</button>
+          <a className="btn" href="#/">Back to rooms</a>
+        </div>
+      </form>
     </div>
   );
 }

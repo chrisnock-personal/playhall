@@ -7,10 +7,12 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Phase 1 has chess, built for more games: every game is a plug-in with its own
+Phase 1 has chess (eight more games are planned on a shared kit of boards,
+pieces, cards and dice: [docs/games.md](docs/games.md)), built for more games: every game is a plug-in with its own
 seats, rules and board, and the room around it stays the same. Voice and video,
 sharing a game running on your own PC with remote players using controllers,
-and web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
+OpenBOR rooms run on the server ([docs/openbor.md](docs/openbor.md)), and
+web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
 
 ## What works now
 
@@ -35,6 +37,9 @@ and web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
   week, how games ended, recent games and head-to-head records. When a game
   ends, the room shows the points, new totals, ranks and the head-to-head.
   Only games between account holders in rooms set to count are counted.
+- **Private rooms.** A host can give a room a password; everyone else needs
+  it to get in (the host and seated players don't). Changing it makes everyone
+  else enter the new one.
 - **Host rules.** Seat policy, guests playing, the after-game rule, time
   control, chat permissions, listing in the lobby, closing the room.
 

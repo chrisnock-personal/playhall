@@ -74,6 +74,8 @@ export interface RoomSnapshot {
     configLabel: string;
     hostId: string;
     settings: RoomSettings;
+    /** Needs a password to join. */
+    locked: boolean;
   };
   seats: SeatView[];
   members: MemberView[];
@@ -122,6 +124,7 @@ export interface RoomSummary {
   watching: number;
   listed: boolean;
   ranked: boolean;
+  locked: boolean;
 }
 
 export interface SessionUser {

@@ -87,7 +87,26 @@ assert.equal(stats.recent[0].reason, 'checkmate');
 const board = await api('/leaderboard?game=chess&period=week', { token: host.token });
 assert.ok(board.unranked.some((r) => r.userId === alex.user.id && r.points === 3), 'Alex listed as not ranked yet');
 
+// Private rooms: no way in without the password; a pass works until the
+// password changes; the host gets in without one.
+const closedWith = (code, token, pass) => new Promise((resolve) => {
+  const ws = new WebSocket(`${wsBase}/ws?room=${code}&token=${encodeURIComponent(token)}${pass ? `&pass=${encodeURIComponent(pass)}` : ''}`);
+  let snap = false;
+  ws.on('message', (d) => { if (JSON.parse(String(d)).t === 'snapshot') { snap = true; ws.close(); } });
+  ws.on('close', (c) => resolve(snap ? 'in' : c));
+});
+const priv = (await api('/rooms', { token: host.token, body: { name: `Private ${id}`, gameId: 'chess', listed: false, password: 'open sesame' } })).room;
+assert.equal(priv.locked, true);
+assert.equal(await closedWith(priv.code, priya.token), 4403);
+await assert.rejects(api(`/rooms/${priv.code}/pass`, { token: priya.token, body: { password: 'wrong' } }), /403/);
+const { pass } = await api(`/rooms/${priv.code}/pass`, { token: priya.token, body: { password: 'open sesame' } });
+assert.equal(await closedWith(priv.code, priya.token, pass), 'in');
+assert.equal(await closedWith(priv.code, host.token), 'in');
+await api(`/rooms/${priv.code}/password`, { method: 'PUT', token: host.token, body: { password: 'new password' } });
+assert.equal(await closedWith(priv.code, priya.token, pass), 4403, 'an old pass stops working');
+await api(`/rooms/${priv.code}`, { method: 'DELETE', token: host.token });
+
 await api(`/rooms/${room.code}`, { method: 'DELETE', token: host.token });
 await new Promise((r) => a.ws.on('close', (code) => { assert.equal(code, 4410); r(); }));
 for (const c of [h, p]) c.ws.close();
-console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, and closing the room');
+console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, private rooms, and closing the room');

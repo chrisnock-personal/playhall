@@ -129,8 +129,13 @@ phone, panels stack under a full-width stage.
    [games.md](games.md).
 2. Voice and video through LiveKit (Table/Gallery channels, push to talk,
    talking ring), transcripts, the camera table. Needs HTTPS (getUserMedia).
-3. Sharing a local game, v1.
-4. The web-game plug-in SDK; sharing a local game, v2.
+3. **OpenBOR rooms**: the server runs OpenBOR in a container per room, the
+   host picks a mod, the game is streamed and up to four players control it
+   from their browsers. Same streaming and input path as sharing a local
+   game, without the Windows parts, so it comes first: see
+   [openbor.md](openbor.md).
+4. Sharing a local game, v1.
+5. The web-game plug-in SDK; sharing a local game, v2.
 
 ## Known gaps in phase 1
 

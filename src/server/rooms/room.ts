@@ -31,6 +31,8 @@ export interface RoomRecord {
   hostId: string;
   hostName: string;
   settings: RoomSettings;
+  /** bcrypt hash of the room password; null = no password. Never sent out. */
+  passwordHash: string | null;
   seats: Record<SeatId, SeatHolder | null>;
   game: { status: GameStatus; state: unknown; startedAt: number | null; players: Record<SeatId, SeatHolder> | null };
 }
@@ -113,6 +115,19 @@ export class Room {
   dispose(): void {
     this.cancelTimer?.();
     this.cancelTimer = null;
+  }
+
+  /** Who can come in without the room password: the host and anyone seated. */
+  admitsWithoutPassword(userId: string): boolean {
+    return !this.rec.passwordHash || this.isHost(userId) || this.seatOf(userId) !== null;
+  }
+
+  /** The host set, changed or removed the password (hashing is done outside). */
+  setPassword(hash: string | null): void {
+    const had = !!this.rec.passwordHash;
+    this.rec.passwordHash = hash;
+    this.system(hash ? (had ? 'The host changed the room password' : 'The host set a room password') : 'The host removed the room password');
+    this.touch();
   }
 
   // ---- roles ----------------------------------------------------------
@@ -436,6 +451,7 @@ export class Room {
         configLabel: this.game.describeConfig(config),
         hostId: this.rec.hostId,
         settings: this.rec.settings,
+        locked: !!this.rec.passwordHash,
       },
       seats: this.game.seats.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
@@ -476,6 +492,7 @@ export class Room {
       watching: [...this.present.keys()].filter((id) => !seated.has(id)).length,
       listed: this.rec.settings.listed,
       ranked: this.rec.settings.ranked,
+      locked: !!this.rec.passwordHash,
     };
   }
 }

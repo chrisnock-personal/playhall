@@ -100,6 +100,7 @@ function RoomCard({ room }: { room: RoomSummary }) {
         <span>Watching <strong>{room.watching}</strong></span>
         {!room.listed && <span className="muted">Invite only</span>}
         {!room.ranked && <span className="muted">Casual</span>}
+        {room.locked && <span className="muted">Password</span>}
       </p>
       <a className={`btn ${free && room.status !== 'playing' ? 'primary' : ''}`} href={`#/r/${room.code}`}>
         {free && room.status !== 'playing' ? 'Go in and sit down' : 'Go in and watch'}
@@ -115,6 +116,7 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
   const [listed, setListed] = useState(true);
   const [play, setPlay] = useState(true);
   const [ranked, setRanked] = useState(true);
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const game = games.find((g) => g.id === gameId);
@@ -127,7 +129,7 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
     try {
       const r = await api<{ room: RoomSummary }>('/rooms', {
         token: session.token,
-        body: { name: name || `${session.user.name}’s ${game?.name ?? 'game'}`, gameId, listed, ranked, gameConfig: config ?? game?.defaultConfig, hostSeat: play ? game?.seats[0]?.id : null },
+        body: { name: name || `${session.user.name}’s ${game?.name ?? 'game'}`, gameId, listed, ranked, password: password || null, gameConfig: config ?? game?.defaultConfig, hostSeat: play ? game?.seats[0]?.id : null },
       });
       location.hash = `#/r/${r.room.code}`;
     } catch (err) {
@@ -155,6 +157,9 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
       </fieldset>
       {Picker && game && <Picker value={config ?? game.defaultConfig} onChange={setConfig} />}
       <label className="check"><input type="checkbox" checked={listed} onChange={(e) => setListed(e.target.checked)} /> Show it in the lobby (off: invite link only)</label>
+      <label className="field"><span>Password (optional: makes the room private)</span>
+        <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={4} maxLength={100} placeholder="Anyone with the link can come in" />
+      </label>
       <label className="check"><input type="checkbox" checked={ranked} onChange={(e) => setRanked(e.target.checked)} /> Games count for the leaderboard (off: a casual room)</label>
       <label className="check"><input type="checkbox" checked={play} onChange={(e) => setPlay(e.target.checked)} /> I’ll play too ({game?.seats[0]?.label ?? 'first seat'})</label>
       {error && <p className="form-error" role="alert">{error}</p>}

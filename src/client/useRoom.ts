@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClientMessage, RoomSnapshot, ServerMessage } from '../shared/protocol';
 
-export type ConnState = 'connecting' | 'open' | 'reconnecting' | 'gone';
+export type ConnState = 'connecting' | 'open' | 'reconnecting' | 'locked' | 'gone';
 
 export interface RoomConn {
   snap: RoomSnapshot | null;
@@ -20,7 +20,7 @@ const FINAL: Record<number, string> = {
   4410: 'The host closed this room.',
 };
 
-export function useRoom(code: string, token: string): RoomConn {
+export function useRoom(code: string, token: string, pass: string | null): RoomConn {
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
   const [receivedAt, setReceivedAt] = useState(0);
   const [state, setState] = useState<ConnState>('connecting');
@@ -32,10 +32,11 @@ export function useRoom(code: string, token: string): RoomConn {
     let stopped = false;
     let retry = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    setState('connecting');
 
     const connect = () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`);
+      const ws = new WebSocket(`${proto}://${location.host}/ws?room=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}${pass ? `&pass=${encodeURIComponent(pass)}` : ''}`);
       wsRef.current = ws;
       ws.onopen = () => { retry = 0; setState('open'); };
       ws.onmessage = (e) => {
@@ -45,6 +46,7 @@ export function useRoom(code: string, token: string): RoomConn {
       };
       ws.onclose = (e) => {
         if (stopped) return;
+        if (e.code === 4403) { setState('locked'); return; }
         if (FINAL[e.code]) { setState('gone'); setGoneReason(FINAL[e.code]); return; }
         setState('reconnecting');
         timer = setTimeout(connect, Math.min(10_000, 500 * 2 ** retry++));
@@ -56,7 +58,7 @@ export function useRoom(code: string, token: string): RoomConn {
       clearTimeout(timer);
       wsRef.current?.close();
     };
-  }, [code, token]);
+  }, [code, token, pass]);
 
   const send = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current;

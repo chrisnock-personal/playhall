@@ -19,6 +19,8 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [pwNote, setPwNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const s = snap.room.settings;
   const playing = snap.game.status === 'playing';
@@ -36,6 +38,17 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
     try {
       await api(`/rooms/${snap.room.code}`, { method: 'DELETE', token });
       location.hash = '#/';
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const setPassword = async (password: string | null) => {
+    setError(null);
+    try {
+      await api(`/rooms/${snap.room.code}/password`, { method: 'PUT', token, body: { password } });
+      setNewPassword('');
+      setPwNote(password ? 'Password saved. Tell your players: the invite link alone won’t get them in.' : 'Password removed: anyone with the link can come in.');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -76,6 +89,21 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
               <input type="checkbox" role="switch" className="switch" checked={s[sw.key]} disabled={sw.key === 'ranked' && playing} onChange={(e) => update({ [sw.key]: e.target.checked })} />
             </label>
           ))}
+        </section>
+        <section>
+          <h3>Private room</h3>
+          <p className="hint">
+            {snap.room.locked
+              ? 'This room has a password. People already inside and seated players stay in; anyone else needs the password. Changing it makes everyone else enter the new one.'
+              : 'No password: anyone with the invite link (or the lobby, if listed) can come in and watch.'}
+          </p>
+          <div className="row">
+            <label className="sr-only" htmlFor="room-pw">New room password</label>
+            <input id="room-pw" type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={4} maxLength={100} placeholder={snap.room.locked ? 'New password' : 'Set a password'} />
+            <button className="btn" disabled={newPassword.length < 4} onClick={() => setPassword(newPassword)}>{snap.room.locked ? 'Change' : 'Set'}</button>
+            {snap.room.locked && <button className="btn" onClick={() => setPassword(null)}>Remove</button>}
+          </div>
+          {pwNote && <p className="hint" role="status">{pwNote}</p>}
         </section>
         <section>
           <h3>Close the room</h3>

@@ -44,6 +44,15 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   return data as T;
 }
 
+/** The pass that opens a private room, kept per room on this device. */
+export function readRoomPass(code: string): string | null {
+  try { return localStorage.getItem(`playhall.pass.${code}`); } catch { return null; }
+}
+
+export function saveRoomPass(code: string, pass: string): void {
+  try { localStorage.setItem(`playhall.pass.${code}`, pass); } catch { /* this tab only */ }
+}
+
 export function readPref<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(`playhall.${key}`);
