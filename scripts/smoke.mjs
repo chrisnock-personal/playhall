@@ -60,7 +60,8 @@ await p.until((s) => s.game.status === 'playing', 'game started');
 p.send({ t: 'chat', channel: 'gallery', text: 'gallery secret' });
 p.send({ t: 'chat', channel: 'table', text: 'should be refused' });
 await p.until((s) => s.chat.some((l) => l.text === 'gallery secret'), 'gallery line');
-await a.until(() => a.errors.some((e) => /Players can|Watchers can/.test(e)) || p.errors.some((e) => /Watchers/.test(e)), 'table refused for watcher');
+// Wait on Priya's own connection: the refusal is sent only to her.
+await p.until(() => p.errors.some((e) => /Watchers/.test(e)), 'table refused for watcher');
 assert.ok(!a.snap.chat.some((l) => l.text === 'gallery secret'), 'player must not see the gallery during play');
 
 const moves = [[h, 'f2', 'f3'], [a, 'e7', 'e5'], [h, 'g2', 'g4'], [a, 'd8', 'h4']];
