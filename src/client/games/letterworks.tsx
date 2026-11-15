@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import { BONUS, CENTRE, SIZE, VALUES, scorePlacement, type LetterworksView, type Placement } from '../../shared/games/letterworks';
+import { BONUS, CENTRE, SIZE, TWO_LETTER_WORDS, VALUES, scorePlacement, type LetterworksView, type Placement } from '../../shared/games/letterworks';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, PlayerStrip } from '../kit/kit';
 
@@ -148,18 +148,27 @@ function LetterworksStage(props: StageProps) {
 
 function MovesTab({ snap }: StageProps) {
   const v = snap.game.view as LetterworksView | null;
-  if (!v?.moves.length) return <p className="empty">No words yet.</p>;
+  const help = (
+    <details className="lw-two">
+      <summary>Two-letter words ({TWO_LETTER_WORDS.length})</summary>
+      <p>{TWO_LETTER_WORDS.join(' ')}</p>
+    </details>
+  );
+  if (!v?.moves.length) return <><p className="empty">No words yet.</p>{help}</>;
   return (
-    <ol className="moves">
+    <>
+    <ol className="moves lw-moves">
       {v.moves.map((m, i) => (
         <li key={i}>
           <span className="n">{i + 1}.</span><Disc colour={m.seat} size={16} />
           <span>{m.kind === 'play' ? m.words!.map((w) => w.word).join(', ') : m.kind === 'exchange' ? `swapped ${m.count}` : m.kind === 'pass' ? 'passed' : 'resigned'}</span>
-          {m.kind === 'play' && <span className="muted"> {m.score}</span>}
+          {m.kind === 'play' && <span className="pts">{m.score}</span>}
         </li>
       ))}
       {v.endBonus && <li className="muted">Tiles left: {Object.entries(v.endBonus).map(([s, n]) => `${COLOURS[s]?.label ?? s} ${n > 0 ? '+' : ''}${n}`).join(', ')}</li>}
     </ol>
+    {help}
+    </>
   );
 }
 

@@ -106,7 +106,43 @@ await api(`/rooms/${priv.code}/password`, { method: 'PUT', token: host.token, bo
 assert.equal(await closedWith(priv.code, priya.token, pass), 4403, 'an old pass stops working');
 await api(`/rooms/${priv.code}`, { method: 'DELETE', token: host.token });
 
+// Letterworks: racks are private, a word off the list is refused with nothing
+// changed, a real two-letter word from the rack scores.
+const TWO = new Set('AA AB AD AE AG AH AI AL AM AN AR AS AT AW AX AY BA BE BI BO BY DE DO ED EF EH EL EM EN ER ES ET EX FA GO HA HE HI HM HO ID IF IN IS IT JO KA LA LI LO MA ME MI MM MO MU MY NA NE NO NU OD OE OF OH OM ON OP OR OS OW OX OY PA PE PI RE SH SI SO TA TI TO UH UM UN UP US UT WE WO XI XU YA YE YO'.split(' '));
+const words = (await api('/rooms', { token: host.token, body: { name: `Words ${id}`, gameId: 'letterworks', listed: false, hostSeat: 'amber', gameConfig: {} } })).room;
+const wh = await connect(words.code, host.token);
+const wa = await connect(words.code, alex.token);
+wa.send({ t: 'sit', seat: 'teal' });
+await wh.until((s) => s.seats.filter((x) => x.userId).length === 2, 'two seated for Letterworks');
+wh.send({ t: 'start' });
+await wa.until((s) => s.game.status === 'playing' && s.game.view?.rack, 'Letterworks started');
+await wh.until((s) => s.game.status === 'playing' && s.game.view?.rack, 'the host has a rack');
+assert.equal(wa.snap.game.view.rack.length, 7);
+let played = false;
+for (let turn = 0; turn < 8 && !played; turn++) {
+  const me = [wh, wa].find((c) => c.snap.game.view.turn === c.snap.you.seat);
+  const rack = me.snap.game.view.rack.filter((l) => l !== '?');
+  const pairs = rack.flatMap((x, i) => rack.filter((_, j) => j !== i).map((y) => x + y));
+  const good = pairs.find((w) => TWO.has(w));
+  const bad = pairs.find((w) => !TWO.has(w));
+  if (bad && turn === 0) {
+    const errs = me.errors.length;
+    me.send({ t: 'act', action: { type: 'play', tiles: [{ cell: 112, letter: bad[0] }, { cell: 113, letter: bad[1] }] } });
+    await me.until(() => me.errors.length > errs, 'a non-word refused');
+    assert.match(me.errors.at(-1), /isn’t a word/);
+  }
+  const movesBefore = me.snap.game.view.moves.length;
+  if (good) me.send({ t: 'act', action: { type: 'play', tiles: [{ cell: 112, letter: good[0] }, { cell: 113, letter: good[1] }] } });
+  else me.send({ t: 'act', action: { type: 'exchange', letters: me.snap.game.view.rack } });
+  const after = await me.until((s) => s.game.view.moves.length > movesBefore, 'a Letterworks move');
+  played = !!good;
+  if (good) { assert.ok(after.game.view.scores[me.snap.you.seat] > 0, 'the word scored'); assert.equal(after.game.view.rack.length, 7, 'drew back to seven'); }
+}
+assert.ok(played, 'a two-letter word was played');
+await api(`/rooms/${words.code}`, { method: 'DELETE', token: host.token });
+for (const c of [wh, wa]) c.ws.close();
+
 await api(`/rooms/${room.code}`, { method: 'DELETE', token: host.token });
 await new Promise((r) => a.ws.on('close', (code) => { assert.equal(code, 4410); r(); }));
 for (const c of [h, p]) c.ws.close();
-console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, private rooms, and closing the room');
+console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, private rooms, Letterworks, and closing the room');

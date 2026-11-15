@@ -22,6 +22,9 @@ export const COUNTS: Record<string, number> = {
   F: 2, W: 2, Y: 2, K: 1, V: 1, J: 1, X: 1, Q: 1, Z: 1, '?': 2,
 };
 
+/** Every two-letter word in the ENABLE list, for the help panel. */
+export const TWO_LETTER_WORDS = 'AA AB AD AE AG AH AI AL AM AN AR AS AT AW AX AY BA BE BI BO BY DE DO ED EF EH EL EM EN ER ES ET EX FA GO HA HE HI HM HO ID IF IN IS IT JO KA LA LI LO MA ME MI MM MO MU MY NA NE NO NU OD OE OF OH OM ON OP OR OS OW OX OY PA PE PI RE SH SI SO TA TI TO UH UM UN UP US UT WE WO XI XU YA YE YO'.split(' ');
+
 export type Bonus = '3W' | '2W' | '3L' | '2L';
 /** Our own symmetric layout of bonus squares; the centre star doubles the word. */
 export const BONUS: Record<number, Bonus> = (() => {
@@ -284,6 +287,28 @@ export const letterworks: GameModule<LetterworksState, Record<string, never>> = 
   tick: () => null,
   nextDeadline: () => null,
   result: (s) => s.result,
+
+  /** Replays: the board and scores after each move, as a watcher saw them
+   *  (racks are hidden, so they're rebuilt from the moves, not replayed). */
+  replay(s) {
+    let frame: LetterworksState = { ...s, board: Array(SIZE * SIZE).fill(null), bag: [], scores: Object.fromEntries(s.order.map((p) => [p, 0])), resigned: [], moves: [], endBonus: null, result: null, turn: 0 };
+    let bag = 100 - RACK * s.order.length;
+    const view = (f: LetterworksState, b: number): LetterworksView => ({ ...(this.view(f, 0, null) as LetterworksView), bag: b });
+    const frames: LetterworksView[] = [view(frame, bag)];
+    s.moves.forEach((m, i) => {
+      const board = [...frame.board];
+      for (const t of m.tiles ?? []) board[t.cell] = { letter: t.letter, blank: !!t.blank, move: i };
+      if (m.kind === 'play') bag = Math.max(0, bag - (m.tiles?.length ?? 0));
+      frame = {
+        ...frame, board, moves: [...frame.moves, m], scores: { ...frame.scores, [m.seat]: frame.scores[m.seat] + m.score },
+        resigned: m.kind === 'resign' ? [...frame.resigned, m.seat] : frame.resigned,
+        turn: (s.order.indexOf(m.seat) + 1) % s.order.length,
+      };
+      frames.push(view(frame, bag));
+    });
+    if (s.result) frames[frames.length - 1] = view({ ...frame, scores: s.scores, endBonus: s.endBonus, result: s.result }, bag);
+    return frames;
+  },
 
   view(s, _now, viewer): LetterworksView {
     return {

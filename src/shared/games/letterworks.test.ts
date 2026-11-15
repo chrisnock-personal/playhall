@@ -121,3 +121,16 @@ test('resigning and the move timer', () => {
   assert.equal(s.result?.winner, 'amber');
   assert.deepEqual(s.result?.placings, [['amber'], ['violet'], ['teal']]);
 });
+
+test('replays rebuild the board and scores move by move', () => {
+  let s = game(['C', 'A', 'T', 'X', 'X', 'X', 'X']);
+  s = ok(letterworks.act(s, 'amber', { type: 'play', tiles: across(7, 7, 'CAT') }, 0, ctx()));
+  s = ok(letterworks.act(s, 'teal', { type: 'pass' }, 0, ctx()));
+  const frames = letterworks.replay!(s) as LetterworksView[];
+  assert.equal(frames.length, 3);
+  assert.ok(frames[0].board.every((t) => !t));
+  assert.equal(frames[1].board[CENTRE]?.letter, 'C');
+  assert.equal(frames[1].scores.amber, 10);
+  assert.equal(frames[2].turn, 'amber');
+  assert.ok(frames.every((f) => f.rack === null), 'no racks in a replay');
+});

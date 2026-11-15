@@ -591,3 +591,8 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .lw-letters .lw-rack-tile { position: relative; width: 34px; height: 34px; }
 @container (max-aspect-ratio: 6 / 5) { .lw-board { width: min(100cqw - 20px, 100cqh - 330px); } }
 @media (max-width: 900px) { .stage:has(.lw-layout) { height: auto; container-type: inline-size; } .lw-board { width: 100%; } }
+.lw-two { margin: 10px 4px; font-size: 13px; } .lw-two summary { cursor: pointer; font-weight: 600; } .lw-two p { font-family: var(--mono, monospace); line-height: 1.7; word-spacing: 4px; color: var(--muted); }
+.moves.lw-moves { display: flex; flex-direction: column; gap: 4px; }
+.moves.lw-moves li { display: flex; align-items: center; gap: 8px; grid-template-columns: none; }
+.moves.lw-moves li > span:nth-child(3) { flex: 1; font-weight: 600; letter-spacing: .03em; }
+.moves.lw-moves .pts { font-family: var(--mono, monospace); color: var(--muted); }

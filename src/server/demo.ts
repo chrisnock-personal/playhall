@@ -7,6 +7,7 @@
 //   node dist/server/demo.js --remove   remove it
 //   (in development: npx tsx src/server/demo.ts)
 
+import { letterworks } from '../shared/games/letterworks';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { createPool, migrate, type Db } from './db';
@@ -75,7 +76,21 @@ async function load(db: Db): Promise<void> {
   const config = (initialSeconds: number, incrementSeconds: number) => ({ initialSeconds, incrementSeconds });
   const italian = ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4', 'g8f6', 'd2d3', 'f8c5'];
   const live = { ...chess.create(config(0, 0), Date.now(), { seats: ['white', 'black'], random: Math.random }), moves: italian };
-  const rooms: { name: string; host: string; settings: Partial<typeof DEFAULT_SETTINGS> & { gameConfig: unknown }; seats: Record<string, unknown>; game: unknown }[] = [
+  // A Letterworks game three words in: HALL, PAWN (down through its A), QUEEN (ending on PAWN's N).
+  const wordsCtx = { seats: ['amber', 'teal', 'violet'], random: Math.random };
+  let words = letterworks.create({}, Date.now(), wordsCtx);
+  for (const [seat, tiles] of [
+    ['amber', [[7, 6, 'H'], [7, 7, 'A'], [7, 8, 'L'], [7, 9, 'L']]],
+    ['teal', [[6, 7, 'P'], [8, 7, 'W'], [9, 7, 'N']]],
+    ['violet', [[9, 3, 'Q'], [9, 4, 'U'], [9, 5, 'E'], [9, 6, 'E']]],
+  ] as const) {
+    const letters = tiles.map((t) => t[2]);
+    words = { ...words, racks: { ...words.racks, [seat]: [...letters, ...words.racks[seat].slice(letters.length)] } };
+    const r = letterworks.act(words, seat, { type: 'play', tiles: tiles.map(([row, col, letter]) => ({ cell: row * 15 + col, letter })) }, Date.now(), wordsCtx);
+    if ('error' in r) throw new Error(`demo Letterworks: ${r.error}`);
+    words = r.state;
+  }
+  const rooms: { name: string; host: string; gameId?: string; settings: Partial<typeof DEFAULT_SETTINGS> & { gameConfig: unknown }; seats: Record<string, unknown>; game: unknown }[] = [
     {
       name: 'Long game, no clock', host: 'Sam',
       settings: { gameConfig: config(0, 0) },
@@ -106,13 +121,19 @@ async function load(db: Db): Promise<void> {
       seats: { white: null, black: null },
       game: { status: 'idle', state: null, startedAt: null, players: null },
     },
+    {
+      name: 'Word night', host: 'Priya', gameId: 'letterworks',
+      settings: { gameConfig: {} },
+      seats: { amber: holder('Priya'), teal: holder('Lee'), violet: holder('Jordan'), rose: null },
+      game: { status: 'playing', state: words, startedAt: Date.now() - 12 * 60_000, players: { amber: holder('Priya'), teal: holder('Lee'), violet: holder('Jordan') } },
+    },
   ];
   const roomIds: string[] = [];
   for (const r of rooms) {
     const { rows } = await db.query<{ id: string }>(
       `INSERT INTO rooms (code, name, game_id, host_id, settings, seats, game, updated_at)
-       VALUES ($1, $2, 'chess', $3, $4, $5, $6, now()) RETURNING id`,
-      [code(), r.name, ids[r.host], JSON.stringify({ ...DEFAULT_SETTINGS, ...r.settings }), JSON.stringify(r.seats), JSON.stringify(r.game)]);
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now()) RETURNING id`,
+      [code(), r.name, r.gameId ?? 'chess', ids[r.host], JSON.stringify({ ...DEFAULT_SETTINGS, ...r.settings }), JSON.stringify(r.seats), JSON.stringify(r.game)]);
     roomIds.push(rows[0].id);
   }
 
