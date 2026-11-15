@@ -84,6 +84,10 @@ export interface PokerState {
   toAct: SeatId | null;
   currentBet: number;
   minRaise: number;
+  /** Who has acted since the last full bet or raise this round. */
+  acted?: SeatId[];
+  /** Who may only call or fold: they had acted when a short all-in raised less than a full raise. */
+  capped?: SeatId[];
   blinds: [number, number];
   /** Players knocked out, in the order they went (ties grouped). */
   out: SeatId[][];
@@ -109,6 +113,8 @@ export interface PokerView {
   toAct: SeatId | null;
   toCall: number;
   minRaiseTo: number;
+  /** False when the player to act may only call or fold (after a short all-in). */
+  canRaise: boolean;
   out: SeatId[];
   last: PokerState['last'];
   log: PokerState['log'];
@@ -139,7 +145,7 @@ function startHand(s: PokerState, random: () => number): PokerState {
   const base: PokerState = {
     ...s, dealer, hand: s.hand + 1, deck, hole, board: [], street: 'preflop', blinds: [sb, bb],
     bet: Object.fromEntries(s.order.map((p) => [p, 0])), total: Object.fromEntries(s.order.map((p) => [p, 0])),
-    folded: Object.fromEntries(s.order.map((p) => [p, false])), currentBet: 0, minRaise: bb, pending: [], toAct: null,
+    folded: Object.fromEntries(s.order.map((p) => [p, false])), currentBet: 0, minRaise: bb, pending: [], toAct: null, acted: [], capped: [],
   };
   const button = s.order[dealer];
   // Heads up, the button posts the small blind and acts first before the flop.
@@ -172,7 +178,7 @@ function advance(s: PokerState, random: () => number): PokerState {
   const n = i === 0 ? 3 : 1;
   const next: PokerState = {
     ...s, street: streets[i + 1], board: [...s.board, ...s.deck.slice(0, n)], deck: s.deck.slice(n),
-    bet: Object.fromEntries(s.order.map((p) => [p, 0])), currentBet: 0, minRaise: s.blinds[1],
+    bet: Object.fromEntries(s.order.map((p) => [p, 0])), currentBet: 0, minRaise: s.blinds[1], acted: [], capped: [],
   };
   const nextActors = canAct(next);
   if (nextActors.length <= 1) return advance({ ...next, pending: [] }, random);
@@ -237,9 +243,18 @@ function act(s: PokerState, seat: SeatId, kind: string, to: number | undefined, 
   const owe = s.currentBet - s.bet[seat];
   let next = s;
   let text = '';
+  const acted = [...(s.acted ?? []).filter((p) => p !== seat), seat];
   const reopen = (raiseTo: number) => {
-    // A bet or raise: everyone else still able to act must respond.
-    next = { ...next, minRaise: Math.max(s.minRaise, raiseTo - s.currentBet), currentBet: raiseTo, pending: after(next, seat, canAct(next).filter((p) => p !== seat)) };
+    // A bet or raise: everyone else still able to act must respond. A full
+    // raise reopens the betting for all; a short all-in (less than a full
+    // raise) doesn't: those who had already acted may only call or fold.
+    const full = raiseTo - s.currentBet >= s.minRaise;
+    next = {
+      ...next, minRaise: Math.max(s.minRaise, raiseTo - s.currentBet), currentBet: raiseTo,
+      pending: after(next, seat, canAct(next).filter((p) => p !== seat)),
+      acted: full ? [seat] : acted,
+      capped: full ? [] : [...new Set([...(s.capped ?? []), ...(s.acted ?? [])])].filter((p) => p !== seat),
+    };
   };
   switch (kind) {
     case 'fold':
@@ -259,6 +274,7 @@ function act(s: PokerState, seat: SeatId, kind: string, to: number | undefined, 
         text = `calls ${s.chips[seat]} (all in)`;
         break;
       }
+      if ((s.capped ?? []).includes(seat)) return 'A short all-in doesn’t reopen the betting: you can call or fold';
       const target = kind === 'allin' ? max : Math.floor(Number(to));
       const minTo = s.currentBet + s.minRaise;
       if (!(target > s.currentBet)) return `Raise to more than ${s.currentBet}`;
@@ -272,8 +288,9 @@ function act(s: PokerState, seat: SeatId, kind: string, to: number | undefined, 
     default:
       return 'Unknown move';
   }
-  const pending = kind === 'raise' || kind === 'allin' ? next.pending : next.pending.filter((p) => p !== seat);
-  return advance({ ...next, pending, log: logIt(next, seat, text) }, random);
+  const raised = next.currentBet > s.currentBet;
+  const pending = raised ? next.pending : next.pending.filter((p) => p !== seat);
+  return advance({ ...next, pending, acted: raised ? next.acted : acted, log: logIt(next, seat, text) }, random);
 }
 
 export const poker: GameModule<PokerState, PokerConfig> = {
@@ -361,6 +378,7 @@ export const poker: GameModule<PokerState, PokerConfig> = {
       pot: Object.values(s.total).reduce((a, b) => a + b, 0),
       folded: s.folded, inHand: Object.fromEntries(s.order.map((p) => [p, !!s.hole[p]?.length && !s.folded[p]])),
       toAct: s.result ? null : s.toAct, toCall, minRaiseTo: s.currentBet + s.minRaise,
+      canRaise: !!s.toAct && !(s.capped ?? []).includes(s.toAct),
       out: s.out.flat(), last: s.last, log: s.log.slice(-12), result: s.result,
     };
   },

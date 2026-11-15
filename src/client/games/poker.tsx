@@ -66,14 +66,15 @@ function PokerStage(props: StageProps) {
               {v.toCall > 0
                 ? <button className="btn small primary" onClick={() => send({ t: 'act', action: { type: 'call' } })}>Call {Math.min(v.toCall, v.chips[me!])}</button>
                 : <button className="btn small primary" onClick={() => send({ t: 'act', action: { type: 'check' } })}>Check</button>}
-              {myMax > v.minRaiseTo && (
+              {v.canRaise && myMax > v.minRaiseTo && (
                 <>
                   <label className="sr-only" htmlFor="raise">Raise to</label>
                   <input id="raise" type="range" min={v.minRaiseTo} max={myMax} step={v.blinds[1] / 2} value={raiseTo} onChange={(e) => setRaiseTo(Number(e.target.value))} />
                   <button className="btn small" onClick={() => send({ t: 'act', action: { type: 'raise', to: raiseTo } })}>{v.toCall > 0 || Object.values(v.bet).some((b) => b > 0) ? 'Raise to' : 'Bet'} {raiseTo}</button>
                 </>
               )}
-              <button className="btn small" onClick={() => send({ t: 'act', action: { type: 'allin' } })}>All in ({myMax})</button>
+              {(v.canRaise || myMax <= v.bet[me!] + v.toCall) && <button className="btn small" onClick={() => send({ t: 'act', action: { type: 'allin' } })}>All in ({myMax})</button>}
+              {!v.canRaise && <span className="muted small">The all-in was short of a full raise: call or fold.</span>}
             </div>
           )}
         </GameActions>

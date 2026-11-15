@@ -78,3 +78,37 @@ test('one deck: 52 different cards, and no card is ever dealt twice', () => {
     assert.equal(new Set(s.last!.board).size, 5);
   }
 });
+
+test('a short all-in raise does not reopen the betting for those who have acted', () => {
+  const seats = ['amber', 'teal', 'violet'];
+  let s = poker.create({ startChips: 1000, blindEvery: 5 }, 0, ctx(seats));
+  const [a, b, c] = s.pending; // a acts first, then b, then c (the big blind)
+  assert.equal(s.toAct, a);
+  s = { ...s, chips: { ...s.chips, [b]: 150 - s.bet[b] } }; // b can reach 150 at most
+  s = ok(poker.act(s, a, { type: 'raise', to: 100 }, 0, ctx(seats))); // a full raise (by 80)
+  s = ok(poker.act(s, b, { type: 'allin' }, 0, ctx(seats))); // to 150: 50 more, short of a full 80
+  assert.equal(s.currentBet, 150);
+  assert.equal(s.toAct, c);
+  assert.equal((poker.view(s, 0, c) as PokerView).canRaise, true, 'c had not acted: may still raise');
+  s = ok(poker.act(s, c, { type: 'call' }, 0, ctx(seats)));
+  assert.equal(s.toAct, a, 'a still owes 50');
+  assert.equal((poker.view(s, 0, a) as PokerView).canRaise, false);
+  assert.ok('error' in poker.act(s, a, { type: 'raise', to: 400 }, 0, ctx(seats)), 'a may not re-raise');
+  assert.ok('error' in poker.act(s, a, { type: 'allin' }, 0, ctx(seats)), 'nor shove');
+  s = ok(poker.act(s, a, { type: 'call' }, 0, ctx(seats)));
+  assert.equal(s.street, 'flop', 'betting round over');
+});
+
+test('a full raise after a short all-in reopens the betting', () => {
+  const seats = ['amber', 'teal', 'violet'];
+  let s = poker.create({ startChips: 1000, blindEvery: 5 }, 0, ctx(seats));
+  const [a, b, c] = s.pending;
+  s = { ...s, chips: { ...s.chips, [b]: 150 - s.bet[b] } };
+  s = ok(poker.act(s, a, { type: 'raise', to: 100 }, 0, ctx(seats)));
+  s = ok(poker.act(s, b, { type: 'allin' }, 0, ctx(seats)));
+  s = ok(poker.act(s, c, { type: 'raise', to: 300 }, 0, ctx(seats))); // c re-raises fully
+  assert.equal(s.toAct, a);
+  assert.equal((poker.view(s, 0, a) as PokerView).canRaise, true, 'a full raise reopens it for a');
+  s = ok(poker.act(s, a, { type: 'raise', to: 600 }, 0, ctx(seats)));
+  assert.equal(s.currentBet, 600);
+});
