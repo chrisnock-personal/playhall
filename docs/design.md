@@ -122,9 +122,11 @@ phone, panels stack under a full-width stage.
 
 ## Phases
 
-1. **Done (2026-11-15)**: rooms and roles, the seat queue, Table/Gallery chat,
+1. **In progress**: rooms and roles, the seat queue, Table/Gallery chat,
    local accounts and guests, chess with clocks, the collapsible room layout,
-   host rules. Containerised, running on the PC at :8450.
+   host rules, points and leaderboards (done 2026-11-15); then eight more
+   games on a shared kit of boards, pieces, cards and dice: see
+   [games.md](games.md).
 2. Voice and video through LiveKit (Table/Gallery channels, push to talk,
    talking ring), transcripts, the camera table. Needs HTTPS (getUserMedia).
 3. Sharing a local game, v1.
