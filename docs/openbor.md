@@ -53,11 +53,36 @@ Two ways to do that, to try in a spike:
 - **Virtual gamepads** (uinput): truer analogue and more buttons, but the
   container needs `/dev/uinput`.
 
-**Mods.** Playhall ships no mods. An admin uploads `.pak` files to a mod
-library (a volume on the server), each with a name, a picture and a player
-count; the host picks one when creating an OpenBOR room. Most OpenBOR mods are
-fan games using other people's characters, so uploading is the admin's
-responsibility; the docs say so plainly. Save data stays per mod on the volume.
+**Nothing is supplied (user, 2026-11-15).** The Playhall repo, its images and
+its releases contain no OpenBOR games and no OpenBOR engine. Playhall only
+provides the mechanism; the people running it bring both.
+
+**The engine: the admin fetches it.** OpenBOR is BSD-3-Clause, which would let
+us redistribute it, but Playhall doesn't by default. Instead the admin's
+console has an **OpenBOR** page:
+- **Download OpenBOR**: fetches a Linux build from the official releases
+  (github.com/DCurrent/openbor), shows the version and its licence, checks it
+  against a SHA-256 the admin can see, and stores it on a volume. The admin
+  clicks to accept the licence first.
+- **Or upload your own build**, for an admin who compiles it themselves.
+- The runner image (`playhall-openbor`) contains only the parts to run it
+  (Xvfb, audio, GStreamer, the Playhall agent) and mounts the engine from
+  that volume. With no engine installed, OpenBOR rooms simply aren't offered.
+
+**The games: users import them.** A game for OpenBOR is a `.pak` mod. Hosts
+import mods into **their own library** (upload a `.pak`, give it a name,
+picture and player count); a mod is only offered in that host's rooms. The
+admin can also keep a **shared library** for everyone, turn importing off,
+and set a size limit and a per-user quota. Before an upload, the importer
+confirms they have the right to use the mod; most OpenBOR mods are fan games
+using other people's characters, so the responsibility is theirs and the docs
+say so. Mods are checked to be a valid `.pak` (header and size) and are only
+ever opened by the engine inside the runner container, never by the main
+server. Save data stays per mod on the volume.
+
+This needs an **admin role** in Playhall, which doesn't exist yet: the
+accounts named in `ADMIN_USERNAMES` get an Admin page (OpenBOR engine, shared
+mod library, import settings, later other admin tasks).
 
 **In the room.** The stage is the stream (the remote-play mock-up, screen 4),
 the side panel's game tab shows the four slots with each player's device and
@@ -80,7 +105,10 @@ points. Session time per mod could go on a player's stats later.
 - **Resources.** One runner per room: measure CPU per stream to set the cap.
   The PC is also a gaming machine; the planned home server would host these
   better.
-- **Mod rights.** Admin-uploaded only; no public mod browsing or sharing.
+- **Mod rights.** Imported by users into their own libraries (or the admin's
+  shared one); no public mod browsing or sharing between users.
+- **The engine download.** Pin a release and its checksum; if the official
+  releases stop offering a Linux build, the admin uploads their own.
 
 ## Depends on
 
@@ -89,7 +117,8 @@ then reused by phase 3.
 
 ## Spike first (about a day)
 
-1. Build OpenBOR in a container; run a freely licensed mod under Xvfb.
+1. Build or download OpenBOR outside the repo; run a mod we have the right to
+   use under Xvfb in the runner container (nothing committed).
 2. Stream it with GStreamer to a LiveKit room; watch it in a browser.
 3. Send key presses from a second browser over a data channel; measure
    end-to-end latency with an on-screen timer.
