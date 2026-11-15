@@ -40,7 +40,7 @@ Under our own names and artwork, like the others (docs/games.md):
 | Cluedo | Manor Mystery | 3-6 | A deduction game with our own house, suspects and objects. Hidden hands; showing a card to one player only is a private action; the envelope is dealt by the server. Good with voice |
 | [fantasy-card-game](https://github.com/EdwardAThomson/fantasy-card-game) (MIT) | Realm Duel (or similar) | 2 | Creature cards with strength, agility, magic and defence, elements and abilities; pick a creature and an attack style each round. MIT, so its rules and balance can be borrowed with credit; the creatures get our own artwork on the card kit |
 
-The names are working names: check them before release. Design drafts:
+Names decided 2026-11-15: Letterworks, Manor Mystery (Blackthorn Hall), Realm Duel. Design drafts:
 [letterworks.md](letterworks.md), [manor-mystery.md](manor-mystery.md),
 [creature-duel.md](creature-duel.md).
 

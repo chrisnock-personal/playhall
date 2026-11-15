@@ -1,4 +1,4 @@
-# Creature card duel (design draft; working name "Realm Duel")
+# Realm Duel: the creature card duel (design draft)
 
 A two-player card battle: each player has a hand of fantasy creatures with
 their own stats, and each round both secretly choose a creature and how it
