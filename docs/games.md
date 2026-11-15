@@ -49,9 +49,19 @@ need five things, all added once for every game:
    poker hand has folds and timeouts. `act` already takes any seat; games
    decide who may act when.
 5. **Results for more than two**: a result becomes a ranking of seats
-   (`placings`) rather than one winner. Points stay 3/1/0: the winner gets 3,
-   players sharing first place get 1 each, everyone else 0. Head-to-head
-   records stay two-player only.
+   (`placings`) rather than one winner. Points (user, 2026-11-15):
+
+   | Result | Points |
+   |---|---|
+   | Sole winner | 3 |
+   | Second place, in games of three or more (shared second: 1 each) | 1 |
+   | Shared first place (a draw) | 1 each; nobody gets second-place points |
+   | Everyone else | 0 |
+
+   Two-player games stay win 3, draw 1, loss 0 (the loser isn't "second").
+   In the W/D/L columns a sole first is a win, a shared first a draw, and
+   anything else (second place included) a loss. Head-to-head records stay
+   two-player only.
 
 Room-level additions that every game gets for free: an optional **move timer**
 (so nobody can stall a game of Ludo forever), a "your turn" banner, the
@@ -99,10 +109,10 @@ the logo's pawn are drawn to sit beside them.
 
 ## Order
 
-1. The contract changes (seats, views, randomness, placings) and the move
-   timer, with chess moved onto them unchanged.
-2. The kit's board, discs and colours, with **Four in a Row** and
-   **Checkers** on it.
+1. **Done**: the contract changes (seats, views, randomness, placings),
+   with chess moved onto them unchanged. The move timer is still to do.
+2. **Four in a Row done** on the kit's discs, colours and player strip
+   (`src/client/kit/`); **Checkers** next.
 3. Dice and the track board: **Snakes and Ladders**, then **Ludo**.
 4. Hidden information: **Sea Battle**.
 5. Cards and chips: **Blackjack**, **Colour Clash**, then **Texas Hold'em**

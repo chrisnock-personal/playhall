@@ -5,10 +5,11 @@
 import type { Db } from './db';
 import { GAMES } from '../shared/games';
 import {
-  MIN_RANKED_GAMES, POINTS,
+  MIN_RANKED_GAMES,
   type LastResult, type LeaderboardResponse, type LeaderboardRow, type Outcome, type Period, type PlayerStatsResponse,
 } from '../shared/protocol';
 import type { FinishedGame } from './rooms/room';
+import { score } from '../shared/scoring';
 
 const SINCE: Record<Period, string> = {
   week: `date_trunc('week', now())`,
@@ -26,6 +27,7 @@ export function isGameFilter(g: string): boolean {
  *  the room (null for a stopped game). */
 export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()): Promise<LastResult | null> {
   const seats = Object.entries(g.players);
+  const scores = score(g.result, seats.map(([s]) => s));
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -36,12 +38,12 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
         g.rec.game.startedAt, !!g.result.aborted, endedAt]);
     if (!g.result.aborted) {
       for (const [seat, holder] of seats) {
-        const outcome: Outcome = g.result.winner === null ? 'draw' : g.result.winner === seat ? 'win' : 'loss';
+        const { outcome, points } = scores[seat];
         const opponent = seats.length === 2 ? seats.find(([s]) => s !== seat)![1].userId : null;
         await client.query(
           `INSERT INTO game_results (game_row_id, room_id, game_id, user_id, seat, outcome, points, reason, opponent_id, counted, ended_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [rows[0].id, g.rec.id, g.rec.gameId, holder.userId, seat, outcome, POINTS[outcome], g.result.reason, opponent, g.counted, endedAt]);
+          [rows[0].id, g.rec.id, g.rec.gameId, holder.userId, seat, outcome, points, g.result.reason, opponent, g.counted, endedAt]);
       }
     }
     await client.query('COMMIT');
@@ -69,9 +71,9 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
     note: g.note,
     headToHead,
     players: seats.map(([seat, h]) => {
-      const outcome: Outcome = g.result.winner === null ? 'draw' : g.result.winner === seat ? 'win' : 'loss';
+      const { outcome, points, place } = scores[seat];
       const row = all.find((r) => r.userId === h.userId);
-      return { userId: h.userId, name: h.name, seat, outcome, points: POINTS[outcome], total: row?.points ?? null, rank: row?.rank ?? null };
+      return { userId: h.userId, name: h.name, seat, outcome, points, place, total: row?.points ?? null, rank: row?.rank ?? null };
     }),
   };
 }

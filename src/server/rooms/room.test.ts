@@ -15,6 +15,7 @@ function setup(settings: Partial<RoomSettings> = {}) {
   const finished: { counted: boolean; note: string | null }[] = [];
   const hooks: RoomHooks = {
     now: () => now,
+    random: Math.random,
     setTimer: (ms, fn) => { const t = { at: now + ms, fn, live: true }; timers.push(t); return () => { t.live = false; }; },
     save: () => {},
     chat: () => {},

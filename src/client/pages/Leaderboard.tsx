@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { api, type Session } from '../api';
 import type { LeaderboardResponse, LeaderboardRow, Period } from '../../shared/protocol';
 import { AppBar } from '../AppBar';
+import { useGames } from '../useGames';
 import { Avatar, OutcomeChip, PeriodPicker, perGame, winPct } from '../ui';
-
-const GAMES: [string, string][] = [['chess', 'Chess'], ['all', 'All games']];
 
 export function Leaderboard({ session, onSignOut }: { session: Session; onSignOut(): void }) {
   const [period, setPeriod] = useState<Period>('month');
   const [game, setGame] = useState('chess');
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tabs: [string, string][] = [...useGames().map((g) => [g.id, g.name] as [string, string]), ['all', 'All games']];
 
   useEffect(() => {
     setData(null);
@@ -34,7 +34,7 @@ export function Leaderboard({ session, onSignOut }: { session: Session; onSignOu
         </div>
 
         <div className="page-tabs" role="tablist">
-          {GAMES.map(([id, label]) => (
+          {tabs.map(([id, label]) => (
             <button key={id} role="tab" aria-selected={game === id} className={game === id ? 'on' : ''} onClick={() => setGame(id)}>{label}</button>
           ))}
         </div>

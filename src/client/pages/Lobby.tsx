@@ -4,14 +4,14 @@ import type { RoomSummary, SeatView } from '../../shared/protocol';
 import { GAME_CLIENTS } from '../games';
 import { Avatar } from '../ui';
 import { AppBar } from '../AppBar';
+import { useGames, type GameInfo } from '../useGames';
 
-interface GameInfo { id: string; name: string; description: string; seats: { id: string; label: string }[]; defaultConfig: unknown }
 
 const STATUS: Record<RoomSummary['status'], string> = { idle: 'Waiting', playing: 'In play', over: 'Between games' };
 
 export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): void }) {
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
-  const [games, setGames] = useState<GameInfo[]>([]);
+  const games = useGames();
   const [filter, setFilter] = useState<'all' | 'free'>('all');
   const [error, setError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -24,7 +24,6 @@ export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): v
 
   useEffect(() => {
     refresh();
-    api<{ games: GameInfo[] }>('/games').then((g) => setGames(g.games)).catch(() => {});
     const t = setInterval(refresh, 10_000);
     return () => clearInterval(t);
   }, [refresh]);

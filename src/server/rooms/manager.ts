@@ -77,6 +77,7 @@ export class RoomManager {
     let room!: Room;
     room = new Room(rec, {
       now: () => Date.now(),
+      random: () => crypto.randomBytes(6).readUIntBE(0, 6) / 2 ** 48,
       setTimer: (ms, fn) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); },
       save: (r) => this.scheduleSave(r),
       chat: (roomId, line) => {

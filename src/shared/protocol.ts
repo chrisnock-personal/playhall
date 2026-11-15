@@ -151,6 +151,8 @@ export interface LastResult {
     seat: SeatId;
     outcome: Outcome;
     points: number;
+    /** 1 = first (shared places share the number). */
+    place: number;
     /** All-time points in this game, after this one (counted games only). */
     total: number | null;
     /** All-time rank in this game, or null if not ranked yet. */

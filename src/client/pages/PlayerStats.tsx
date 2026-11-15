@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type Session } from '../api';
 import type { Period, PlayerStatsResponse } from '../../shared/protocol';
 import { AppBar } from '../AppBar';
+import { useGames } from '../useGames';
 import { Avatar, OutcomeChip, PeriodPicker, perGame, winPct } from '../ui';
 
 const OUTCOME_WORD = { win: 'Win', draw: 'Draw', loss: 'Loss' } as const;
@@ -28,15 +29,18 @@ function Bar({ w, d, l, label }: { w: number; d: number; l: number; label: strin
 
 export function PlayerStats({ session, onSignOut, userId }: { session: Session; onSignOut(): void; userId: string }) {
   const [period, setPeriod] = useState<Period>('all');
+  const [game, setGame] = useState('chess');
+  const games = useGames();
+  const gameName = game === 'all' ? 'All games' : games.find((g) => g.id === game)?.name ?? game;
   const [data, setData] = useState<PlayerStatsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mine = userId === session.user.id;
 
   useEffect(() => {
-    api<PlayerStatsResponse>(`/players/${userId}/stats?game=chess&period=${period}`, { token: session.token })
+    api<PlayerStatsResponse>(`/players/${userId}/stats?game=${game}&period=${period}`, { token: session.token })
       .then((d) => { setData(d); setError(null); })
       .catch((e) => { if (e.status === 401) onSignOut(); else setError(e.message); });
-  }, [userId, period, session.token, onSignOut]);
+  }, [userId, game, period, session.token, onSignOut]);
 
   const t = data?.totals;
   const maxWeek = Math.max(1, ...(data?.weekly.map((w) => w.points) ?? [1]));
@@ -58,10 +62,16 @@ export function PlayerStats({ session, onSignOut, userId }: { session: Session; 
                 <div className="who">
                   <h1>{data.user.name}</h1>
                   <span>
-                    Chess{data.rank ? ` · #${data.rank} ${periodWord}` : ''} · playing since {new Date(data.user.since).toLocaleDateString([], { month: 'long', year: 'numeric' })}
+                    {gameName}{data.rank ? ` · #${data.rank} ${periodWord}` : ''} · playing since {new Date(data.user.since).toLocaleDateString([], { month: 'long', year: 'numeric' })}
                   </span>
                 </div>
                 <PeriodPicker value={period} onChange={setPeriod} />
+              </div>
+
+              <div className="page-tabs" role="tablist">
+                {[...games.map((g) => [g.id, g.name]), ['all', 'All games']].map(([id, label]) => (
+                  <button key={id} role="tab" aria-selected={game === id} className={game === id ? 'on' : ''} onClick={() => setGame(id)}>{label}</button>
+                ))}
               </div>
 
               {data.user.guest && <p className="hint">Guests’ games don’t count towards stats or leaderboards. Create an account to start a record.</p>}
@@ -71,7 +81,7 @@ export function PlayerStats({ session, onSignOut, userId }: { session: Session; 
               ) : (
                 <>
                   <div className="tiles">
-                    <div className="card tile"><span className="label">Points</span><strong>{t.points}</strong><span className="muted">{data.rank ? `#${data.rank} in chess` : 'Not ranked yet'}</span></div>
+                    <div className="card tile"><span className="label">Points</span><strong>{t.points}</strong><span className="muted">{data.rank ? `#${data.rank} in ${gameName === 'All games' ? 'all games' : gameName}` : 'Not ranked yet'}</span></div>
                     <div className="card tile"><span className="label">Played</span><strong>{t.played}</strong><span className="muted">{t.w} W · {t.d} D · {t.l} L</span></div>
                     <div className="card tile"><span className="label">Per game</span><strong>{perGame(t.points, t.played)}</strong><span className="muted">out of 3</span></div>
                     <div className="card tile"><span className="label">Win rate</span><strong>{winPct(t.w, t.played)}</strong><span className="muted">draws count as not won</span></div>

@@ -74,7 +74,7 @@ async function load(db: Db): Promise<void> {
   // ---- rooms ----
   const config = (initialSeconds: number, incrementSeconds: number) => ({ initialSeconds, incrementSeconds });
   const italian = ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4', 'g8f6', 'd2d3', 'f8c5'];
-  const live = { ...chess.create(config(0, 0), Date.now()), moves: italian };
+  const live = { ...chess.create(config(0, 0), Date.now(), { seats: ['white', 'black'], random: Math.random }), moves: italian };
   const rooms: { name: string; host: string; settings: Partial<typeof DEFAULT_SETTINGS> & { gameConfig: unknown }; seats: Record<string, unknown>; game: unknown }[] = [
     {
       name: 'Long game, no clock', host: 'Sam',

@@ -6,7 +6,8 @@
 // seat. A person in a seat is a player; everyone else present is watching.
 
 import { GAMES } from '../../shared/games';
-import type { GameModule, GameResult, SeatId } from '../../shared/game';
+import { placingsOf } from '../../shared/scoring';
+import type { GameContext, GameModule, GameResult, SeatId } from '../../shared/game';
 import type {
   Channel, ChatLine, ClientMessage, GameStatus, LastResult, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
 } from '../../shared/protocol';
@@ -39,6 +40,8 @@ export interface RoomRecord {
 
 export interface RoomHooks {
   now(): number;
+  /** A number in [0, 1) for dice and shuffles. */
+  random(): number;
   setTimer(ms: number, fn: () => void): () => void;
   /** The record changed and should be saved. */
   save(rec: RoomRecord): void;
@@ -255,7 +258,7 @@ export class Room {
       this.rec.game.state = ticked;
       if (this.afterChange()) return;
     }
-    const r = this.game.act(this.rec.game.state, seat, action, now);
+    const r = this.game.act(this.rec.game.state, seat, action, now, this.context());
     if ('error' in r) throw new RoomError(r.error);
     this.rec.game.state = r.state;
     this.afterChange();
@@ -274,15 +277,33 @@ export class Room {
     return false;
   }
 
+  /** The seats with someone in them (while a game is on, its players' seats). */
+  private context(): GameContext {
+    const seats = this.rec.game.status === 'playing' && this.rec.game.players
+      ? this.game.seats.map((s) => s.id).filter((id) => id in this.rec.game.players!)
+      : this.game.seats.map((s) => s.id).filter((id) => this.rec.seats[id]);
+    return { seats, random: () => this.hooks.random() };
+  }
+
+  /** Fewest players to start this game. */
+  get minPlayers(): number {
+    return this.game.minPlayers ?? this.game.seats.length;
+  }
+
   private start(): void {
     if (this.status === 'playing') throw new RoomError('A game is already on');
-    const empty = this.game.seats.filter((s) => !this.rec.seats[s.id]);
-    if (empty.length) throw new RoomError(`Fill every seat first (${empty.map((s) => s.label).join(', ')})`);
+    const seated = this.game.seats.filter((s) => this.rec.seats[s.id]);
+    if (seated.length < this.minPlayers) {
+      throw new RoomError(this.minPlayers === this.game.seats.length
+        ? `Fill every seat first (${this.game.seats.filter((s) => !this.rec.seats[s.id]).map((s) => s.label).join(', ')})`
+        : `${this.game.name} needs at least ${this.minPlayers} players`);
+    }
     const config = this.game.parseConfig(this.rec.settings.gameConfig);
     const now = this.hooks.now();
     const players: Record<SeatId, SeatHolder> = {};
-    for (const s of this.game.seats) players[s.id] = this.rec.seats[s.id]!;
-    this.rec.game = { status: 'playing', state: this.game.create(config, now), startedAt: now, players };
+    for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
+    const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random() };
+    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players };
     this.lastResult = null;
     const who = this.game.seats.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
@@ -295,8 +316,13 @@ export class Room {
     this.cancelTimer = null;
     const players = this.rec.game.players ?? {};
     this.rec.game.status = 'over';
-    const winner = result.winner ? `${players[result.winner]?.name ?? this.seatLabel(result.winner)} (${this.seatLabel(result.winner)}) won` : 'Draw';
-    this.system(result.aborted ? `Game stopped: ${result.reason}` : `${winner} by ${result.reason}`);
+    const placings = placingsOf(result, Object.keys(players));
+    const who = (seat: SeatId) => `${players[seat]?.name ?? this.seatLabel(seat)} (${this.seatLabel(seat)})`;
+    let line = placings[0].length === 1 ? `${who(placings[0][0])} won` : 'Draw';
+    if (placings[0].length === 1 && placings[1]?.length && Object.keys(players).length >= 3) {
+      line += `, ${placings[1].map(who).join(' and ')} second`;
+    }
+    this.system(result.aborted ? `Game stopped: ${result.reason}` : `${line} by ${result.reason}`);
     const guests = Object.values(players).some((p) => p.guest);
     const note = result.aborted ? 'The game was stopped, so it doesn\u2019t count.'
       : !this.rec.settings.ranked ? 'This room is casual: games here don\u2019t count for the leaderboards.'
@@ -312,8 +338,12 @@ export class Room {
     if (policy === 'same') return;
     let free: SeatId[];
     if (policy === 'rotate') free = this.game.seats.map((s) => s.id);
-    else if (result.winner) free = this.game.seats.map((s) => s.id).filter((id) => id !== result.winner);
-    else return;
+    else {
+      // Winner stays: everyone but a sole winner makes way.
+      const first = placingsOf(result, Object.keys(this.rec.game.players ?? {}))[0];
+      if (first.length !== 1) return;
+      free = this.game.seats.map((s) => s.id).filter((id) => id !== first[0] && this.rec.seats[id]);
+    }
     for (const seat of free) {
       const nextId = this.queue.find((id) => {
         const p = this.present.get(id);
@@ -461,7 +491,7 @@ export class Room {
       lastResult: this.lastResult,
       game: {
         status: g.status,
-        view: g.state ? this.game.view(g.state, now) : null,
+        view: g.state ? this.game.view(g.state, now, this.seatOf(userId)) : null,
         result: g.state ? this.game.result(g.state) : null,
       },
       chat: this.chatLines.filter((l) => canRead.includes(l.channel)),

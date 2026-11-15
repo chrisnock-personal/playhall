@@ -220,6 +220,26 @@ input:disabled { opacity: 0.6; }
 .moves .n { color: var(--muted); }
 cg-board { background-color: #a97f57; }
 
+/* ---- shared kit: board stages ---- */
+.board-stage { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 10px; }
+/* Four in a Row: the frame is 7 wide and 6 tall, plus two strips and actions. */
+.four-col { width: min(100cqw - 20px, (100cqh - 170px) * 7 / 6); min-width: 240px; display: flex; flex-direction: column; gap: 8px; }
+.four-board { display: grid; gap: 0; padding: 2.2%; background: #8A6440; border-radius: 14px; box-shadow: inset 0 0 0 3px #6E4F31, 0 10px 30px rgba(0,0,0,.45); }
+.four-column { display: flex; flex-direction: column; border: 0; padding: 0; background: transparent; cursor: default; border-radius: 10px; }
+.four-column.playable { cursor: pointer; }
+.four-column.playable:hover, .four-column.playable:focus-visible { background: rgba(255, 255, 255, .08); }
+.four-column:disabled { opacity: 1; }
+.four-hole { aspect-ratio: 1 / 1; margin: 6%; border-radius: 50%; background: #2A2219; box-shadow: inset 0 3px 6px rgba(0,0,0,.6); display: flex; overflow: visible; }
+.four-hole svg { display: block; }
+.four-hole .ghost { opacity: .45; }
+/* The last disc falls from the top: dN = rows it falls. */
+@keyframes four-drop { from { transform: translateY(var(--fall)); } to { transform: none; } }
+.four-hole .drop { animation: four-drop .32s cubic-bezier(.45, 0, 1, 1); }
+.four-hole .d1 { --fall: -112%; } .four-hole .d2 { --fall: -224%; } .four-hole .d3 { --fall: -336%; }
+.four-hole .d4 { --fall: -448%; } .four-hole .d5 { --fall: -560%; } .four-hole .d6 { --fall: -672%; }
+@media (prefers-reduced-motion: reduce) { .four-hole .drop { animation: none; } }
+.four-moves li { grid-template-columns: 36px 20px 1fr; align-items: center; }
+
 /* ---- app bar ---- */
 .logo-link { color: inherit; text-decoration: none; }
 .appnav { display: flex; gap: 4px; margin-left: 12px; flex-wrap: wrap; }
@@ -280,6 +300,7 @@ cg-board { background-color: #a97f57; }
 .seat-stat { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bar); border-radius: 12px; }
 .side-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #5a6170; flex: none; }
 .side-dot.white { background: #f4efe4; } .side-dot.black { background: #17171a; }
+.side-dot.amber { background: #f0a53c; } .side-dot.teal { background: #3fb3a2; } .side-dot.violet { background: #9b7be0; } .side-dot.rose { background: #e07a8f; }
 .seat-pts { display: flex; flex-direction: column; align-items: end; }
 .seat-pts strong { font: 700 18px var(--mono); }
 .seat-pts span { font-size: 11px; color: var(--muted); }
@@ -317,7 +338,7 @@ cg-board { background-color: #a97f57; }
   .stage-col { order: 1; }
   /* Tall enough for a full-width board plus the player strips and actions. */
   .stage { flex: none; height: calc(100vw + 150px); }
-  .chess-stage { padding: 6px; }
+  .chess-stage, .board-stage { padding: 6px; }
   .seats-panel, .seats-panel.compact { order: 2; width: 100%; flex-direction: row; overflow-x: auto; align-items: stretch; }
   .seats-panel .seat-card { min-width: 180px; }
   .seats-panel .panel-head { display: none; }
