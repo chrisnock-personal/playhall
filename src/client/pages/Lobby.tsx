@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, type Session } from '../api';
 import type { RoomSummary, SeatView } from '../../shared/protocol';
 import { GAME_CLIENTS } from '../games';
-import { Avatar, Logo } from '../ui';
+import { Avatar } from '../ui';
+import { AppBar } from '../AppBar';
 
 interface GameInfo { id: string; name: string; description: string; seats: { id: string; label: string }[]; defaultConfig: unknown }
 
@@ -38,14 +39,7 @@ export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): v
 
   return (
     <div className="page">
-      <header className="appbar">
-        <Logo />
-        <div className="appbar-right">
-          <span className="muted">{session.user.name}{session.user.guest ? ' (guest)' : ''}</span>
-          <Avatar name={session.user.name} id={session.user.id} size={34} />
-          <button className="btn small" onClick={onSignOut}>Sign out</button>
-        </div>
-      </header>
+      <AppBar session={session} onSignOut={onSignOut} active="rooms" />
       <main className="lobby">
         <section className="lobby-rooms">
           <div className="lobby-head">
@@ -105,6 +99,7 @@ function RoomCard({ room }: { room: RoomSummary }) {
         <span>Players <strong>{room.seats.length - free} / {room.seats.length}</strong></span>
         <span>Watching <strong>{room.watching}</strong></span>
         {!room.listed && <span className="muted">Invite only</span>}
+        {!room.ranked && <span className="muted">Casual</span>}
       </p>
       <a className={`btn ${free && room.status !== 'playing' ? 'primary' : ''}`} href={`#/r/${room.code}`}>
         {free && room.status !== 'playing' ? 'Go in and sit down' : 'Go in and watch'}
@@ -119,6 +114,7 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
   const [config, setConfig] = useState<unknown>(null);
   const [listed, setListed] = useState(true);
   const [play, setPlay] = useState(true);
+  const [ranked, setRanked] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const game = games.find((g) => g.id === gameId);
@@ -131,7 +127,7 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
     try {
       const r = await api<{ room: RoomSummary }>('/rooms', {
         token: session.token,
-        body: { name: name || `${session.user.name}’s ${game?.name ?? 'game'}`, gameId, listed, gameConfig: config ?? game?.defaultConfig, hostSeat: play ? game?.seats[0]?.id : null },
+        body: { name: name || `${session.user.name}’s ${game?.name ?? 'game'}`, gameId, listed, ranked, gameConfig: config ?? game?.defaultConfig, hostSeat: play ? game?.seats[0]?.id : null },
       });
       location.hash = `#/r/${r.room.code}`;
     } catch (err) {
@@ -159,6 +155,7 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
       </fieldset>
       {Picker && game && <Picker value={config ?? game.defaultConfig} onChange={setConfig} />}
       <label className="check"><input type="checkbox" checked={listed} onChange={(e) => setListed(e.target.checked)} /> Show it in the lobby (off: invite link only)</label>
+      <label className="check"><input type="checkbox" checked={ranked} onChange={(e) => setRanked(e.target.checked)} /> Games count for the leaderboard (off: a casual room)</label>
       <label className="check"><input type="checkbox" checked={play} onChange={(e) => setPlay(e.target.checked)} /> I’ll play too ({game?.seats[0]?.label ?? 'first seat'})</label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="btn primary wide" disabled={busy || !game}>Create room</button>

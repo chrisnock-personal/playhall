@@ -38,7 +38,7 @@ export function SignIn({ onSignedIn, roomCode }: { onSignedIn(s: Session): void;
   return (
     <div className="signin-page">
       <form className="signin card" onSubmit={submit}>
-        <Logo />
+        <Logo size={40} />
         <p className="muted">{roomCode ? `You’ve been invited to room ${roomCode}.` : 'Game rooms with friends: play, or pull up a chair and watch.'}</p>
         <div className="segmented" role="tablist">
           {tabs.map(([m, label]) => (

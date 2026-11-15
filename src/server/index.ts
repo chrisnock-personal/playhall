@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   const sockets = new RoomSockets(auth, () => rooms);
   rooms = new RoomManager(db, (room) => sockets.changed(room));
 
-  const app = createApp({ auth, rooms, sockets, staticDir: config.staticDir });
+  const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir });
   const server = http.createServer(app);
   sockets.attach(server);
   server.listen(config.port, () => console.log(`[playhall] listening on :${config.port}`));

@@ -18,6 +18,9 @@ export interface RoomSettings {
   /** Who plays the next game: the same players, the winner and the next in
    *  the queue, or the next two in the queue. */
   afterGame: 'same' | 'winnerStays' | 'rotate';
+  /** Finished games here count for the leaderboards (between account
+   *  holders). Off makes a casual room. */
+  ranked: boolean;
   /** The game's own settings (for chess, the time control). */
   gameConfig: unknown;
 }
@@ -29,6 +32,7 @@ export const DEFAULT_SETTINGS: Omit<RoomSettings, 'gameConfig'> = {
   hideGalleryFromPlayers: true,
   watchersWriteTable: false,
   afterGame: 'same',
+  ranked: true,
 };
 
 export interface MemberView {
@@ -76,6 +80,8 @@ export interface RoomSnapshot {
   /** userIds with a raised hand, oldest first. */
   queue: string[];
   game: { status: GameStatus; view: unknown; result: GameResult | null };
+  /** Points and standings from the game that just ended, until the next starts. */
+  lastResult: LastResult | null;
   chat: ChatLine[];
   you: {
     userId: string;
@@ -115,10 +121,73 @@ export interface RoomSummary {
   seats: SeatView[];
   watching: number;
   listed: boolean;
+  ranked: boolean;
 }
 
 export interface SessionUser {
   id: string;
   name: string;
   guest: boolean;
+}
+
+// ---- results, leaderboards and stats ---------------------------------
+
+export type Outcome = 'win' | 'draw' | 'loss';
+export const POINTS: Record<Outcome, number> = { win: 3, draw: 1, loss: 0 };
+/** Fewest games in a period to be ranked on a leaderboard. */
+export const MIN_RANKED_GAMES = 5;
+export type Period = 'week' | 'month' | 'all';
+
+export interface LastResult {
+  counted: boolean;
+  /** Why it didn't count, in words, when it didn't. */
+  note: string | null;
+  players: {
+    userId: string;
+    name: string;
+    seat: SeatId;
+    outcome: Outcome;
+    points: number;
+    /** All-time points in this game, after this one (counted games only). */
+    total: number | null;
+    /** All-time rank in this game, or null if not ranked yet. */
+    rank: number | null;
+  }[];
+  /** Two-player games: the first player's record against the second. */
+  headToHead: { w: number; d: number; l: number } | null;
+}
+
+export interface LeaderboardRow {
+  rank: number | null;
+  userId: string;
+  name: string;
+  played: number;
+  w: number;
+  d: number;
+  l: number;
+  points: number;
+  /** Most recent first. */
+  form: Outcome[];
+}
+
+export interface LeaderboardResponse {
+  game: string;
+  period: Period;
+  ranked: LeaderboardRow[];
+  unranked: LeaderboardRow[];
+  minGames: number;
+}
+
+export interface PlayerStatsResponse {
+  user: { id: string; name: string; guest: boolean; since: string };
+  game: string;
+  period: Period;
+  totals: { played: number; w: number; d: number; l: number; points: number };
+  rank: number | null;
+  streak: { current: { outcome: Outcome; length: number } | null; bestWins: number };
+  bySeat: { seat: string; label: string; played: number; w: number; d: number; l: number; points: number }[];
+  weekly: { weekStart: string; points: number }[];
+  endings: { reason: string; n: number }[];
+  recent: { opponent: string | null; opponentId: string | null; outcome: Outcome; reason: string; seat: string; seatLabel: string; room: string; endedAt: string; points: number }[];
+  headToHead: { userId: string; name: string; w: number; d: number; l: number }[];
 }

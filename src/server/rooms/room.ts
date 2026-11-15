@@ -8,7 +8,7 @@
 import { GAMES } from '../../shared/games';
 import type { GameModule, GameResult, SeatId } from '../../shared/game';
 import type {
-  Channel, ChatLine, ClientMessage, GameStatus, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
+  Channel, ChatLine, ClientMessage, GameStatus, LastResult, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
 } from '../../shared/protocol';
 
 export interface RoomUser {
@@ -42,10 +42,21 @@ export interface RoomHooks {
   save(rec: RoomRecord): void;
   /** A chat line was added and should be stored. */
   chat(roomId: string, line: ChatLine): void;
-  /** A game finished (for the history table). */
-  gameOver(rec: RoomRecord, result: GameResult, state: unknown, players: Record<SeatId, SeatHolder>): void;
+  /** A game finished: store it and, if it counts, everyone's result. */
+  gameOver(ended: FinishedGame): void;
   /** Something visible changed: send everyone a fresh snapshot. */
   changed(): void;
+}
+
+export interface FinishedGame {
+  rec: RoomRecord;
+  result: GameResult;
+  state: unknown;
+  players: Record<SeatId, SeatHolder>;
+  /** Counts for the leaderboards. */
+  counted: boolean;
+  /** Why it doesn't count, when it doesn't. */
+  note: string | null;
 }
 
 export class RoomError extends Error {}
@@ -60,6 +71,7 @@ export class Room {
   private chatLines: ChatLine[];
   private nextChatId: number;
   private cancelTimer: (() => void) | null = null;
+  private lastResult: LastResult | null = null;
 
   constructor(readonly rec: RoomRecord, private hooks: RoomHooks, history: ChatLine[] = []) {
     const game = GAMES[rec.gameId];
@@ -85,6 +97,12 @@ export class Room {
     if (--p.conns > 0) return;
     this.present.delete(userId);
     this.queue = this.queue.filter((id) => id !== userId);
+    this.hooks.changed();
+  }
+
+  /** Standings after the last game, filled in once the results are saved. */
+  setLastResult(r: LastResult | null): void {
+    this.lastResult = r;
     this.hooks.changed();
   }
 
@@ -250,6 +268,7 @@ export class Room {
     const players: Record<SeatId, SeatHolder> = {};
     for (const s of this.game.seats) players[s.id] = this.rec.seats[s.id]!;
     this.rec.game = { status: 'playing', state: this.game.create(config, now), startedAt: now, players };
+    this.lastResult = null;
     const who = this.game.seats.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
     this.armTimer();
@@ -262,8 +281,12 @@ export class Room {
     const players = this.rec.game.players ?? {};
     this.rec.game.status = 'over';
     const winner = result.winner ? `${players[result.winner]?.name ?? this.seatLabel(result.winner)} (${this.seatLabel(result.winner)}) won` : 'Draw';
-    this.system(`${winner} by ${result.reason}`);
-    this.hooks.gameOver(this.rec, result, this.rec.game.state, players);
+    this.system(result.aborted ? `Game stopped: ${result.reason}` : `${winner} by ${result.reason}`);
+    const guests = Object.values(players).some((p) => p.guest);
+    const note = result.aborted ? 'The game was stopped, so it doesn\u2019t count.'
+      : !this.rec.settings.ranked ? 'This room is casual: games here don\u2019t count for the leaderboards.'
+        : guests ? 'A guest played, so this game doesn\u2019t count for the leaderboards.' : null;
+    this.hooks.gameOver({ rec: this.rec, result, state: this.rec.game.state, players, counted: note === null, note });
     this.nextPlayers(result);
     this.touch();
   }
@@ -307,7 +330,7 @@ export class Room {
     const seat = this.seatOf(userId);
     if (!seat) return;
     const name = this.rec.seats[seat]!.name;
-    if (this.status === 'playing') this.finish({ winner: null, reason: 'the host stopping the game' });
+    if (this.status === 'playing') this.finish({ winner: null, reason: 'the host moved a player to watching', aborted: true });
     // finish() may have reseated people; look the seat up again.
     const now = this.seatOf(userId);
     if (now) this.rec.seats[now] = null;
@@ -332,6 +355,10 @@ export class Room {
       if (typeof r[k] === 'boolean') s[k] = r[k] as boolean;
     };
     bool('listed'); bool('guestsCanPlay'); bool('hideGalleryFromPlayers'); bool('watchersWriteTable');
+    if (typeof r.ranked === 'boolean' && r.ranked !== s.ranked) {
+      if (this.status === 'playing') throw new RoomError('Change whether games count between games');
+      s.ranked = r.ranked;
+    }
     if (r.seatPolicy === 'open' || r.seatPolicy === 'host') s.seatPolicy = r.seatPolicy;
     if (r.afterGame === 'same' || r.afterGame === 'winnerStays' || r.afterGame === 'rotate') s.afterGame = r.afterGame;
     if (r.gameConfig !== undefined) {
@@ -415,6 +442,7 @@ export class Room {
       })),
       members: this.members(),
       queue: [...this.queue],
+      lastResult: this.lastResult,
       game: {
         status: g.status,
         view: g.state ? this.game.view(g.state, now) : null,
@@ -447,6 +475,7 @@ export class Room {
       })),
       watching: [...this.present.keys()].filter((id) => !seated.has(id)).length,
       listed: this.rec.settings.listed,
+      ranked: this.rec.settings.ranked,
     };
   }
 }

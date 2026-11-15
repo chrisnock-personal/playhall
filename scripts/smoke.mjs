@@ -38,9 +38,9 @@ function connect(code, token) {
 
 const id = Math.random().toString(36).slice(2, 8);
 const host = await api('/auth/register', { body: { username: `smoke_${id}`, password: 'smoke-test-pw', displayName: 'Smoke Host' } });
-const alex = await api('/auth/guest', { body: { displayName: 'Alex' } });
+const alex = await api('/auth/register', { body: { username: `smoke_a_${id}`, password: 'smoke-test-pw', displayName: 'Alex' } });
 const priya = await api('/auth/guest', { body: { displayName: 'Priya' } });
-await assert.rejects(api('/rooms', { token: alex.token, body: { name: 'x', gameId: 'chess' } }), /Guests/);
+await assert.rejects(api('/rooms', { token: priya.token, body: { name: 'x', gameId: 'chess' } }), /Guests/);
 
 const { room } = await api('/rooms', { token: host.token, body: { name: `Smoke ${id}`, gameId: 'chess', listed: false, hostSeat: 'white', gameConfig: { initialSeconds: 60, incrementSeconds: 0 } } });
 console.log('room', room.code);
@@ -75,7 +75,18 @@ const after = await a.until((s) => s.chat.some((l) => l.text === 'gallery secret
 assert.ok(after.chat.some((l) => /won by checkmate/.test(l.text)));
 assert.equal(p.errors.filter((e) => /Watchers/.test(e)).length, 1);
 
+// The result was recorded and counted: Alex (Black) +3, the host +0.
+const standings = await a.until((s) => s.lastResult, 'standings in the room');
+assert.equal(standings.lastResult.counted, true);
+assert.deepEqual(standings.lastResult.players.map((x) => [x.name, x.points]), [['Smoke Host', 0], ['Alex', 3]]);
+assert.deepEqual(standings.lastResult.headToHead, { w: 0, d: 0, l: 1 });
+const stats = await api(`/players/${alex.user.id}/stats?game=chess&period=all`, { token: host.token });
+assert.deepEqual(stats.totals, { played: 1, w: 1, d: 0, l: 0, points: 3 });
+assert.equal(stats.recent[0].reason, 'checkmate');
+const board = await api('/leaderboard?game=chess&period=week', { token: host.token });
+assert.ok(board.unranked.some((r) => r.userId === alex.user.id && r.points === 3), 'Alex listed as not ranked yet');
+
 await api(`/rooms/${room.code}`, { method: 'DELETE', token: host.token });
 await new Promise((r) => a.ws.on('close', (code) => { assert.equal(code, 4410); r(); }));
 for (const c of [h, p]) c.ws.close();
-console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game and closing the room');
+console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, and closing the room');

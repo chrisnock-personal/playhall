@@ -16,6 +16,8 @@ export interface GameResult {
   winner: SeatId | null;
   /** Plain words: "checkmate", "resignation", "time", "agreement"... */
   reason: string;
+  /** The game was stopped (e.g. by the host): it doesn't count for anyone. */
+  aborted?: boolean;
 }
 
 export type ActResult<S> = { state: S } | { error: string };

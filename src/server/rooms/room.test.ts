@@ -12,12 +12,13 @@ function setup(settings: Partial<RoomSettings> = {}) {
   let now = 1_000_000;
   const timers: { at: number; fn: () => void; live: boolean }[] = [];
   const over: unknown[] = [];
+  const finished: { counted: boolean; note: string | null }[] = [];
   const hooks: RoomHooks = {
     now: () => now,
     setTimer: (ms, fn) => { const t = { at: now + ms, fn, live: true }; timers.push(t); return () => { t.live = false; }; },
     save: () => {},
     chat: () => {},
-    gameOver: (_r, result) => { over.push(result); },
+    gameOver: (g) => { over.push(g.result); finished.push(g); },
     changed: () => {},
   };
   const rec: RoomRecord = {
@@ -31,7 +32,7 @@ function setup(settings: Partial<RoomSettings> = {}) {
     now += ms;
     for (const t of timers) if (t.live && t.at <= now) { t.live = false; t.fn(); }
   };
-  return { room, rec, over, advance };
+  return { room, rec, over, finished, advance };
 }
 
 const move = (from: string, to: string) => ({ t: 'act' as const, action: { type: 'move', from, to } });
@@ -139,4 +140,30 @@ test('settings: game config can’t change mid-game', () => {
   room.handle(alex, { t: 'sit', seat: 'black' });
   room.handle(host, { t: 'start' });
   assert.throws(() => room.handle(host, { t: 'settings', settings: { gameConfig: { initialSeconds: 60 } } }), /between games/);
+});
+
+test('what counts: account holders in a ranked room; not guests, casual rooms or stopped games', () => {
+  let t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  t.room.handle(alex, { t: 'act', action: { type: 'resign' } });
+  assert.deepEqual(t.finished.map((f) => f.counted), [true]);
+
+  t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(guest, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  t.room.handle(guest, { t: 'act', action: { type: 'resign' } });
+  assert.equal(t.finished[0].counted, false);
+  assert.match(t.finished[0].note!, /guest/);
+
+  t = setup({ ranked: false });
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  assert.throws(() => t.room.handle(host, { t: 'settings', settings: { ranked: true } }), /between games/);
+  t.room.handle(host, { t: 'unseat', userId: 'a' });
+  assert.equal(t.finished[0].counted, false);
+  assert.match(t.finished[0].note!, /stopped/);
 });

@@ -9,6 +9,7 @@ import { SeatsPanel } from './SeatsPanel';
 import { GalleryStrip } from './GalleryStrip';
 import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
+import { ResultCard } from './ResultCard';
 import { Icon } from '../ui';
 
 export function RoomPage({ code, session, onSignOut }: { code: string; session: Session; onSignOut(): void }) {
@@ -115,7 +116,10 @@ function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<ty
       <div className="room-body">
         <SeatsPanel state={layout.seats} onCycle={() => set('seats', NEXT.seats[layout.seats])} stage={stageProps} game={game} />
         <div className="stage-col">
-          <div className="stage">{game ? <game.Stage {...stageProps} /> : <p className="empty">This game isn’t available in this version.</p>}</div>
+          <div className="stage">
+            {game ? <game.Stage {...stageProps} /> : <p className="empty">This game isn’t available in this version.</p>}
+            <ResultCard snap={snap} send={conn.send} />
+          </div>
           <GalleryStrip
             state={layout.gallery}
             onSet={(v) => set('gallery', v)}

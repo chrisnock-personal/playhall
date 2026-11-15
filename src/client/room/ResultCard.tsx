@@ -1,0 +1,46 @@
+import { useEffect, useState } from 'react';
+import type { ClientMessage, RoomSnapshot } from '../../shared/protocol';
+import { Icon } from '../ui';
+
+// Shown over the stage when a game ends: points gained, new totals and
+// ranks, and the head-to-head record. Gone when the next game starts.
+export function ResultCard({ snap, send }: { snap: RoomSnapshot; send(m: ClientMessage): void }) {
+  const r = snap.lastResult;
+  const [closed, setClosed] = useState(false);
+  useEffect(() => { setClosed(false); }, [r]);
+  if (!r || closed || snap.game.status !== 'over') return null;
+
+  const result = snap.game.result;
+  const winner = r.players.find((p) => p.outcome === 'win');
+  const title = winner ? `${winner.name} wins${result ? ` by ${result.reason}` : ''}` : `Draw${result ? ` by ${result.reason}` : ''}`;
+  const [a, b] = r.players;
+  const canStart = snap.you.host && snap.seats.every((s) => s.userId);
+
+  return (
+    <div className="result-card" role="status">
+      <div className="row-between">
+        <h2>{title}</h2>
+        <button className="icon-btn" aria-label="Close" onClick={() => setClosed(true)}><Icon name="close" size={16} /></button>
+      </div>
+      <div className="result-players">
+        {r.players.map((p) => (
+          <div key={p.userId} className={`result-player ${p.outcome}`}>
+            <span className="name">{p.name} · {snap.seats.find((s) => s.id === p.seat)?.label}</span>
+            <strong>+{p.points}</strong>
+            <span className="muted">
+              {r.counted && p.total !== null ? `${p.total} points${p.rank ? ` · #${p.rank}` : ' · not ranked yet'}` : 'not counted'}
+            </span>
+          </div>
+        ))}
+      </div>
+      {r.headToHead && a && b && (
+        <p className="muted">Head to head: {a.name} {r.headToHead.w} – {r.headToHead.d} – {r.headToHead.l} {b.name}</p>
+      )}
+      {r.note && <p className="hint">{r.note}</p>}
+      <div className="row">
+        {canStart && <button className="btn small primary" onClick={() => send({ t: 'start' })}>Start the next game</button>}
+        <a className="btn small" href="#/leaderboard">Leaderboard</a>
+      </div>
+    </div>
+  );
+}

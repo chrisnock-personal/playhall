@@ -6,6 +6,7 @@ import type { Db } from '../db';
 import { GAMES } from '../../shared/games';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
 import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
+import { recordGame } from '../stats';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
 const SAVE_DELAY_MS = 150;
@@ -22,6 +23,7 @@ export interface CreateRoomInput {
   listed?: boolean;
   seatPolicy?: 'open' | 'host';
   guestsCanPlay?: boolean;
+  ranked?: boolean;
   gameConfig?: unknown;
   hostSeat?: string | null;
 }
@@ -82,12 +84,10 @@ export class RoomManager {
           [roomId, line.id, line.channel, line.kind, line.userId, line.name, line.text, line.at],
         ).catch((err) => console.error('[rooms] chat save failed:', err.message));
       },
-      gameOver: (r, result, state, players) => {
-        this.db.query(
-          `INSERT INTO games (room_id, game_id, players, result, state, started_at)
-           VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0))`,
-          [r.id, r.gameId, JSON.stringify(players), JSON.stringify(result), JSON.stringify(state), r.game.startedAt],
-        ).catch((err) => console.error('[rooms] game history save failed:', err.message));
+      gameOver: (ended) => {
+        recordGame(this.db, ended)
+          .then((standings) => room.setLastResult(standings))
+          .catch((err) => console.error('[rooms] saving the result failed:', err.message));
       },
       changed: () => {
         if (room) this.onChanged(room);
@@ -137,6 +137,7 @@ export class RoomManager {
       listed: input.listed ?? DEFAULT_SETTINGS.listed,
       seatPolicy: input.seatPolicy === 'host' ? 'host' : 'open',
       guestsCanPlay: input.guestsCanPlay ?? DEFAULT_SETTINGS.guestsCanPlay,
+      ranked: input.ranked ?? DEFAULT_SETTINGS.ranked,
       gameConfig: game.parseConfig(input.gameConfig ?? game.defaultConfig),
     };
     const seats: Record<string, SeatHolder | null> = {};
@@ -177,7 +178,7 @@ export class RoomManager {
         configLabel: game.describeConfig(game.parseConfig(r.settings.gameConfig)),
         hostName: r.host_name, status: r.game.status,
         seats: game.seats.map((s) => ({ id: s.id, label: s.label, userId: r.seats[s.id]?.userId ?? null, name: r.seats[s.id]?.name ?? null })),
-        watching: 0, listed: !!r.settings.listed,
+        watching: 0, listed: !!r.settings.listed, ranked: r.settings.ranked !== false,
       };
     });
   }

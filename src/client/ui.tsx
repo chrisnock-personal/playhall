@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { Outcome, Period } from '../shared/protocol';
 
 // Avatar colours: picked from the user id so a person keeps their colour.
 const COLOURS = ['#3A4F7A', '#6B3F5E', '#4B6B3F', '#7A3A3A', '#3F5E6B', '#7A5A3A', '#5A3F7A', '#3A5A4F'];
@@ -47,14 +48,47 @@ export function Icon({ name, size = 18 }: { name: keyof typeof PATHS | string; s
   );
 }
 
-export function Logo() {
+// The Playhall mark: a pawn walking into the hall (brand/mark.svg).
+export function Mark({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="15" fill="#1B1E24" />
+      <path d="M15 55V30a17 17 0 0 1 34 0v25" fill="none" stroke="#F0A53C" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="32" cy="27.5" r="5.5" fill="#F6C27A" />
+      <rect x="26.5" y="34" width="11" height="3" rx="1.5" fill="#F6C27A" />
+      <path d="M29.3 37h5.4l2.6 9.5h-10.6z" fill="#F6C27A" />
+      <rect x="23.5" y="46" width="17" height="4.5" rx="2" fill="#F6C27A" />
+    </svg>
+  );
+}
+
+export function Logo({ size = 28 }: { size?: number }) {
   return (
     <span className="logo">
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <rect x="2" y="2" width="24" height="24" rx="7" fill="#F0A53C" />
-        <path d="M9 19V9h6a3.5 3.5 0 0 1 0 7H9" fill="none" stroke="#1A1307" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <Mark size={size} />
       <span>Playhall</span>
     </span>
   );
 }
+
+const OUTCOME: Record<Outcome, [string, string]> = { win: ['W', 'Win'], draw: ['D', 'Draw'], loss: ['L', 'Loss'] };
+
+/** W / D / L in a coloured square; the letter carries the meaning, not just the colour. */
+export function OutcomeChip({ outcome, big }: { outcome: Outcome; big?: boolean }) {
+  return <span className={`outcome ${outcome}${big ? ' big' : ''}`} title={OUTCOME[outcome][1]}>{OUTCOME[outcome][0]}</span>;
+}
+
+const PERIODS: [Period, string][] = [['week', 'This week'], ['month', 'This month'], ['all', 'All time']];
+
+export function PeriodPicker({ value, onChange }: { value: Period; onChange(p: Period): void }) {
+  return (
+    <div className="segmented" role="group" aria-label="Period">
+      {PERIODS.map(([id, label]) => (
+        <button key={id} className={value === id ? 'on' : ''} aria-pressed={value === id} onClick={() => onChange(id)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+export const perGame = (points: number, played: number) => (played ? (points / played).toFixed(2) : '-');
+export const winPct = (w: number, played: number) => (played ? `${Math.round((100 * w) / played)}%` : '-');

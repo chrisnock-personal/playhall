@@ -3,8 +3,11 @@ import { loadSession, saveSession, type Session } from './api';
 import { SignIn } from './pages/SignIn';
 import { Lobby } from './pages/Lobby';
 import { RoomPage } from './room/RoomPage';
+import { Leaderboard } from './pages/Leaderboard';
+import { PlayerStats } from './pages/PlayerStats';
 
-// Routes live in the #hash: #/ is the lobby, #/r/CODE a room.
+// Routes live in the #hash: #/ is the lobby, #/r/CODE a room, #/leaderboard,
+// #/stats (your own) and #/players/ID.
 function useHash(): string {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
@@ -25,5 +28,11 @@ export function App() {
 
   if (!session) return <SignIn onSignedIn={signIn} roomCode={roomCode} />;
   if (roomCode) return <RoomPage key={roomCode} code={roomCode} session={session} onSignOut={signOut} />;
+  if (hash.startsWith('#/leaderboard')) return <Leaderboard session={session} onSignOut={signOut} />;
+  const player = /^#\/players\/([0-9a-f-]{36})/.exec(hash)?.[1];
+  if (player || hash.startsWith('#/stats')) {
+    const id = player ?? session.user.id;
+    return <PlayerStats key={id} session={session} onSignOut={signOut} userId={id} />;
+  }
   return <Lobby session={session} onSignOut={signOut} />;
 }

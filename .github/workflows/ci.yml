@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # A throwaway Postgres for the end-to-end and browser tests.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: playhall
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: playhall
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U playhall" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://playhall:ci-only@localhost:5432/playhall
+      JWT_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (game rules, room engine)
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Start the server
+        run: |
+          node dist/server/index.js > server.log 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://localhost:8450/api/health && break; sleep 1; done
+      - name: End-to-end (accounts, rooms, a game over the WebSocket, results)
+        run: node scripts/smoke.mjs http://localhost:8450
+      - name: Demo data loads and removes cleanly
+        run: |
+          node dist/server/demo.js
+          psql "$DATABASE_URL" -tAc "SELECT count(*) FROM game_results" | grep -qv '^0$'
+          node dist/server/demo.js --remove
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT count(*) FROM users WHERE is_demo')" = 0
+      - name: Chromium for the browser test
+        run: npx playwright install --with-deps chromium
+      - name: Browser test
+        run: node tests/browser.mjs http://localhost:8450
+      - name: Server log, if it failed
+        if: failure()
+        run: tail -50 server.log
+      - name: Known vulnerabilities in runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Secrets in the history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The real packaging: build the image, start it with compose, check it.
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Start Playhall with compose
+        run: |
+          printf 'POSTGRES_PASSWORD=ci-only-compose\nJWT_SECRET=ci-only-not-a-secret-0123456789abcdef0123456789\n' > .env
+          docker compose build -q
+          docker compose up -d
+          for _ in $(seq 1 60); do curl -sf http://localhost:8450/api/health && break; sleep 2; done
+      - name: Demo data inside the container
+        run: docker compose exec -T app node dist/server/demo.js
+      - name: End-to-end against the container
+        run: node scripts/smoke.mjs http://localhost:8450
+      - name: Logs, if it failed
+        if: failure()
+        run: docker compose logs --tail 50

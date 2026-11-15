@@ -4,13 +4,14 @@ import type { GameClient } from '../games/types';
 import { api } from '../api';
 import { Icon } from '../ui';
 
-type BoolKey = 'listed' | 'guestsCanPlay' | 'hideGalleryFromPlayers' | 'watchersWriteTable';
+type BoolKey = 'listed' | 'guestsCanPlay' | 'hideGalleryFromPlayers' | 'watchersWriteTable' | 'ranked';
 
 const SWITCHES: { key: BoolKey; label: string; help: string }[] = [
   { key: 'hideGalleryFromPlayers', label: 'Hide the gallery from players during play', help: 'Players can’t read what watchers say until the game ends.' },
   { key: 'watchersWriteTable', label: 'Watchers can write at the table during play', help: 'Off: watchers read the table chat but only write in the gallery.' },
   { key: 'guestsCanPlay', label: 'Guests can play', help: 'Off: guests can watch but not take a seat.' },
   { key: 'listed', label: 'Show the room in the lobby', help: 'Off: only people with the invite link can find it.' },
+  { key: 'ranked', label: 'Games count for the leaderboard', help: 'Off: a casual room. Can change between games. Guests’ games never count.' },
 ];
 
 export function SettingsDialog({ snap, send, game, token, onClose }: {
@@ -72,7 +73,7 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
           {SWITCHES.map((sw) => (
             <label key={sw.key} className="switch-row">
               <span><strong>{sw.label}</strong><span className="hint">{sw.help}</span></span>
-              <input type="checkbox" role="switch" className="switch" checked={s[sw.key]} onChange={(e) => update({ [sw.key]: e.target.checked })} />
+              <input type="checkbox" role="switch" className="switch" checked={s[sw.key]} disabled={sw.key === 'ranked' && playing} onChange={(e) => update({ [sw.key]: e.target.checked })} />
             </label>
           ))}
         </section>
