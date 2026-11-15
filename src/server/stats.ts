@@ -29,6 +29,7 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
   const seats = Object.entries(g.players);
   const scores = score(g.result, seats.map(([s]) => s));
   const client = await db.connect();
+  let gameRowId = '';
   try {
     await client.query('BEGIN');
     const { rows } = await client.query<{ id: string }>(
@@ -36,6 +37,7 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
        VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0), $7, $8) RETURNING id`,
       [g.rec.id, g.rec.gameId, JSON.stringify(g.players), JSON.stringify(g.result), JSON.stringify(g.state),
         g.rec.game.startedAt, !!g.result.aborted, endedAt]);
+    gameRowId = rows[0].id;
     if (!g.result.aborted) {
       for (const [seat, holder] of seats) {
         const { outcome, points } = scores[seat];
@@ -67,6 +69,8 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
     headToHead = rows[0];
   }
   return {
+    gameRowId: String(gameRowId),
+    replayable: !!GAMES[g.rec.gameId]?.replay,
     counted: g.counted,
     note: g.note,
     headToHead,
@@ -101,6 +105,7 @@ export async function leaderboard(db: Db, game: string, period: Period): Promise
 }
 
 interface ResultRow {
+  game_row_id: string;
   game_id: string; seat: string; outcome: Outcome; points: number; reason: string;
   opponent_id: string | null; opponent: string | null; room: string; ended_at: Date;
 }
@@ -112,7 +117,7 @@ export async function playerStats(db: Db, userId: string, game: string, period: 
   if (!user) return null;
 
   const { rows } = await db.query<ResultRow>(
-    `SELECT r.game_id, r.seat, r.outcome, r.points, r.reason, r.opponent_id, ou.display_name AS opponent,
+    `SELECT r.game_row_id, r.game_id, r.seat, r.outcome, r.points, r.reason, r.opponent_id, ou.display_name AS opponent,
             rm.name AS room, r.ended_at
        FROM game_results r
        JOIN rooms rm ON rm.id = r.room_id
@@ -176,9 +181,25 @@ export async function playerStats(db: Db, userId: string, game: string, period: 
     weekly,
     endings: [...endings].map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n),
     recent: rows.slice(0, 10).map((r) => ({
+      gameRowId: String(r.game_row_id), replayable: !!GAMES[r.game_id]?.replay,
       opponent: r.opponent, opponentId: r.opponent_id, outcome: r.outcome, reason: r.reason,
       seat: r.seat, seatLabel: seatLabel(r.game_id, r.seat), room: r.room, endedAt: r.ended_at.toISOString(), points: r.points,
     })),
     headToHead: [...h2h.values()].sort((a, b) => (b.w + b.d + b.l) - (a.w + a.d + a.l)).slice(0, 8),
+  };
+}
+
+/** A finished game, move by move, for its replay (games that keep their moves). */
+export async function replay(db: Db, id: string): Promise<import('../shared/protocol').ReplayResponse | null> {
+  const { rows } = await db.query<{ id: string; game_id: string; players: Record<string, { userId: string; name: string }>; result: { winner: string | null; reason: string }; state: unknown; ended_at: Date; room: string }>(
+    `SELECT g.id, g.game_id, g.players, g.result, g.state, g.ended_at, r.name AS room
+       FROM games g JOIN rooms r ON r.id = g.room_id WHERE g.id = $1`, [id]);
+  const row = rows[0];
+  const game = row && GAMES[row.game_id];
+  if (!row || !game?.replay || (row.state as { demo?: boolean })?.demo) return null;
+  return {
+    id: String(row.id), gameId: row.game_id, room: row.room,
+    players: Object.entries(row.players).map(([seat, p]) => ({ seat, name: p.name, userId: p.userId })),
+    result: row.result, endedAt: row.ended_at.toISOString(), frames: game.replay(row.state),
   };
 }

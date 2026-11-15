@@ -56,7 +56,7 @@ the rules (drawn from the kit).
 - **Bot seats**: an opponent from the shared Ollama (as open-chess does), or
   a simple engine per game (minimax for Four in a Row and checkers). Bot games
   don't count for the leaderboard.
-- **Replays**: step through a finished game move by move, from its stored
-  state ("Review the game" on the end-of-game card).
+- **Replays for the other games**: chess, checkers and Four in a Row have
+  them; the dice and card games would need their full history stored.
 - **Reporting** for admins (hosts can already remove people).
 - **Rematch** button for the players themselves, not only the host.

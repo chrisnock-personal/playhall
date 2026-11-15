@@ -190,6 +190,20 @@ export const checkers: GameModule<CheckersState, Record<string, never>> = {
   nextDeadline: () => null,
   result: (state) => state.result,
 
+  replay(state) {
+    const ctx = { seats: ['black', 'white'], random: Math.random };
+    let s = this.create({}, 0, ctx);
+    const frames: unknown[] = [this.view(s, 0, null)];
+    for (const path of state.moves) {
+      const r = this.act(s, s.turn, { type: 'move', path }, 0, ctx);
+      if ('error' in r) break;
+      s = r.state;
+      frames.push(this.view(s, 0, null));
+    }
+    if (state.result && frames.length) frames[frames.length - 1] = this.view({ ...s, result: state.result }, 0, null);
+    return frames;
+  },
+
   view(state): CheckersView {
     return {
       board: state.board, turn: state.turn,

@@ -125,6 +125,21 @@ export const fourInARow: GameModule<FourState, Record<string, never>> = {
   nextDeadline: () => null,
   result: (state) => state.result,
 
+  replay(state) {
+    const frames: unknown[] = [];
+    let s = this.create({}, 0, { seats: ['amber', 'teal'], random: Math.random });
+    frames.push(this.view(s, 0, null));
+    for (const col of state.moves) {
+      const r = this.act(s, turnOf(s), { type: 'drop', col }, 0, { seats: ['amber', 'teal'], random: Math.random });
+      if ('error' in r) break;
+      s = r.state;
+      frames.push(this.view(s, 0, null));
+    }
+    // A resignation doesn't show in the moves: end on the real result.
+    if (state.result && frames.length) frames[frames.length - 1] = this.view({ ...s, result: state.result }, 0, null);
+    return frames;
+  },
+
   view(state): FourView {
     return {
       grid: state.grid, cols: COLS, rows: ROWS, turn: turnOf(state), moves: state.moves,

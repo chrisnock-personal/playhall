@@ -138,6 +138,7 @@ export function PlayerStats({ session, onSignOut, userId }: { session: Session; 
                             <span>{g.reason[0].toUpperCase() + g.reason.slice(1)} · {g.seatLabel} · {g.room} · {when(g.endedAt)}</span>
                           </span>
                           <span className={`pts ${g.outcome}`}>+{g.points}</span>
+                          {g.replayable && <a className="btn tiny" href={`#/replay/${g.gameRowId}`}>Replay</a>}
                         </li>
                       ))}
                     </ul>

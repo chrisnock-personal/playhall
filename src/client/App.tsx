@@ -5,6 +5,7 @@ import { Lobby } from './pages/Lobby';
 import { RoomPage } from './room/RoomPage';
 import { Leaderboard } from './pages/Leaderboard';
 import { PlayerStats } from './pages/PlayerStats';
+import { Replay } from './pages/Replay';
 
 // Routes live in the #hash: #/ is the lobby, #/r/CODE a room, #/leaderboard,
 // #/stats (your own) and #/players/ID.
@@ -28,6 +29,8 @@ export function App() {
 
   if (!session) return <SignIn onSignedIn={signIn} roomCode={roomCode} />;
   if (roomCode) return <RoomPage key={roomCode} code={roomCode} session={session} onSignOut={signOut} />;
+  const replayId = /^#\/replay\/(\d+)/.exec(hash)?.[1];
+  if (replayId) return <Replay key={replayId} session={session} onSignOut={signOut} id={replayId} />;
   if (hash.startsWith('#/leaderboard')) return <Leaderboard session={session} onSignOut={signOut} />;
   const player = /^#\/players\/([0-9a-f-]{36})/.exec(hash)?.[1];
   if (player || hash.startsWith('#/stats')) {

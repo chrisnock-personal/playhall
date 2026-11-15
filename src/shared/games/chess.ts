@@ -201,6 +201,14 @@ export const chess: GameModule<ChessState, ChessConfig> = {
 
   result: (state) => state.result,
 
+  replay(state) {
+    const config = { initialSeconds: 0, incrementSeconds: 0 };
+    return Array.from({ length: state.moves.length + 1 }, (_, i) => this.view({
+      ...state, config, moves: state.moves.slice(0, i), turnStartedAt: null, drawOfferBy: null,
+      result: i === state.moves.length ? state.result : null,
+    }, 0, null));
+  },
+
   view(state, now): ChessView {
     const c = replay(state.moves);
     const turn = sideToMove(c);

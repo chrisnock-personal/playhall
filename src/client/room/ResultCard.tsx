@@ -39,6 +39,7 @@ export function ResultCard({ snap, send }: { snap: RoomSnapshot; send(m: ClientM
       {r.note && <p className="hint">{r.note}</p>}
       <div className="row">
         {canStart && <button className="btn small primary" onClick={() => send({ t: 'start' })}>Start the next game</button>}
+        {r.replayable && <a className="btn small" href={`#/replay/${r.gameRowId}`}>Review the game</a>}
         <a className="btn small" href="#/leaderboard">Leaderboard</a>
       </div>
     </div>

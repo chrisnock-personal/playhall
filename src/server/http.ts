@@ -7,7 +7,7 @@ import type { RoomManager } from './rooms/manager';
 import type { RoomSockets } from './ws';
 import { RoomError } from './rooms/room';
 import { gameList } from '../shared/games';
-import { isGameFilter, leaderboard, PERIODS, playerStats } from './stats';
+import { isGameFilter, leaderboard, PERIODS, playerStats, replay } from './stats';
 import type { Period } from '../shared/protocol';
 import type { Db } from './db';
 
@@ -94,6 +94,14 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     const stats = await playerStats(db, id, f.game, f.period);
     if (!stats) { res.status(404).json({ error: 'No such player' }); return; }
     res.json(stats);
+  });
+
+  app.get('/api/games/:id', auth.requireUser, async (req, res) => {
+    const id = String(req.params.id);
+    if (!/^\d+$/.test(id)) { res.status(400).json({ error: 'No such game' }); return; }
+    const r = await replay(db, id);
+    if (!r) { res.status(404).json({ error: 'That game can\u2019t be replayed' }); return; }
+    res.json(r);
   });
 
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not found' }); });

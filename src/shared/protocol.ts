@@ -163,6 +163,9 @@ export const MIN_RANKED_GAMES = 5;
 export type Period = 'week' | 'month' | 'all';
 
 export interface LastResult {
+  /** The stored game, for its replay. */
+  gameRowId: string;
+  replayable: boolean;
   counted: boolean;
   /** Why it didn't count, in words, when it didn't. */
   note: string | null;
@@ -214,6 +217,17 @@ export interface PlayerStatsResponse {
   bySeat: { seat: string; label: string; played: number; w: number; d: number; l: number; points: number }[];
   weekly: { weekStart: string; points: number }[];
   endings: { reason: string; n: number }[];
-  recent: { opponent: string | null; opponentId: string | null; outcome: Outcome; reason: string; seat: string; seatLabel: string; room: string; endedAt: string; points: number }[];
+  recent: { gameRowId: string; replayable: boolean; opponent: string | null; opponentId: string | null; outcome: Outcome; reason: string; seat: string; seatLabel: string; room: string; endedAt: string; points: number }[];
   headToHead: { userId: string; name: string; w: number; d: number; l: number }[];
+}
+
+export interface ReplayResponse {
+  id: string;
+  gameId: string;
+  room: string;
+  players: { seat: string; name: string; userId: string }[];
+  result: { winner: string | null; reason: string } | null;
+  endedAt: string;
+  /** What a watcher saw after each move, from the start. */
+  frames: unknown[];
 }

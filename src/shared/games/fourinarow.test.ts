@@ -46,3 +46,11 @@ test('the view shows whose turn it is and the last disc', () => {
   assert.equal(v.turn, 'teal');
   assert.equal(v.lastCell, 4);
 });
+
+test('replay: one frame per disc, ending on the result', () => {
+  const s = play([0, 1, 0, 1, 0, 1, 0]);
+  const frames = fourInARow.replay!(s) as FourView[];
+  assert.equal(frames.length, 8);
+  assert.equal(frames[0].grid.filter(Boolean).length, 0);
+  assert.equal(frames[7].result?.winner, 'amber');
+});
