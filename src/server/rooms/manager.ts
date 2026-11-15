@@ -1,0 +1,199 @@
+// Loads rooms from the database when someone opens them, keeps them in
+// memory while people are in them, saves changes, and unloads idle rooms.
+
+import crypto from 'node:crypto';
+import type { Db } from '../db';
+import { GAMES } from '../../shared/games';
+import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
+import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
+
+const IDLE_UNLOAD_MS = 10 * 60_000;
+const SAVE_DELAY_MS = 150;
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+interface RoomRow {
+  id: string; code: string; name: string; game_id: string; host_id: string; host_name: string;
+  settings: RoomSettings; seats: RoomRecord['seats']; game: RoomRecord['game'];
+}
+
+export interface CreateRoomInput {
+  name: string;
+  gameId: string;
+  listed?: boolean;
+  seatPolicy?: 'open' | 'host';
+  guestsCanPlay?: boolean;
+  gameConfig?: unknown;
+  hostSeat?: string | null;
+}
+
+export class RoomManager {
+  private rooms = new Map<string, Room>();
+  private loading = new Map<string, Promise<Room | null>>();
+  private saveTimers = new Map<string, NodeJS.Timeout>();
+  private idleTimers = new Map<string, NodeJS.Timeout>();
+
+  constructor(private db: Db, private onChanged: (room: Room) => void) {}
+
+  async get(code: string): Promise<Room | null> {
+    code = code.toUpperCase();
+    const live = this.rooms.get(code);
+    if (live) return live;
+    let p = this.loading.get(code);
+    if (!p) {
+      p = this.load(code).finally(() => this.loading.delete(code));
+      this.loading.set(code, p);
+    }
+    return p;
+  }
+
+  private async load(code: string): Promise<Room | null> {
+    const { rows } = await this.db.query<RoomRow>(
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game
+         FROM rooms r JOIN users u ON u.id = r.host_id
+        WHERE r.code = $1 AND r.closed_at IS NULL`, [code]);
+    const row = rows[0];
+    if (!row || !GAMES[row.game_id]) return null;
+    const { rows: chat } = await this.db.query<{ line_id: number; channel: ChatLine['channel']; kind: ChatLine['kind']; user_id: string | null; name: string; body: string; at: string }>(
+      `SELECT line_id, channel, kind, user_id, name, body, extract(epoch FROM created_at) * 1000 AS at
+         FROM (SELECT * FROM chat_messages WHERE room_id = $1 ORDER BY line_id DESC LIMIT 300) c
+        ORDER BY line_id`, [row.id]);
+    const rec: RoomRecord = {
+      id: row.id, code: row.code, name: row.name, gameId: row.game_id,
+      hostId: row.host_id, hostName: row.host_name,
+      settings: { ...DEFAULT_SETTINGS, ...row.settings },
+      seats: row.seats, game: row.game,
+    };
+    const history: ChatLine[] = chat.map((c) => ({
+      id: c.line_id, channel: c.channel, kind: c.kind, userId: c.user_id, name: c.name, text: c.body, at: Number(c.at),
+    }));
+    return this.adopt(rec, history);
+  }
+
+  private adopt(rec: RoomRecord, history: ChatLine[]): Room {
+    let room!: Room;
+    room = new Room(rec, {
+      now: () => Date.now(),
+      setTimer: (ms, fn) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); },
+      save: (r) => this.scheduleSave(r),
+      chat: (roomId, line) => {
+        this.db.query(
+          `INSERT INTO chat_messages (room_id, line_id, channel, kind, user_id, name, body, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8 / 1000.0))`,
+          [roomId, line.id, line.channel, line.kind, line.userId, line.name, line.text, line.at],
+        ).catch((err) => console.error('[rooms] chat save failed:', err.message));
+      },
+      gameOver: (r, result, state, players) => {
+        this.db.query(
+          `INSERT INTO games (room_id, game_id, players, result, state, started_at)
+           VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0))`,
+          [r.id, r.gameId, JSON.stringify(players), JSON.stringify(result), JSON.stringify(state), r.game.startedAt],
+        ).catch((err) => console.error('[rooms] game history save failed:', err.message));
+      },
+      changed: () => {
+        if (room) this.onChanged(room);
+        if (room) this.checkIdle(room);
+      },
+    }, history);
+    this.rooms.set(rec.code, room);
+    this.checkIdle(room);
+    return room;
+  }
+
+  private scheduleSave(rec: RoomRecord): void {
+    if (this.saveTimers.has(rec.id)) return;
+    this.saveTimers.set(rec.id, setTimeout(() => {
+      this.saveTimers.delete(rec.id);
+      this.db.query(
+        `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, updated_at = now() WHERE id = $1`,
+        [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game)],
+      ).catch((err) => console.error('[rooms] save failed:', err.message));
+    }, SAVE_DELAY_MS));
+  }
+
+  /** Unload a room nobody has been in for a while (it reloads on demand). */
+  private checkIdle(room: Room): void {
+    const t = this.idleTimers.get(room.rec.code);
+    if (room.presentCount > 0) {
+      if (t) { clearTimeout(t); this.idleTimers.delete(room.rec.code); }
+      return;
+    }
+    if (t) return;
+    this.idleTimers.set(room.rec.code, setTimeout(() => {
+      this.idleTimers.delete(room.rec.code);
+      if (room.presentCount > 0 || this.saveTimers.has(room.rec.id)) return this.checkIdle(room);
+      room.dispose();
+      this.rooms.delete(room.rec.code);
+    }, IDLE_UNLOAD_MS));
+  }
+
+  async create(host: SessionUser, input: CreateRoomInput): Promise<Room> {
+    if (host.guest) throw new RoomError('Guests can’t host: create an account first');
+    const game = GAMES[input.gameId];
+    if (!game) throw new RoomError('Unknown game');
+    const name = typeof input.name === 'string' ? input.name.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, 60) : '';
+    if (!name) throw new RoomError('Give the room a name');
+    const settings: RoomSettings = {
+      ...DEFAULT_SETTINGS,
+      listed: input.listed ?? DEFAULT_SETTINGS.listed,
+      seatPolicy: input.seatPolicy === 'host' ? 'host' : 'open',
+      guestsCanPlay: input.guestsCanPlay ?? DEFAULT_SETTINGS.guestsCanPlay,
+      gameConfig: game.parseConfig(input.gameConfig ?? game.defaultConfig),
+    };
+    const seats: Record<string, SeatHolder | null> = {};
+    for (const s of game.seats) seats[s.id] = null;
+    if (input.hostSeat && input.hostSeat in seats) seats[input.hostSeat] = { userId: host.id, name: host.name, guest: false };
+    const gameRec: RoomRecord['game'] = { status: 'idle', state: null, startedAt: null, players: null };
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = newCode();
+      try {
+        const { rows } = await this.db.query<{ id: string }>(
+          `INSERT INTO rooms (code, name, game_id, host_id, settings, seats, game)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+          [code, name, game.id, host.id, JSON.stringify(settings), JSON.stringify(seats), JSON.stringify(gameRec)]);
+        return this.adopt({
+          id: rows[0].id, code, name, gameId: game.id, hostId: host.id, hostName: host.name, settings, seats, game: gameRec,
+        }, []);
+      } catch (err) {
+        if ((err as { code?: string }).code !== '23505') throw err;
+      }
+    }
+    throw new Error('Could not find a free room code');
+  }
+
+  /** Rooms listed in the lobby, plus any the user hosts. */
+  async list(userId: string): Promise<RoomSummary[]> {
+    const { rows } = await this.db.query<RoomRow>(
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game
+         FROM rooms r JOIN users u ON u.id = r.host_id
+        WHERE r.closed_at IS NULL AND ((r.settings->>'listed')::boolean OR r.host_id = $1)
+        ORDER BY r.updated_at DESC LIMIT 100`, [userId]);
+    return rows.filter((r) => GAMES[r.game_id]).map((r) => {
+      const live = this.rooms.get(r.code);
+      if (live) return live.summary();
+      const game = GAMES[r.game_id];
+      return {
+        code: r.code, name: r.name, gameId: game.id, gameName: game.name,
+        configLabel: game.describeConfig(game.parseConfig(r.settings.gameConfig)),
+        hostName: r.host_name, status: r.game.status,
+        seats: game.seats.map((s) => ({ id: s.id, label: s.label, userId: r.seats[s.id]?.userId ?? null, name: r.seats[s.id]?.name ?? null })),
+        watching: 0, listed: !!r.settings.listed,
+      };
+    });
+  }
+
+  /** Close a room (host only). */
+  async close(code: string, userId: string): Promise<boolean> {
+    const room = await this.get(code);
+    if (!room || !room.isHost(userId)) return false;
+    await this.db.query('UPDATE rooms SET closed_at = now() WHERE id = $1', [room.rec.id]);
+    room.dispose();
+    this.rooms.delete(room.rec.code);
+    return true;
+  }
+}
+
+function newCode(): string {
+  const bytes = crypto.randomBytes(6);
+  return [...bytes].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+}

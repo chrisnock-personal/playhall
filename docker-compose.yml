@@ -1,0 +1,28 @@
+# Playhall: the app and its database. Copy .env.example to .env and fill it in.
+#   podman-compose up -d --build
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: playhall
+      POSTGRES_USER: playhall
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - playhall-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: localhost/playhall:latest
+    environment:
+      DATABASE_URL: postgres://playhall:${POSTGRES_PASSWORD}@postgres:5432/playhall
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+    ports:
+      - "${PLAYHALL_PORT:-8450}:8450"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  playhall-db:

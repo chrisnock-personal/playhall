@@ -1,0 +1,167 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { api, type Session } from '../api';
+import type { RoomSummary, SeatView } from '../../shared/protocol';
+import { GAME_CLIENTS } from '../games';
+import { Avatar, Logo } from '../ui';
+
+interface GameInfo { id: string; name: string; description: string; seats: { id: string; label: string }[]; defaultConfig: unknown }
+
+const STATUS: Record<RoomSummary['status'], string> = { idle: 'Waiting', playing: 'In play', over: 'Between games' };
+
+export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): void }) {
+  const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
+  const [games, setGames] = useState<GameInfo[]>([]);
+  const [filter, setFilter] = useState<'all' | 'free'>('all');
+  const [error, setError] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState('');
+
+  const refresh = useCallback(() => {
+    api<{ rooms: RoomSummary[] }>('/rooms', { token: session.token })
+      .then((r) => { setRooms(r.rooms); setError(null); })
+      .catch((e) => { if (e.status === 401) onSignOut(); else setError(e.message); });
+  }, [session.token, onSignOut]);
+
+  useEffect(() => {
+    refresh();
+    api<{ games: GameInfo[] }>('/games').then((g) => setGames(g.games)).catch(() => {});
+    const t = setInterval(refresh, 10_000);
+    return () => clearInterval(t);
+  }, [refresh]);
+
+  const shown = (rooms ?? []).filter((r) => filter === 'all' || (r.status !== 'playing' && r.seats.some((s) => !s.userId)));
+
+  const join = (e: FormEvent) => {
+    e.preventDefault();
+    const code = joinCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code) location.hash = `#/r/${code}`;
+  };
+
+  return (
+    <div className="page">
+      <header className="appbar">
+        <Logo />
+        <div className="appbar-right">
+          <span className="muted">{session.user.name}{session.user.guest ? ' (guest)' : ''}</span>
+          <Avatar name={session.user.name} id={session.user.id} size={34} />
+          <button className="btn small" onClick={onSignOut}>Sign out</button>
+        </div>
+      </header>
+      <main className="lobby">
+        <section className="lobby-rooms">
+          <div className="lobby-head">
+            <div>
+              <h1>Rooms</h1>
+              <p className="muted">Take a free seat to play, or walk in and watch.</p>
+            </div>
+            <div className="chips">
+              <button className={`chip${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}>All</button>
+              <button className={`chip${filter === 'free' ? ' on' : ''}`} onClick={() => setFilter('free')}>Free seats</button>
+            </div>
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          {rooms === null ? <p className="muted">Loading rooms…</p> : shown.length === 0 ? (
+            <p className="empty">No rooms {filter === 'free' ? 'with free seats ' : ''}right now.{session.user.guest ? '' : ' Start one on the right.'}</p>
+          ) : (
+            <div className="room-grid">
+              {shown.map((r) => <RoomCard key={r.code} room={r} />)}
+            </div>
+          )}
+        </section>
+        <aside className="lobby-side">
+          <form className="card" onSubmit={join}>
+            <h2>Have a code?</h2>
+            <div className="row">
+              <label className="sr-only" htmlFor="code">Room code</label>
+              <input id="code" placeholder="e.g. K7QM2X" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} maxLength={12} />
+              <button className="btn">Go</button>
+            </div>
+          </form>
+          {session.user.guest
+            ? <div className="card"><h2>Host a room</h2><p className="muted">Hosting needs an account. Sign out and create one: it takes a few seconds.</p></div>
+            : <NewRoom session={session} games={games} />}
+        </aside>
+      </main>
+    </div>
+  );
+}
+
+function RoomCard({ room }: { room: RoomSummary }) {
+  const free = room.seats.filter((s) => !s.userId).length;
+  return (
+    <article className="room-card card">
+      <div className="room-card-head">
+        <div>
+          <h3>{room.name}</h3>
+          <p className="muted">{room.gameName} · {room.configLabel} · hosted by {room.hostName}</p>
+        </div>
+        <span className={`pill ${room.status}`}>{STATUS[room.status]}</span>
+      </div>
+      <div className="seat-dots">
+        {room.seats.map((s: SeatView) => s.userId
+          ? <span key={s.id} title={`${s.label}: ${s.name}`}><Avatar name={s.name ?? '?'} id={s.userId} size={30} /></span>
+          : <span key={s.id} className="free-dot" title={`${s.label}: free`}>+</span>)}
+      </div>
+      <p className="room-card-stats">
+        <span>Players <strong>{room.seats.length - free} / {room.seats.length}</strong></span>
+        <span>Watching <strong>{room.watching}</strong></span>
+        {!room.listed && <span className="muted">Invite only</span>}
+      </p>
+      <a className={`btn ${free && room.status !== 'playing' ? 'primary' : ''}`} href={`#/r/${room.code}`}>
+        {free && room.status !== 'playing' ? 'Go in and sit down' : 'Go in and watch'}
+      </a>
+    </article>
+  );
+}
+
+function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
+  const [name, setName] = useState('');
+  const [gameId, setGameId] = useState('chess');
+  const [config, setConfig] = useState<unknown>(null);
+  const [listed, setListed] = useState(true);
+  const [play, setPlay] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const game = games.find((g) => g.id === gameId);
+  const Picker = GAME_CLIENTS[gameId]?.ConfigPicker;
+
+  const create = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ room: RoomSummary }>('/rooms', {
+        token: session.token,
+        body: { name: name || `${session.user.name}’s ${game?.name ?? 'game'}`, gameId, listed, gameConfig: config ?? game?.defaultConfig, hostSeat: play ? game?.seats[0]?.id : null },
+      });
+      location.hash = `#/r/${r.room.code}`;
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="card new-room" onSubmit={create}>
+      <h2>New room</h2>
+      <label className="field"><span>Room name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder={`${session.user.name}’s ${game?.name ?? 'game'}`} />
+      </label>
+      <fieldset className="field">
+        <legend>Game</legend>
+        {games.map((g) => (
+          <label key={g.id} className={`game-pick${g.id === gameId ? ' on' : ''}`}>
+            <input type="radio" name="game" value={g.id} checked={g.id === gameId} onChange={() => { setGameId(g.id); setConfig(null); }} />
+            <span className="game-pick-head"><strong>{g.name}</strong><span className="muted">{g.seats.length} players</span></span>
+            <span className="muted">{g.description}</span>
+          </label>
+        ))}
+        <p className="hint">Shared games from your PC and web-game plug-ins come in later phases.</p>
+      </fieldset>
+      {Picker && game && <Picker value={config ?? game.defaultConfig} onChange={setConfig} />}
+      <label className="check"><input type="checkbox" checked={listed} onChange={(e) => setListed(e.target.checked)} /> Show it in the lobby (off: invite link only)</label>
+      <label className="check"><input type="checkbox" checked={play} onChange={(e) => setPlay(e.target.checked)} /> I’ll play too ({game?.seats[0]?.label ?? 'first seat'})</label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="btn primary wide" disabled={busy || !game}>Create room</button>
+    </form>
+  );
+}
