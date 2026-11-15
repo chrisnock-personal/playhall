@@ -1,6 +1,7 @@
 // Loads rooms from the database when someone opens them, keeps them in
 // memory while people are in them, saves changes, and unloads idle rooms.
 
+import { isWord } from '../words';
 import crypto from 'node:crypto';
 import type { Db } from '../db';
 import { GAMES } from '../../shared/games';
@@ -78,6 +79,7 @@ export class RoomManager {
     room = new Room(rec, {
       now: () => Date.now(),
       random: () => crypto.randomBytes(6).readUIntBE(0, 6) / 2 ** 48,
+      isWord,
       setTimer: (ms, fn) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); },
       save: (r) => this.scheduleSave(r),
       chat: (roomId, line) => {

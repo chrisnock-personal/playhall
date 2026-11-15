@@ -8,6 +8,7 @@ import { seaBattleClient } from './seabattle';
 import { blackjackClient } from './blackjack';
 import { colourClashClient } from './colourclash';
 import { pokerClient } from './poker';
+import { letterworksClient } from './letterworks';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -19,4 +20,5 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [blackjackClient.id]: blackjackClient,
   [colourClashClient.id]: colourClashClient,
   [pokerClient.id]: pokerClient,
+  [letterworksClient.id]: letterworksClient,
 };

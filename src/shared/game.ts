@@ -40,6 +40,9 @@ export interface GameContext {
   seats: SeatId[];
   /** A number in [0, 1). */
   random(): number;
+  /** Word games: is this (upper-case) word in the room's word list? The
+   *  server supplies it; without one, every word is allowed. */
+  isWord?(word: string): boolean;
 }
 
 export interface GameModule<S = unknown, C = unknown> {

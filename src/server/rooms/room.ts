@@ -50,6 +50,8 @@ export interface RoomHooks {
   now(): number;
   /** A number in [0, 1) for dice and shuffles. */
   random(): number;
+  /** Word games: is this word in the word list? */
+  isWord?(word: string): boolean;
   setTimer(ms: number, fn: () => void): () => void;
   /** The record changed and should be saved. */
   save(rec: RoomRecord): void;
@@ -371,7 +373,7 @@ export class Room {
     const seats = this.rec.game.status === 'playing' && this.rec.game.players
       ? this.game.seats.map((s) => s.id).filter((id) => id in this.rec.game.players!)
       : this.game.seats.map((s) => s.id).filter((id) => this.rec.seats[id]);
-    return { seats, random: () => this.hooks.random() };
+    return { seats, random: () => this.hooks.random(), isWord: this.hooks.isWord };
   }
 
   /** Fewest players to start this game. */
@@ -391,7 +393,7 @@ export class Room {
     const now = this.hooks.now();
     const players: Record<SeatId, SeatHolder> = {};
     for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
-    const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random() };
+    const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random(), isWord: this.hooks.isWord };
     this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null };
     this.lastResult = null;
     this.history = [{ at: now, state: this.rec.game.state }];

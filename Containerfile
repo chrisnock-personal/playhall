@@ -13,6 +13,7 @@ COPY package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
+COPY data ./data
 USER node
 EXPOSE 8450
 CMD ["node", "dist/server/index.js"]
