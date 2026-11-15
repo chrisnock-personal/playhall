@@ -116,7 +116,8 @@ the logo's pawn are drawn to sit beside them.
    square board and player strip (`src/client/kit/`).
 3. **Done**: dice and the track boards: **Snakes and Ladders** and **Ludo**
    (2-4 players, places for everyone, the move timer rolls or moves for you).
-4. Hidden information: **Sea Battle**.
+4. **Done**: hidden information: **Sea Battle** (secret simultaneous
+   placement, fleets revealed at the end).
 5. Cards and chips: **Blackjack**, **Colour Clash**, then **Texas Hold'em**
    (the biggest: betting, side pots, timeouts).
 
