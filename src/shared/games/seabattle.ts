@@ -41,6 +41,30 @@ export interface SeaView {
 
 const other = (s: SeatId) => (s === 'amber' ? 'teal' : 'amber');
 
+/** The squares a ship of `size` covers from `start` (its top or left end). */
+export function cellsFor(start: number, size: number, vertical: boolean): number[] | null {
+  const r = Math.floor(start / SIZE), c = start % SIZE;
+  if (vertical ? r + size > SIZE : c + size > SIZE) return null;
+  return Array.from({ length: size }, (_, i) => (vertical ? (r + i) * SIZE + c : start + i));
+}
+
+/** A whole fleet as a player placed it: every ship once, straight, on the
+ *  board, not overlapping. Returns an error in words, or null if it's fine. */
+export function checkFleet(ships: unknown): string | null {
+  if (!Array.isArray(ships) || ships.length !== FLEET.length) return 'Place all five ships';
+  const taken = new Set<number>();
+  for (const { name, size } of FLEET) {
+    const ship = ships.find((s) => s && s.name === name) as Ship | undefined;
+    if (!ship || !Array.isArray(ship.cells) || ship.cells.length !== size) return `Place the ${name}`;
+    const sorted = [...ship.cells].sort((a, b) => a - b);
+    const vertical = sorted.length > 1 && sorted[1] - sorted[0] === SIZE;
+    const want = cellsFor(sorted[0], size, vertical);
+    if (!want || want.some((c, i) => c !== sorted[i])) return `The ${name} must be in a straight line on the board`;
+    for (const c of sorted) { if (taken.has(c)) return 'Ships can’t overlap'; taken.add(c); }
+  }
+  return null;
+}
+
 export function randomFleet(random: () => number): Ship[] {
   for (;;) {
     const taken = new Set<number>();
@@ -90,7 +114,8 @@ export const seaBattle: GameModule<SeaState, Record<string, never>> = {
     sections: [
       { title: 'Placing your fleet', points: [
         'Each player has a Carrier (5 squares), a Battleship (4), a Cruiser (3), a Submarine (3) and a Destroyer (2).',
-        'Your fleet is laid out for you. Press Shuffle until you like where your ships are, then press Ready. Your opponent can’t see your fleet, and you can’t see theirs.',
+        'Your fleet starts laid out at random. To move a ship, click it to pick it up, press Rotate to turn it, and click the square where its front (top or left) end should go. A shadow shows whether it fits: ships must stay on the board and can’t overlap. Or press Shuffle for a new random layout.',
+        'Press Ready when you’re happy. Your opponent can’t see your fleet, and you can’t see theirs.',
         'Firing starts once both players are ready.',
       ] },
       { title: 'Firing', points: [
@@ -126,6 +151,17 @@ export const seaBattle: GameModule<SeaState, Record<string, never>> = {
       case 'shuffle':
         if (state.phase !== 'placing' || state.ready[seat]) return { error: 'Your fleet is already set' };
         return { state: { ...state, fleets: { ...state.fleets, [seat]: randomFleet(ctx.random) } } };
+      case 'place': {
+        if (state.phase !== 'placing' || state.ready[seat]) return { error: 'Your fleet is already set' };
+        const ships = (action as { ships?: unknown }).ships;
+        const problem = checkFleet(ships);
+        if (problem) return { error: problem };
+        const fleet = FLEET.map(({ name }) => {
+          const ship = (ships as Ship[]).find((x) => x.name === name)!;
+          return { name, cells: [...ship.cells].sort((a, b) => a - b) };
+        });
+        return { state: { ...state, fleets: { ...state.fleets, [seat]: fleet } } };
+      }
       case 'ready': {
         if (state.phase !== 'placing') return { error: 'Firing has started' };
         const ready = { ...state.ready, [seat]: true };

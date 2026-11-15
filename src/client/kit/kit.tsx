@@ -40,13 +40,15 @@ export function Disc({ colour, size = 40, ring, crown, className }: {
 /** An 8×8 (or any n×n) board in the chess board's colours. Square 0 is the
  *  bottom-left from the first player's side; `flipped` turns it round. Each
  *  square is a button when `onSquare` is given, so it works by keyboard. */
-export function SquareBoard({ size = 8, flipped, render, mark, onSquare, label, files = 'abcdefgh', variant }: {
+export function SquareBoard({ size = 8, flipped, render, mark, onSquare, onHover, label, files = 'abcdefgh', variant }: {
   size?: number;
   flipped?: boolean;
   render(index: number): ReactNode;
   /** Extra class per square: 'last', 'selected', 'target'... */
   mark?(index: number): string | undefined;
   onSquare?(index: number): void;
+  /** The square under the pointer (or keyboard focus), or null when it leaves. */
+  onHover?(index: number | null): void;
   label: string;
   files?: string;
   /** 'sea' for Sea Battle's waters; the default is the wooden board. */
@@ -72,7 +74,13 @@ export function SquareBoard({ size = 8, flipped, render, mark, onSquare, label, 
           </>
         );
         return onSquare
-          ? <button key={i} className={cls} aria-label={name} onClick={() => onSquare(i)}>{content}</button>
+          ? (
+            <button key={i} className={cls} aria-label={name} onClick={() => onSquare(i)}
+              onMouseEnter={onHover && (() => onHover(i))} onFocus={onHover && (() => onHover(i))}
+              onMouseLeave={onHover && (() => onHover(null))} onBlur={onHover && (() => onHover(null))}>
+              {content}
+            </button>
+          )
           : <div key={i} className={cls}>{content}</div>;
       })}
     </div>

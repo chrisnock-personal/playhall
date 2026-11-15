@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seaBattle, randomFleet, FLEET, SIZE, type SeaState, type SeaView } from './seabattle';
+import { seaBattle, randomFleet, checkFleet, cellsFor, FLEET, SIZE, type SeaState, type SeaView } from './seabattle';
 
 let seed = 11;
 const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -58,4 +58,24 @@ test('no firing twice at the same square', () => {
   s = ok(seaBattle.act(s, 'amber', { type: 'fire', cell: 5 }, 0, ctx));
   s = ok(seaBattle.act(s, 'teal', { type: 'fire', cell: 5 }, 0, ctx));
   assert.ok('error' in seaBattle.act(s, 'amber', { type: 'fire', cell: 5 }, 0, ctx));
+});
+
+test('placing your own fleet: checked on the server', () => {
+  const own = [
+    { name: 'Carrier', cells: cellsFor(0, 5, false)! },
+    { name: 'Battleship', cells: cellsFor(20, 4, true)! },
+    { name: 'Cruiser', cells: cellsFor(22, 3, false)! },
+    { name: 'Submarine', cells: cellsFor(55, 3, true)! },
+    { name: 'Destroyer', cells: cellsFor(98, 2, false)! },
+  ];
+  assert.equal(checkFleet(own), null);
+  assert.equal(cellsFor(98, 3, false), null, 'off the right edge');
+  assert.match(checkFleet(own.slice(0, 4))!, /all five/);
+  assert.match(checkFleet([...own.slice(0, 4), { name: 'Destroyer', cells: [1, 2] }])!, /overlap/);
+  assert.match(checkFleet([...own.slice(0, 4), { name: 'Destroyer', cells: [9, 10] }])!, /straight line/, 'no wrapping round a row');
+  let s = seaBattle.create({}, 0, ctx);
+  s = ok(seaBattle.act(s, 'amber', { type: 'place', ships: own }, 0, ctx));
+  assert.deepEqual(s.fleets.amber.find((x) => x.name === 'Battleship')!.cells, [20, 30, 40, 50]);
+  s = ok(seaBattle.act(s, 'amber', { type: 'ready' }, 0, ctx));
+  assert.ok('error' in seaBattle.act(s, 'amber', { type: 'place', ships: own }, 0, ctx), 'no moving ships once ready');
 });
