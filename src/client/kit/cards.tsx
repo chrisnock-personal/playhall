@@ -36,10 +36,15 @@ export function Card({ code, width = 62, highlight }: { code: Card | null; width
       {code && s ? (
         <>
           <rect x="1" y="1" width="68" height="98" rx="7" fill="#FBF8F1" stroke="#C9C1B2" strokeWidth="1.5" />
-          <text x="8" y="20" fontSize="17" fontWeight="700" fill={colour} fontFamily="Inter, system-ui, sans-serif">{rank}</text>
-          <text x="8" y="36" fontSize="15" fill={colour}>{s.glyph}</text>
-          <text x="62" y="80" fontSize="17" fontWeight="700" fill={colour} textAnchor="end" fontFamily="Inter, system-ui, sans-serif" transform="rotate(180 62 74)">{rank}</text>
-          <text x="35" y="66" fontSize="34" fill={colour} textAnchor="middle">{s.glyph}</text>
+          {[0, 180].map((turn) => (
+            // Each corner: rank over suit, centred on one column; the bottom
+            // right is the same corner turned about the card's centre.
+            <g key={turn} transform={turn ? 'rotate(180 35 50)' : undefined} fill={colour} textAnchor="middle" dominantBaseline="central">
+              <text x="12" y="15" fontSize={rank.length > 1 ? 14 : 17} fontWeight="700" letterSpacing={rank.length > 1 ? -1 : 0} fontFamily="Inter, system-ui, sans-serif">{rank}</text>
+              <text x="12" y="30" fontSize="13">{s.glyph}</text>
+            </g>
+          ))}
+          <text x="35" y="52" fontSize="32" fill={colour} textAnchor="middle" dominantBaseline="central">{s.glyph}</text>
         </>
       ) : <Back />}
     </svg>
@@ -83,8 +88,10 @@ export function ClashCardArt({ colour, value, width = 62, raised, dim }: {
           <path d="M0 0 L-24 0 A24 34 0 0 1 0 -24 Z" fill={CLASH_FILL.rose} />
         </g>
       ) : <ellipse cx="35" cy="50" rx="25" ry="36" transform="rotate(-30 35 50)" fill="#FBF8F1" />}
-      {mark && <text x="35" y={small ? 58 : 62} textAnchor="middle" fontSize={small ? 22 : 34} fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill={wild ? '#FBF8F1' : CLASH_FILL[colour]} stroke={wild ? '#1B1E24' : 'none'} strokeWidth="1">{mark}</text>}
-      <text x="9" y="17" fontSize="12" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill="#FBF8F1">{mark || 'W'}</text>
+      {mark && <text x="35" y="50" textAnchor="middle" dominantBaseline="central" fontSize={small ? 22 : 34} fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill={wild ? '#FBF8F1' : CLASH_FILL[colour]} stroke={wild ? '#1B1E24' : 'none'} strokeWidth="1">{mark}</text>}
+      {[0, 180].map((turn) => (
+        <text key={turn} x="12" y="14" transform={turn ? 'rotate(180 35 50)' : undefined} textAnchor="middle" dominantBaseline="central" fontSize="12" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill="#FBF8F1">{mark || 'W'}</text>
+      ))}
     </svg>
   );
 }
