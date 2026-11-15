@@ -127,8 +127,16 @@ phone, panels stack under a full-width stage.
    host rules, points and leaderboards (done 2026-11-15); then eight more
    games on a shared kit of boards, pieces, cards and dice: see
    [games.md](games.md).
-2. Voice and video through LiveKit (Table/Gallery channels, push to talk,
-   talking ring), transcripts, the camera table. Needs HTTPS (getUserMedia).
+2. **Voice and video, and any board game at all.** LiveKit in every room:
+   voice with the same table/gallery split as the chat, push to talk, the
+   talking ring, players' video on their seat cards, transcripts from the
+   shared Whisper. With video comes the **camera table**: the host points a
+   camera (a phone on a stand works) at a real board, moves the pieces for
+   everyone, and the room supplies the rest: seats and turns, a shared dice
+   roller, a score pad, a move timer, and the chat. That opens Playhall to
+   any board game, including ones nobody has written a plug-in for. Games
+   played this way are scored by hand: the host enters the placings at the
+   end, and they count if the players confirm. Needs HTTPS (getUserMedia).
 3. **OpenBOR rooms**: the server runs OpenBOR in a container per room, the
    host picks a mod, the game is streamed and up to four players control it
    from their browsers. Same streaming and input path as sharing a local
@@ -136,6 +144,9 @@ phone, panels stack under a full-width stage.
    [openbor.md](openbor.md).
 4. Sharing a local game, v1.
 5. The web-game plug-in SDK; sharing a local game, v2.
+
+Ideas not in a phase yet (tournaments, more games, bots, replays):
+[backlog.md](backlog.md).
 
 ## Known gaps in phase 1
 

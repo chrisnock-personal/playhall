@@ -68,6 +68,25 @@ export const fourInARow: GameModule<FourState, Record<string, never>> = {
   id: 'fourinarow',
   name: 'Four in a Row',
   description: 'Two players drop discs into a 7×6 frame. Four in a line wins.',
+  howToPlay: {
+    goal: 'Be the first to line up four of your discs: across, up and down, or diagonally.',
+    sections: [
+      { title: 'Taking turns', points: [
+        'Amber goes first; then you take turns.',
+        'Click a column to drop a disc into it. It falls to the lowest empty space. Hovering over a column shows where it would land.',
+        'A full column can\u2019t take any more discs.',
+      ] },
+      { title: 'How a game ends', points: [
+        'Four of your discs in a line wins; the four are ringed.',
+        'If the frame fills up with no four in a line, it\u2019s a draw.',
+        'You can resign at any time.',
+      ] },
+      { title: 'Tips', points: [
+        'The middle column is part of more possible lines than any other.',
+        'Watch for a threat that can be completed two ways: your opponent can only block one.',
+      ] },
+    ],
+  },
   seats: [
     { id: 'amber', label: 'Amber' },
     { id: 'teal', label: 'Teal' },

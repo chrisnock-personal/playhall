@@ -81,6 +81,30 @@ export const chess: GameModule<ChessState, ChessConfig> = {
   id: 'chess',
   name: 'Chess',
   description: 'Two players. The server checks every move; clocks, draw offers and resigning.',
+  howToPlay: {
+    goal: 'Checkmate the other king: attack it so that it has no safe square to move to and the attack can\u2019t be blocked or captured.',
+    sections: [
+      { title: 'Taking turns', points: [
+        'White moves first, then each side moves one piece per turn.',
+        'Drag a piece, or click it and then click a square. Only legal moves are allowed: the board shows them as dots.',
+        'You may never leave your own king in check.',
+      ] },
+      { title: 'How the pieces move', points: [
+        'King: one square any way. Queen: any distance in a straight line or diagonally.',
+        'Rook: any distance in a straight line. Bishop: any distance diagonally. Knight: an L shape, jumping over pieces.',
+        'Pawn: one square forward (two on its first move), capturing one square diagonally forward. A pawn reaching the far side becomes a queen, rook, bishop or knight: you choose.',
+      ] },
+      { title: 'Special moves', points: [
+        'Castling: the king moves two squares towards a rook, which jumps over it, if neither has moved, nothing is between them, and the king isn\u2019t in, through or into check.',
+        'En passant: a pawn that has just moved two squares past one of your pawns can be captured as if it had moved one.',
+      ] },
+      { title: 'How a game ends', points: [
+        'Checkmate wins. Resigning, or running out of time on the clock, loses.',
+        'Draws: stalemate (no legal move but not in check), a draw offer accepted, the same position three times, 50 moves each without a capture or pawn move, or too few pieces left to mate.',
+        'With a clock, your time runs only on your turn, starting after both sides have moved once; the increment is added after each of your moves.',
+      ] },
+    ],
+  },
   seats: [
     { id: 'white', label: 'White' },
     { id: 'black', label: 'Black' },

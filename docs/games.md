@@ -118,6 +118,12 @@ the logo's pawn are drawn to sit beside them.
 5. Cards and chips: **Blackjack**, **Colour Clash**, then **Texas Hold'em**
    (the biggest: betting, side pots, timeouts).
 
+Every game ships its own **How to play** (the goal and short sections on
+turns, moves and endings), shown in the room's Rules tab and in the lobby.
+
+More candidates (Letterworks, Manor Mystery, a creature card duel) are in
+[backlog.md](backlog.md).
+
 Leaderboards get a tab per game automatically (from the game list), and "All
 games" adds them up. The project overview page waits until these are in, so
 it shows phase 1 complete.

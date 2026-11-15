@@ -3,8 +3,10 @@ import type { Channel, ClientMessage, MemberView, RoomSnapshot } from '../../sha
 import type { GameClient, StageProps } from '../games/types';
 import type { SidePanelState } from './layout';
 import { Avatar, Icon } from '../ui';
+import { HowToPlay } from '../HowToPlay';
+import { useGames } from '../useGames';
 
-export type SideTab = Channel | 'people' | 'game';
+export type SideTab = Channel | 'people' | 'game' | 'rules';
 
 export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
   state: SidePanelState; onSet(v: SidePanelState): void; tab: SideTab; onTab(t: SideTab): void;
@@ -17,7 +19,9 @@ export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
     ...(snap.you.canRead.includes('gallery') ? [{ id: 'gallery' as SideTab, label: 'Gallery', icon: 'chat', badge: unread.gallery }] : []),
     { id: 'people', label: 'People', icon: 'people', badge: snap.you.host ? hands : 0 },
     ...(game?.tab ? [{ id: 'game' as SideTab, label: game.tab.label, icon: 'game', badge: 0 }] : []),
+    { id: 'rules' as SideTab, label: 'Rules', icon: 'help', badge: 0 },
   ];
+  const rules = useGames().find((g) => g.id === snap.room.gameId)?.howToPlay;
   const totalUnread = unread.table + unread.gallery;
 
   if (state === 'hidden') {
@@ -53,6 +57,7 @@ export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
       {(tab === 'table' || tab === 'gallery') && <Chat channel={tab} snap={snap} send={stage.send} />}
       {tab === 'people' && <People snap={snap} send={stage.send} />}
       {tab === 'game' && Tab && <div className="tab-body"><Tab {...stage} /></div>}
+      {tab === 'rules' && <div className="tab-body"><HowToPlay rules={rules} /></div>}
     </aside>
   );
 }

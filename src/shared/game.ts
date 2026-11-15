@@ -24,6 +24,13 @@ export interface GameResult {
   aborted?: boolean;
 }
 
+/** How to play, shown in every room's How to play tab and from the lobby. */
+export interface HowToPlay {
+  /** One or two sentences: what you're trying to do. */
+  goal: string;
+  sections: { title: string; points: string[] }[];
+}
+
 export type ActResult<S> = { state: S } | { error: string };
 
 /** What the room gives a game besides its state: luck comes from the server,
@@ -39,6 +46,7 @@ export interface GameModule<S = unknown, C = unknown> {
   id: string;
   name: string;
   description: string;
+  howToPlay: HowToPlay;
   /** All the seats the game can have. */
   seats: SeatDef[];
   /** Fewest players to start (default: every seat). */

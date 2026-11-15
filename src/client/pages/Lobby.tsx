@@ -4,6 +4,7 @@ import type { RoomSummary, SeatView } from '../../shared/protocol';
 import { GAME_CLIENTS } from '../games';
 import { Avatar } from '../ui';
 import { AppBar } from '../AppBar';
+import { HowToPlay } from '../HowToPlay';
 import { useGames, type GameInfo } from '../useGames';
 
 
@@ -146,11 +147,19 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
       <fieldset className="field">
         <legend>Game</legend>
         {games.map((g) => (
-          <label key={g.id} className={`game-pick${g.id === gameId ? ' on' : ''}`}>
-            <input type="radio" name="game" value={g.id} checked={g.id === gameId} onChange={() => { setGameId(g.id); setConfig(null); }} />
-            <span className="game-pick-head"><strong>{g.name}</strong><span className="muted">{g.seats.length} players</span></span>
-            <span className="muted">{g.description}</span>
-          </label>
+          <div key={g.id}>
+            <label className={`game-pick${g.id === gameId ? ' on' : ''}`}>
+              <input type="radio" name="game" value={g.id} checked={g.id === gameId} onChange={() => { setGameId(g.id); setConfig(null); }} />
+              <span className="game-pick-head"><strong>{g.name}</strong><span className="muted">{g.seats.length} players</span></span>
+              <span className="muted">{g.description}</span>
+            </label>
+            {g.id === gameId && g.howToPlay && (
+              <details className="rules-peek">
+                <summary>How to play {g.name}</summary>
+                <HowToPlay rules={g.howToPlay} />
+              </details>
+            )}
+          </div>
         ))}
         <p className="hint">Shared games from your PC and web-game plug-ins come in later phases.</p>
       </fieldset>

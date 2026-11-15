@@ -14,6 +14,7 @@ export function gameList() {
     id: g.id,
     name: g.name,
     description: g.description,
+    howToPlay: g.howToPlay,
     seats: g.seats,
     defaultConfig: g.defaultConfig,
   }));
