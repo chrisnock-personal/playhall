@@ -168,3 +168,31 @@ test('what counts: account holders in a ranked room; not guests, casual rooms or
   assert.equal(t.finished[0].counted, false);
   assert.match(t.finished[0].note!, /stopped/);
 });
+
+test('the move timer: a player who runs out of time loses a two-player game', () => {
+  const t = setup({ moveSeconds: 30 });
+  t.rec.gameId = 'fourinarow';
+  const room = new Room(t.rec, {
+    now: () => clock, random: Math.random, setTimer: (ms, fn) => { timers.push({ at: clock + ms, fn }); return () => {}; },
+    save: () => {}, chat: () => {}, gameOver: (g) => { results.push(g.result); }, changed: () => {},
+  });
+  let clock = 0;
+  const timers: { at: number; fn: () => void }[] = [];
+  const results: unknown[] = [];
+  const advance = (ms: number) => { clock += ms; for (const tm of timers.splice(0)) { if (tm.at <= clock) tm.fn(); else timers.push(tm); } };
+  for (const u of [host, alex]) room.join(u);
+  room.handle(host, { t: 'sit', seat: 'amber' });
+  room.handle(alex, { t: 'sit', seat: 'teal' });
+  room.handle(host, { t: 'start' });
+  assert.deepEqual(room.snapshotFor(host.id).game.turnSeats, ['amber']);
+  assert.equal(room.snapshotFor(host.id).game.moveDeadline, 30_000);
+  advance(20_000);
+  room.handle(host, { t: 'act', action: { type: 'drop', col: 3 } });
+  assert.equal(room.snapshotFor(host.id).game.moveDeadline, 50_000, 'a fresh 30 s for teal');
+  advance(29_000);
+  assert.equal(results.length, 0);
+  advance(2_000);
+  assert.deepEqual(results, [{ winner: 'amber', reason: 'Teal running out of move time' }]);
+  assert.equal(room.snapshotFor(host.id).game.result?.reason, 'Teal running out of move time');
+  assert.throws(() => room.handle(host, { t: 'settings', settings: { moveSeconds: 7 } }), /from the list/);
+});

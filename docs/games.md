@@ -110,9 +110,10 @@ the logo's pawn are drawn to sit beside them.
 ## Order
 
 1. **Done**: the contract changes (seats, views, randomness, placings),
-   with chess moved onto them unchanged. The move timer is still to do.
-2. **Four in a Row done** on the kit's discs, colours and player strip
-   (`src/client/kit/`); **Checkers** next.
+   with chess moved onto them unchanged, and the **move timer** (Room rules:
+   15 s to 5 min a move; run out and you lose a two-player game).
+2. **Done**: **Four in a Row** and **Checkers** on the kit's discs, colours,
+   square board and player strip (`src/client/kit/`).
 3. Dice and the track board: **Snakes and Ladders**, then **Ludo**.
 4. Hidden information: **Sea Battle**.
 5. Cards and chips: **Blackjack**, **Colour Clash**, then **Texas Hold'em**

@@ -120,6 +120,7 @@ export const fourInARow: GameModule<FourState, Record<string, never>> = {
     return { state: { grid, moves, winLine, result } };
   },
 
+  turn: (state) => (state.result ? [] : [turnOf(state)]),
   tick: () => null,
   nextDeadline: () => null,
   result: (state) => state.result,

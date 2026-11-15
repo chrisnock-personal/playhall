@@ -18,6 +18,9 @@ export interface RoomSettings {
   /** Who plays the next game: the same players, the winner and the next in
    *  the queue, or the next two in the queue. */
   afterGame: 'same' | 'winnerStays' | 'rotate';
+  /** Seconds each player has for a move, 0 = no limit (games with their
+   *  own clocks, like chess, don't use it). */
+  moveSeconds: number;
   /** Finished games here count for the leaderboards (between account
    *  holders). Off makes a casual room. */
   ranked: boolean;
@@ -33,6 +36,7 @@ export const DEFAULT_SETTINGS: Omit<RoomSettings, 'gameConfig'> = {
   watchersWriteTable: false,
   afterGame: 'same',
   ranked: true,
+  moveSeconds: 0,
 };
 
 export interface MemberView {
@@ -76,12 +80,18 @@ export interface RoomSnapshot {
     settings: RoomSettings;
     /** Needs a password to join. */
     locked: boolean;
+    /** The game has turns, so the move timer applies. */
+    moveTimer: boolean;
   };
   seats: SeatView[];
   members: MemberView[];
   /** userIds with a raised hand, oldest first. */
   queue: string[];
-  game: { status: GameStatus; view: unknown; result: GameResult | null };
+  game: {
+    status: GameStatus; view: unknown; result: GameResult | null;
+    /** Whose turn it is, and when the move timer runs out for them. */
+    turnSeats: SeatId[]; moveDeadline: number | null;
+  };
   /** Points and standings from the game that just ended, until the next starts. */
   lastResult: LastResult | null;
   chat: ChatLine[];

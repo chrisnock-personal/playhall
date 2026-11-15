@@ -240,6 +240,23 @@ cg-board { background-color: #a97f57; }
 @media (prefers-reduced-motion: reduce) { .four-hole .drop { animation: none; } }
 .four-moves li { grid-template-columns: 36px 20px 1fr; align-items: center; }
 
+/* ---- kit: square board (checkers, later Sea Battle) ---- */
+.checkers-col { width: min(100cqw - 20px, 100cqh - 170px); min-width: 240px; display: flex; flex-direction: column; gap: 8px; }
+.square-board { display: grid; aspect-ratio: 1 / 1; width: 100%; border-radius: 6px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.square-board .sq { position: relative; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; }
+.square-board button.sq { cursor: pointer; }
+.square-board .sq.light { background: #E6D5B3; }
+.square-board .sq.dark { background: #A97F57; }
+.square-board .sq.last { background: #CDAA4E; }
+.square-board .sq.selected { box-shadow: inset 0 0 0 4px #F0A53C; }
+.square-board .sq.movable { box-shadow: inset 0 0 0 2px rgba(240, 165, 60, .55); }
+.square-board .sq.target::after { content: ''; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: rgba(240, 165, 60, .75); }
+.square-board .coord { position: absolute; font: 600 10px var(--body); opacity: .8; pointer-events: none; }
+.square-board .coord.rank { top: 3px; left: 4px; }
+.square-board .coord.file { bottom: 2px; right: 4px; }
+.square-board .sq.dark .coord { color: #F1E4C8; } .square-board .sq.light .coord { color: #8A6440; }
+.piece-count { font-size: 12px; color: var(--muted); }
+
 /* ---- how to play ---- */
 .how-to-play { display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.5; }
 .how-to-play .goal { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-hover); font-weight: 500; }

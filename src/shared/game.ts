@@ -59,6 +59,13 @@ export interface GameModule<S = unknown, C = unknown> {
   create(config: C, now: number, ctx: GameContext): S;
   /** Apply one action from a seated player. */
   act(state: S, seat: SeatId, action: unknown, now: number, ctx: GameContext): ActResult<S>;
+  /** Who has to act now. Games that give it get the room's move timer
+   *  (games with their own clocks, like chess, leave it out). */
+  turn?(state: S): SeatId[];
+  /** The move timer ran out for `seat`. Without this, in a two-player game
+   *  that seat loses; a game for more players should say what happens
+   *  (skip the turn, play automatically). */
+  timeout?(state: S, seat: SeatId, now: number, ctx: GameContext): S;
   /** Called when a deadline passes (e.g. a clock runs out); null = no change. */
   tick(state: S, now: number): S | null;
   /** When tick() next needs calling, as a timestamp; null = no deadline. */

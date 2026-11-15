@@ -37,10 +37,66 @@ export function Disc({ colour, size = 40, ring, crown, className }: {
   );
 }
 
+/** An 8×8 (or any n×n) board in the chess board's colours. Square 0 is the
+ *  bottom-left from the first player's side; `flipped` turns it round. Each
+ *  square is a button when `onSquare` is given, so it works by keyboard. */
+export function SquareBoard({ size = 8, flipped, render, mark, onSquare, label, files = 'abcdefgh' }: {
+  size?: number;
+  flipped?: boolean;
+  render(index: number): ReactNode;
+  /** Extra class per square: 'last', 'selected', 'target'... */
+  mark?(index: number): string | undefined;
+  onSquare?(index: number): void;
+  label: string;
+  files?: string;
+}) {
+  const cells: number[] = [];
+  for (let vr = 0; vr < size; vr++) for (let vc = 0; vc < size; vc++) {
+    const r = flipped ? vr : size - 1 - vr, c = flipped ? size - 1 - vc : vc;
+    cells.push(r * size + c);
+  }
+  return (
+    <div className="square-board" role="grid" aria-label={label} style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${size}, minmax(0, 1fr))` }}>
+      {cells.map((i, n) => {
+        const r = Math.floor(i / size), c = i % size;
+        const dark = (r + c) % 2 === 0;
+        const name = `${files[c] ?? c + 1}${r + 1}`;
+        const cls = `sq ${dark ? 'dark' : 'light'} ${mark?.(i) ?? ''}`;
+        const content = (
+          <>
+            {render(i)}
+            {n % size === 0 && <span className="coord rank">{r + 1}</span>}
+            {n >= size * (size - 1) && <span className="coord file">{files[c] ?? c + 1}</span>}
+          </>
+        );
+        return onSquare
+          ? <button key={i} className={cls} aria-label={name} onClick={() => onSquare(i)}>{content}</button>
+          : <div key={i} className={cls}>{content}</div>;
+      })}
+    </div>
+  );
+}
+
+/** Counts down the room's move timer for the seat whose turn it is. */
+export function MoveTimer({ snap, seatId, receivedAt }: { snap: RoomSnapshot; seatId: string; receivedAt: number }) {
+  const deadline = snap.game.moveDeadline;
+  const active = !!deadline && snap.game.turnSeats.includes(seatId);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [active]);
+  if (!active || !deadline) return null;
+  const left = Math.max(0, deadline - snap.serverNow - (now - receivedAt));
+  const s = Math.ceil(left / 1000);
+  return <span className={`clock running${left < 10_000 ? ' low' : ''}`} aria-label="Time left for this move">{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</span>;
+}
+
 /** A seated player above or below a board: colour, name, whose turn it is,
  *  a "Sit here" button for a free seat, and a slot for a clock or score. */
-export function PlayerStrip({ snap, send, seatId, toMove, extra }: {
-  snap: RoomSnapshot; send(m: ClientMessage): void; seatId: string; toMove: boolean; extra?: ReactNode;
+export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {
+  snap: RoomSnapshot; send(m: ClientMessage): void; seatId: string; toMove: boolean; extra?: ReactNode; receivedAt?: number;
 }) {
   const seat = snap.seats.find((s) => s.id === seatId)!;
   const member = snap.members.find((m) => m.userId === seat.userId);
@@ -62,6 +118,7 @@ export function PlayerStrip({ snap, send, seatId, toMove, extra }: {
       )}
       {canSit && <button className="btn small primary" onClick={() => send({ t: 'sit', seat: seatId })}>Sit here</button>}
       {extra}
+      {receivedAt !== undefined && <MoveTimer snap={snap} seatId={seatId} receivedAt={receivedAt} />}
     </div>
   );
 }

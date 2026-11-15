@@ -35,7 +35,13 @@ export interface RoomRecord {
   /** bcrypt hash of the room password; null = no password. Never sent out. */
   passwordHash: string | null;
   seats: Record<SeatId, SeatHolder | null>;
-  game: { status: GameStatus; state: unknown; startedAt: number | null; players: Record<SeatId, SeatHolder> | null };
+  game: {
+    status: GameStatus; state: unknown; startedAt: number | null; players: Record<SeatId, SeatHolder> | null;
+    /** When the move timer runs out for whoever's turn it is. */
+    moveDeadline?: number | null;
+    /** A result the room decided (the move timer), not the game. */
+    result?: GameResult | null;
+  };
 }
 
 export interface RoomHooks {
@@ -272,9 +278,30 @@ export class Room {
       this.finish(result);
       return true;
     }
+    this.resetMoveDeadline();
     this.armTimer();
     this.touch();
     return false;
+  }
+
+  /** A fresh move timer for whoever's turn it now is (after every action). */
+  private resetMoveDeadline(): void {
+    const secs = this.rec.settings.moveSeconds;
+    const seats = this.game.turn?.(this.rec.game.state) ?? [];
+    this.rec.game.moveDeadline = this.status === 'playing' && secs > 0 && seats.length ? this.hooks.now() + secs * 1000 : null;
+  }
+
+  /** The move timer ran out. */
+  private moveTimeout(): void {
+    const seat = this.game.turn?.(this.rec.game.state)?.[0];
+    if (!seat) return;
+    if (this.game.timeout) {
+      this.rec.game.state = this.game.timeout(this.rec.game.state, seat, this.hooks.now(), this.context());
+      this.afterChange();
+      return;
+    }
+    const others = Object.keys(this.rec.game.players ?? {}).filter((s) => s !== seat);
+    this.finish({ winner: others.length === 1 ? others[0] : null, reason: `${this.seatLabel(seat)} running out of move time` });
   }
 
   /** The seats with someone in them (while a game is on, its players' seats). */
@@ -303,8 +330,9 @@ export class Room {
     const players: Record<SeatId, SeatHolder> = {};
     for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
     const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random() };
-    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players };
+    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null };
     this.lastResult = null;
+    this.resetMoveDeadline();
     const who = this.game.seats.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
     this.armTimer();
@@ -316,6 +344,8 @@ export class Room {
     this.cancelTimer = null;
     const players = this.rec.game.players ?? {};
     this.rec.game.status = 'over';
+    this.rec.game.result = result;
+    this.rec.game.moveDeadline = null;
     const placings = placingsOf(result, Object.keys(players));
     const who = (seat: SeatId) => `${players[seat]?.name ?? this.seatLabel(seat)} (${this.seatLabel(seat)})`;
     let line = placings[0].length === 1 ? `${who(placings[0][0])} won` : 'Draw';
@@ -406,6 +436,11 @@ export class Room {
     }
     if (r.seatPolicy === 'open' || r.seatPolicy === 'host') s.seatPolicy = r.seatPolicy;
     if (r.afterGame === 'same' || r.afterGame === 'winnerStays' || r.afterGame === 'rotate') s.afterGame = r.afterGame;
+    if (typeof r.moveSeconds === 'number' && r.moveSeconds !== s.moveSeconds) {
+      if (this.status === 'playing') throw new RoomError('Change the move timer between games');
+      if (![0, 15, 30, 60, 120, 300].includes(r.moveSeconds)) throw new RoomError('Pick a move timer from the list');
+      s.moveSeconds = r.moveSeconds;
+    }
     if (r.gameConfig !== undefined) {
       if (this.status === 'playing') throw new RoomError('Change the game settings between games');
       s.gameConfig = this.game.parseConfig(r.gameConfig);
@@ -436,11 +471,13 @@ export class Room {
     this.cancelTimer?.();
     this.cancelTimer = null;
     if (this.status !== 'playing') return;
-    const deadline = this.game.nextDeadline(this.rec.game.state);
-    if (deadline === null) return;
+    const deadlines = [this.game.nextDeadline(this.rec.game.state), this.rec.game.moveDeadline ?? null].filter((d): d is number => d !== null);
+    if (!deadlines.length) return;
+    const deadline = Math.min(...deadlines);
     this.cancelTimer = this.hooks.setTimer(Math.max(0, deadline - this.hooks.now()) + 5, () => {
       this.cancelTimer = null;
       if (this.status !== 'playing') return;
+      if (this.rec.game.moveDeadline && this.hooks.now() >= this.rec.game.moveDeadline) { this.moveTimeout(); return; }
       const ticked = this.game.tick(this.rec.game.state, this.hooks.now());
       if (ticked) { this.rec.game.state = ticked; this.afterChange(); } else this.armTimer();
     });
@@ -482,6 +519,7 @@ export class Room {
         hostId: this.rec.hostId,
         settings: this.rec.settings,
         locked: !!this.rec.passwordHash,
+        moveTimer: !!this.game.turn,
       },
       seats: this.game.seats.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
@@ -492,7 +530,9 @@ export class Room {
       game: {
         status: g.status,
         view: g.state ? this.game.view(g.state, now, this.seatOf(userId)) : null,
-        result: g.state ? this.game.result(g.state) : null,
+        result: g.result ?? (g.state ? this.game.result(g.state) : null),
+        turnSeats: g.status === 'playing' && g.state ? this.game.turn?.(g.state) ?? [] : [],
+        moveDeadline: g.status === 'playing' ? g.moveDeadline ?? null : null,
       },
       chat: this.chatLines.filter((l) => canRead.includes(l.channel)),
       you: {

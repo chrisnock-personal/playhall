@@ -79,6 +79,16 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
             <span className="hint">Seats go to people asking for one, oldest first. If nobody is asking, the players stay.</span>
           </div>
           {game && <game.ConfigPicker value={s.gameConfig} onChange={(v) => update({ gameConfig: v })} disabled={playing} />}
+          {snap.room.moveTimer && (
+            <label className="field"><span>Move timer</span>
+              <select value={s.moveSeconds} disabled={playing} onChange={(e) => update({ moveSeconds: Number(e.target.value) })}>
+                {[[0, 'No limit'], [15, '15 seconds a move'], [30, '30 seconds a move'], [60, '1 minute a move'], [120, '2 minutes a move'], [300, '5 minutes a move']].map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+              <span className="hint">Run out and you lose the game (in games for more players, your turn is played or skipped).</span>
+            </label>
+          )}
           {playing && <p className="hint">The time control can change between games.</p>}
         </section>
         <section>

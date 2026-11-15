@@ -23,7 +23,7 @@ function FourStage(props: StageProps) {
   return (
     <div className="board-stage">
       <div className="four-col">
-        <PlayerStrip snap={snap} send={send} seatId={top} toMove={playing && turn === top} />
+        <PlayerStrip snap={snap} send={send} seatId={top} toMove={playing && turn === top} receivedAt={props.receivedAt} />
         <div className="four-board" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {Array.from({ length: cols }, (_, c) => {
             const full = landing(grid, c) < 0;
@@ -55,7 +55,7 @@ function FourStage(props: StageProps) {
             );
           })}
         </div>
-        <PlayerStrip snap={snap} send={send} seatId={top === 'amber' ? 'teal' : 'amber'} toMove={playing && turn !== top} />
+        <PlayerStrip snap={snap} send={send} seatId={top === 'amber' ? 'teal' : 'amber'} toMove={playing && turn !== top} receivedAt={props.receivedAt} />
         <GameActions snap={snap} send={send} />
       </div>
     </div>
