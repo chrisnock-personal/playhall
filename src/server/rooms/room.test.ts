@@ -13,6 +13,7 @@ function setup(settings: Partial<RoomSettings> = {}) {
   const timers: { at: number; fn: () => void; live: boolean }[] = [];
   const over: unknown[] = [];
   const finished: { counted: boolean; note: string | null }[] = [];
+  const kicked: string[] = [];
   const hooks: RoomHooks = {
     now: () => now,
     random: Math.random,
@@ -21,11 +22,12 @@ function setup(settings: Partial<RoomSettings> = {}) {
     chat: () => {},
     gameOver: (g) => { over.push(g.result); finished.push(g); },
     changed: () => {},
+    kick: (id) => { kicked.push(id); },
   };
   const rec: RoomRecord = {
     id: 'r1', code: 'ABC123', name: 'Test', gameId: 'chess', hostId: host.id, hostName: host.name,
     settings: { ...DEFAULT_SETTINGS, gameConfig: { initialSeconds: 60, incrementSeconds: 0 }, ...settings },
-    seats: {}, game: { status: 'idle', state: null, startedAt: null, players: null }, passwordHash: null,
+    seats: {}, game: { status: 'idle', state: null, startedAt: null, players: null }, passwordHash: null, banned: [],
   };
   const room = new Room(rec, hooks);
   for (const u of [host, alex, priya, guest]) room.join(u);
@@ -33,7 +35,7 @@ function setup(settings: Partial<RoomSettings> = {}) {
     now += ms;
     for (const t of timers) if (t.live && t.at <= now) { t.live = false; t.fn(); }
   };
-  return { room, rec, over, finished, advance };
+  return { room, rec, over, finished, kicked, advance };
 }
 
 const move = (from: string, to: string) => ({ t: 'act' as const, action: { type: 'move', from, to } });
@@ -174,7 +176,7 @@ test('the move timer: a player who runs out of time loses a two-player game', ()
   t.rec.gameId = 'fourinarow';
   const room = new Room(t.rec, {
     now: () => clock, random: Math.random, setTimer: (ms, fn) => { timers.push({ at: clock + ms, fn }); return () => {}; },
-    save: () => {}, chat: () => {}, gameOver: (g) => { results.push(g.result); }, changed: () => {},
+    save: () => {}, chat: () => {}, gameOver: (g) => { results.push(g.result); }, changed: () => {}, kick: () => {},
   });
   let clock = 0;
   const timers: { at: number; fn: () => void }[] = [];
@@ -201,7 +203,7 @@ test('games for more players start with some seats empty, once the minimum are s
   const t = setup();
   t.rec.gameId = 'snakes';
   const room = new Room(t.rec, {
-    now: () => 0, random: () => 0.5, setTimer: () => () => {}, save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {},
+    now: () => 0, random: () => 0.5, setTimer: () => () => {}, save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {}, kick: () => {},
   });
   for (const u of [host, alex, priya]) room.join(u);
   room.handle(host, { t: 'sit', seat: 'amber' });
@@ -235,4 +237,33 @@ test('watcher delay: off by default; when set, watchers see the board and table 
   const later = room.snapshotFor(priya.id);
   assert.equal(later.game.status, 'over');
   assert.ok(later.chat.some((l) => l.text === 'Bold opening'));
+});
+
+test('a player who drops out has a minute to come back, then forfeits', () => {
+  const t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  t.room.leave(alex.id);
+  assert.ok(t.room.snapshotFor(host.id).game.leaving.black, 'a countdown for Black');
+  t.advance(30_000);
+  t.room.join(alex);
+  assert.deepEqual(t.room.snapshotFor(host.id).game.leaving, {}, 'back in time');
+  t.room.leave(alex.id);
+  t.advance(61_000);
+  assert.deepEqual(t.over, [{ winner: 'white', reason: 'Alex leaving the game' }]);
+});
+
+test('the host can remove someone; they can\u2019t come back', () => {
+  const t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  assert.throws(() => t.room.handle(alex, { t: 'kick', userId: 'p' }), /Only the host/);
+  t.room.handle(host, { t: 'kick', userId: 'a' });
+  assert.deepEqual(t.kicked, ['a']);
+  assert.equal(t.room.seatOf('a'), null);
+  assert.equal(t.finished.length, 1, 'the game was stopped');
+  assert.ok(t.room.isBanned('a'));
+  assert.ok(t.rec.banned.includes('a'));
 });

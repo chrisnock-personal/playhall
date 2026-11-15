@@ -209,6 +209,7 @@ input:disabled { opacity: 0.6; }
 .clock { font: 700 20px var(--mono); padding: 4px 12px; border-radius: 8px; background: var(--surface-2); color: var(--text-2); margin-left: auto; font-variant-numeric: tabular-nums; }
 .clock.running { background: var(--accent); color: var(--on-accent); }
 .clock.running.low { background: #d9534f; color: #fff; }
+.clock.away { background: #1f2a3a; color: #9cc3f0; font-size: 13px; }
 .seat-meta .clock { font-size: 14px; padding: 3px 8px; }
 .stage-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 40px; }
 .stage-actions .note { color: var(--muted); font-size: 13px; }

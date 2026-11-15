@@ -165,6 +165,7 @@ function SeatPicker({ snap, onPick, label }: { snap: RoomSnapshot; onPick(seat: 
 
 function HostActions({ m, snap, send, playing }: { m: MemberView; snap: RoomSnapshot; send(msg: ClientMessage): void; playing: boolean }) {
   const [confirm, setConfirm] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const canPlay = !m.guest || snap.room.settings.guestsCanPlay;
   return (
     <div className="host-actions">
@@ -177,6 +178,9 @@ function HostActions({ m, snap, send, playing }: { m: MemberView; snap: RoomSnap
           {playing ? 'Stop game and move' : 'To watching'}
         </button>)}
       {!m.guest && m.online && <button className="btn tiny" onClick={() => send({ t: 'makeHost', userId: m.userId })}>Make host</button>}
+      {removing
+        ? <><button className="btn tiny danger" onClick={() => { send({ t: 'kick', userId: m.userId }); setRemoving(false); }}>Remove for good</button><button className="btn tiny" onClick={() => setRemoving(false)}>Keep</button></>
+        : <button className="btn tiny" onClick={() => setRemoving(true)}>Remove</button>}
     </div>
   );
 }

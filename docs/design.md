@@ -150,10 +150,7 @@ Ideas not in a phase yet (tournaments, more games, bots, replays):
 
 ## Known gaps in phase 1
 
-- A player who disconnects mid-game keeps their seat and their clock keeps
-  running; there's no "claim the win" after a grace period yet.
 - Server downtime counts against the player whose clock was running.
-- No kick or ban; the host can only move people to watching.
 - The WebSocket takes the session token in its URL, so it must not be logged
   by a proxy.
 - Dark theme only.

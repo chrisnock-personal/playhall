@@ -58,6 +58,6 @@ the rules (drawn from the kit).
   don't count for the leaderboard.
 - **Replays**: step through a finished game move by move, from its stored
   state ("Review the game" on the end-of-game card).
-- **Kick and ban** for hosts; reporting for admins.
+- **Reporting** for admins (hosts can already remove people).
 - **Light theme.**
 - **Rematch** button for the players themselves, not only the host.

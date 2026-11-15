@@ -97,6 +97,8 @@ export interface RoomSnapshot {
     status: GameStatus; view: unknown; result: GameResult | null;
     /** Whose turn it is, and when the move timer runs out for them. */
     turnSeats: SeatId[]; moveDeadline: number | null;
+    /** Players who dropped out mid-game, and when they forfeit if not back. */
+    leaving: Record<SeatId, number>;
   };
   /** Points and standings from the game that just ended, until the next starts. */
   lastResult: LastResult | null;
@@ -124,6 +126,7 @@ export type ClientMessage =
   | { t: 'seat'; userId: string; seat: SeatId }
   | { t: 'unseat'; userId: string }
   | { t: 'makeHost'; userId: string }
+  | { t: 'kick'; userId: string }
   | { t: 'settings'; settings: Partial<RoomSettings> };
 
 export type ServerMessage =

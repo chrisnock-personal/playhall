@@ -14,7 +14,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 interface RoomRow {
   id: string; code: string; name: string; game_id: string; host_id: string; host_name: string;
-  settings: RoomSettings; seats: RoomRecord['seats']; game: RoomRecord['game']; password_hash: string | null;
+  settings: RoomSettings; seats: RoomRecord['seats']; game: RoomRecord['game']; password_hash: string | null; banned: string[];
 }
 
 export interface CreateRoomInput {
@@ -36,7 +36,7 @@ export class RoomManager {
   private saveTimers = new Map<string, NodeJS.Timeout>();
   private idleTimers = new Map<string, NodeJS.Timeout>();
 
-  constructor(private db: Db, private onChanged: (room: Room) => void) {}
+  constructor(private db: Db, private onChanged: (room: Room) => void, private onKick: (room: Room, userId: string, reason: string) => void = () => {}) {}
 
   async get(code: string): Promise<Room | null> {
     code = code.toUpperCase();
@@ -52,7 +52,7 @@ export class RoomManager {
 
   private async load(code: string): Promise<Room | null> {
     const { rows } = await this.db.query<RoomRow>(
-      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash, r.banned
          FROM rooms r JOIN users u ON u.id = r.host_id
         WHERE r.code = $1 AND r.closed_at IS NULL`, [code]);
     const row = rows[0];
@@ -65,7 +65,7 @@ export class RoomManager {
       id: row.id, code: row.code, name: row.name, gameId: row.game_id,
       hostId: row.host_id, hostName: row.host_name,
       settings: { ...DEFAULT_SETTINGS, ...row.settings },
-      seats: row.seats, game: row.game, passwordHash: row.password_hash,
+      seats: row.seats, game: row.game, passwordHash: row.password_hash, banned: row.banned ?? [],
     };
     const history: ChatLine[] = chat.map((c) => ({
       id: c.line_id, channel: c.channel, kind: c.kind, userId: c.user_id, name: c.name, text: c.body, at: Number(c.at),
@@ -92,6 +92,7 @@ export class RoomManager {
           .then((standings) => room.setLastResult(standings))
           .catch((err) => console.error('[rooms] saving the result failed:', err.message));
       },
+      kick: (userId, reason) => this.onKick(room, userId, reason),
       changed: () => {
         if (room) this.onChanged(room);
         if (room) this.checkIdle(room);
@@ -107,8 +108,8 @@ export class RoomManager {
     this.saveTimers.set(rec.id, setTimeout(() => {
       this.saveTimers.delete(rec.id);
       this.db.query(
-        `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, updated_at = now() WHERE id = $1`,
-        [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash],
+        `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, banned = $8, updated_at = now() WHERE id = $1`,
+        [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash, JSON.stringify(rec.banned ?? [])],
       ).catch((err) => console.error('[rooms] save failed:', err.message));
     }, SAVE_DELAY_MS));
   }
@@ -156,7 +157,7 @@ export class RoomManager {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
           [code, name, game.id, host.id, JSON.stringify(settings), JSON.stringify(seats), JSON.stringify(gameRec), input.passwordHash ?? null]);
         return this.adopt({
-          id: rows[0].id, code, name, gameId: game.id, hostId: host.id, hostName: host.name, settings, seats, game: gameRec, passwordHash: input.passwordHash ?? null,
+          id: rows[0].id, code, name, gameId: game.id, hostId: host.id, hostName: host.name, settings, seats, game: gameRec, passwordHash: input.passwordHash ?? null, banned: [],
         }, []);
       } catch (err) {
         if ((err as { code?: string }).code !== '23505') throw err;

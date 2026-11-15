@@ -34,6 +34,8 @@ export interface RoomRecord {
   settings: RoomSettings;
   /** bcrypt hash of the room password; null = no password. Never sent out. */
   passwordHash: string | null;
+  /** People the host removed; they can't come back. */
+  banned: string[];
   seats: Record<SeatId, SeatHolder | null>;
   game: {
     status: GameStatus; state: unknown; startedAt: number | null; players: Record<SeatId, SeatHolder> | null;
@@ -57,7 +59,12 @@ export interface RoomHooks {
   gameOver(ended: FinishedGame): void;
   /** Something visible changed: send everyone a fresh snapshot. */
   changed(): void;
+  /** Disconnect someone (the host removed them). */
+  kick(userId: string, reason: string): void;
 }
+
+/** How long a player who drops out mid-game has to come back. */
+export const GRACE_MS = 60_000;
 
 export interface FinishedGame {
   rec: RoomRecord;
@@ -85,6 +92,8 @@ export class Room {
   private lastResult: LastResult | null = null;
   /** The game's states over time, for watchers who see it late. */
   private history: { at: number; state: unknown }[] = [];
+  /** Seats whose player dropped out mid-game: when they forfeit, and the timer. */
+  private leaving = new Map<SeatId, { deadline: number; cancel: () => void }>();
   private endedAt: number | null = null;
 
   constructor(readonly rec: RoomRecord, private hooks: RoomHooks, history: ChatLine[] = []) {
@@ -102,7 +111,14 @@ export class Room {
   join(user: RoomUser): void {
     const p = this.present.get(user.id);
     if (p) { p.conns++; p.user = user; } else this.present.set(user.id, { user, conns: 1 });
+    const seat = this.seatOf(user.id);
+    const away = seat ? this.leaving.get(seat) : undefined;
+    if (seat && away) { away.cancel(); this.leaving.delete(seat); this.system(`${user.name} is back`); }
     this.hooks.changed();
+  }
+
+  isBanned(userId: string): boolean {
+    return (this.rec.banned ?? []).includes(userId);
   }
 
   leave(userId: string): void {
@@ -111,7 +127,32 @@ export class Room {
     if (--p.conns > 0) return;
     this.present.delete(userId);
     this.queue = this.queue.filter((id) => id !== userId);
+    const seat = this.seatOf(userId);
+    if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)) {
+      const deadline = this.hooks.now() + GRACE_MS;
+      const cancel = this.hooks.setTimer(GRACE_MS, () => { this.leaving.delete(seat); this.forfeit(seat); });
+      this.leaving.set(seat, { deadline, cancel });
+      this.system(`${p.user.name} dropped out: back within a minute or the game goes on without them`);
+    }
     this.hooks.changed();
+  }
+
+  /** A player who dropped out didn't come back in time. */
+  private forfeit(seat: SeatId): void {
+    if (this.status !== 'playing' || !this.rec.game.players) return;
+    const others = Object.keys(this.rec.game.players).filter((s) => s !== seat);
+    const reason = `${this.rec.game.players[seat]?.name ?? this.seatLabel(seat)} leaving the game`;
+    if (others.length === 1) { this.finish({ winner: others[0], reason }); return; }
+    const r = this.game.act(this.rec.game.state, seat, { type: 'resign' }, this.hooks.now(), this.context());
+    if ('error' in r) { this.finish({ winner: null, reason, aborted: true }); return; }
+    this.rec.game.state = r.state;
+    this.system(`${reason}: they're out of this game`);
+    this.afterChange();
+  }
+
+  private clearLeaving(): void {
+    for (const l of this.leaving.values()) l.cancel();
+    this.leaving.clear();
   }
 
   /** Standings after the last game, filled in once the results are saved. */
@@ -125,6 +166,7 @@ export class Room {
   }
 
   dispose(): void {
+    this.clearLeaving();
     this.cancelTimer?.();
     this.cancelTimer = null;
   }
@@ -184,6 +226,7 @@ export class Room {
       case 'seat': this.hostOnly(user); return this.seatSomeone(msg.userId, msg.seat);
       case 'unseat': this.hostOnly(user); return this.unseat(msg.userId);
       case 'makeHost': this.hostOnly(user); return this.makeHost(msg.userId);
+      case 'kick': this.hostOnly(user); return this.kick(user, msg.userId);
       case 'settings': this.hostOnly(user); return this.updateSettings(msg.settings);
       default: throw new RoomError('Unknown request');
     }
@@ -365,6 +408,7 @@ export class Room {
     this.cancelTimer = null;
     const players = this.rec.game.players ?? {};
     this.rec.game.status = 'over';
+    this.clearLeaving();
     this.rec.game.result = result;
     this.endedAt = this.hooks.now();
     this.record();
@@ -434,6 +478,27 @@ export class Room {
     const now = this.seatOf(userId);
     if (now) this.rec.seats[now] = null;
     this.system(`The host moved ${name} to watching`);
+    this.touch();
+  }
+
+  /** Remove someone from the room for good. */
+  private kick(host: RoomUser, userId: string): void {
+    if (userId === host.id) throw new RoomError('You can\u2019t remove yourself');
+    const name = this.present.get(userId)?.user.name ?? Object.values(this.rec.seats).find((h) => h?.userId === userId)?.name;
+    if (!name) throw new RoomError('They\u2019re not in the room');
+    const seat = this.seatOf(userId);
+    if (seat) {
+      if (this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players) {
+        this.finish({ winner: null, reason: `the host removing ${name}`, aborted: true });
+      }
+      const now = this.seatOf(userId);
+      if (now) this.rec.seats[now] = null;
+    }
+    this.queue = this.queue.filter((id) => id !== userId);
+    this.rec.banned = [...new Set([...(this.rec.banned ?? []), userId])];
+    this.present.delete(userId);
+    this.system(`The host removed ${name} from the room`);
+    this.hooks.kick(userId, 'The host removed you from this room.');
     this.touch();
   }
 
@@ -543,6 +608,7 @@ export class Room {
       result: g.result ?? (g.state ? this.game.result(g.state) : null),
       turnSeats: g.status === 'playing' && g.state ? this.game.turn?.(g.state) ?? [] : [],
       moveDeadline: g.status === 'playing' ? g.moveDeadline ?? null : null,
+      leaving: Object.fromEntries([...this.leaving].map(([seat, l]) => [seat, l.deadline])),
     };
     const inWindow = g.status === 'playing' || (g.status === 'over' && this.endedAt !== null && now - this.endedAt < delayMs);
     if (!delayMs || !inWindow || !this.history.length) return live;
@@ -555,6 +621,7 @@ export class Room {
       result: null,
       turnSeats: this.game.turn?.(entry.state) ?? [],
       moveDeadline: null,
+      leaving: {},
     };
   }
 

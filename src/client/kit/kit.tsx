@@ -89,8 +89,10 @@ export function SquareBoard({ size = 8, flipped, render, mark, onSquare, onHover
 
 /** Counts down the room's move timer for the seat whose turn it is. */
 export function MoveTimer({ snap, seatId, receivedAt }: { snap: RoomSnapshot; seatId: string; receivedAt: number }) {
-  const deadline = snap.game.moveDeadline;
-  const active = !!deadline && snap.game.turnSeats.includes(seatId);
+  // A player who dropped out shows their time to get back instead.
+  const away = snap.game.leaving?.[seatId];
+  const deadline = away ?? snap.game.moveDeadline;
+  const active = !!deadline && (!!away || snap.game.turnSeats.includes(seatId));
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!active) return;
@@ -100,7 +102,10 @@ export function MoveTimer({ snap, seatId, receivedAt }: { snap: RoomSnapshot; se
   if (!active || !deadline) return null;
   const left = Math.max(0, deadline - snap.serverNow - (now - receivedAt));
   const s = Math.ceil(left / 1000);
-  return <span className={`clock running${left < 10_000 ? ' low' : ''}`} aria-label="Time left for this move">{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</span>;
+  const text = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  return away
+    ? <span className="clock away" aria-label="Time left to come back before forfeiting">away {text}</span>
+    : <span className={`clock running${left < 10_000 ? ' low' : ''}`} aria-label="Time left for this move">{text}</span>;
 }
 
 /** The pawn from the Playhall logo, in a player's colour: Snakes and

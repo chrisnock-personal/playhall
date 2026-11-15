@@ -44,6 +44,7 @@ export class RoomSockets {
     if (!user) { ws.close(4401, 'Sign in again'); return; }
     const room = await this.getManager().get(url.searchParams.get('room') ?? '');
     if (!room) { ws.close(4404, 'No such room'); return; }
+    if (room.isBanned(user.id)) { ws.close(4409, 'The host removed you from this room'); return; }
     if (!room.admitsWithoutPassword(user.id)
       && !this.auth.verifyRoomPass(url.searchParams.get('pass'), user.id, room.rec.code, room.rec.passwordHash!)) {
       ws.close(4403, 'This room needs its password');
@@ -87,6 +88,12 @@ export class RoomSockets {
         this.send(c.ws, { t: 'snapshot', snapshot: room.snapshotFor(c.user.id) });
       }
     });
+  }
+
+  /** Disconnect one person (the host removed them). */
+  kick(room: Room, userId: string, reason: string): void {
+    const set = this.conns.get(room);
+    for (const c of [...(set ?? [])]) if (c.user.id === userId) { set!.delete(c); c.ws.close(4409, reason.slice(0, 120)); }
   }
 
   /** Disconnect everyone from a room that has been closed. */

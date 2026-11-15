@@ -18,6 +18,7 @@ const FINAL: Record<number, string> = {
   4401: 'Your session has expired. Sign in again.',
   4404: 'There’s no room with that code.',
   4410: 'The host closed this room.',
+  4409: 'The host removed you from this room.',
 };
 
 export function useRoom(code: string, token: string, pass: string | null): RoomConn {

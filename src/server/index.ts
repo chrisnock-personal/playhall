@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   // sockets, so one is handed to the other through a getter.
   let rooms!: RoomManager;
   const sockets = new RoomSockets(auth, () => rooms);
-  rooms = new RoomManager(db, (room) => sockets.changed(room));
+  rooms = new RoomManager(db, (room) => sockets.changed(room), (room, userId, reason) => sockets.kick(room, userId, reason));
 
   const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir });
   const server = http.createServer(app);
