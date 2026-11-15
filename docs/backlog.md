@@ -8,7 +8,8 @@ A hidden-role game for 5-11 players aboard a 1943 merchant ship: Royal Navy,
 enemy spies and a black-market Fixer, each steering for a different port;
 players who lose the crew's trust are thrown to the sharks. Our own take on
 the hidden-faction steering game *Feed the Kraken*, with our own setting,
-names, rules text and art. Design draft: [ship2shore.md](ship2shore.md).
+names, rules text and art. Design approved 2026-11-15:
+[ship2shore.md](ship2shore.md); to build after phase 1's card games.
 
 ## Tournaments (user, 2026-11-15)
 

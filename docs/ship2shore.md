@@ -1,4 +1,4 @@
-# Ship2Shore (design draft)
+# Ship2Shore (design, approved 2026-11-15)
 
 A hidden-role game for 5-11 players, set aboard a merchant ship in a 1943
 convoy. Everyone has a secret allegiance, and the crew take turns steering a
@@ -106,9 +106,21 @@ cards like stamped dispatches, faction badges), drawn for the card and board
 kit. "Ship2Shore", the ship's name and ports are working names; check them
 before release.
 
-## To decide
+## Open questions, with recommendations
 
-- Points for team games (shared first place, or a team win of 3 each).
-- Whether the Fixer's "thrown to the sharks wins" twist stays, or the Black
-  Market needs a second route.
-- Map size: a short chart for 5-7 players and a longer one for 8-11.
+- **Points for a team win.** Recommended: every player on the winning faction
+  scores as a winner (3 points), everyone else 0, including players thrown to
+  the sharks on the losing side. "Shared first place" (1 each) would make a
+  team win worth less than a draw in chess. Needs a `teamWin` flag on results.
+- **The Fixer's shark escape.** Recommended: keep it. It makes throwing anyone
+  to the sharks a gamble, which is the heart of the game; the Black Market
+  still has Lisbon as its main route.
+- **Map size.** Recommended: two charts, a short one for 5-7 players and a
+  longer one for 8-11 (with a resupply line where everyone tops up to three
+  rounds).
+
+## Where it fits
+
+After the card games in phase 1 (it needs hidden hands, private actions and
+a deck, which Blackjack, Colour Clash and Hold'em build first), and at its
+best with phase 2's voice.
