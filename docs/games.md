@@ -120,7 +120,8 @@ the logo's pawn are drawn to sit beside them.
    placement, fleets revealed at the end).
 5. Cards and chips: **Blackjack done** (1-4 players against the house, play
    chips, sessions of 5/10/20 hands; one-player sessions are practice and
-   don't count); **Colour Clash**, then **Texas Hold'em** (the biggest:
+   don't count); **Colour Clash done** (2-4 players, our own 108-card deck in
+   the player colours, hidden hands); **Texas Hold'em** next (the biggest:
    betting, side pots, timeouts).
 
 Every game ships its own **How to play** (the goal and short sections on

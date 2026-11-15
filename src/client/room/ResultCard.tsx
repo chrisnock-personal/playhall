@@ -28,7 +28,7 @@ export function ResultCard({ snap, send }: { snap: RoomSnapshot; send(m: ClientM
             <span className="name">{p.name} · {snap.seats.find((s) => s.id === p.seat)?.label}</span>
             <strong>+{p.points}</strong>
             <span className="muted">
-              {r.counted && p.total !== null ? `${p.total} points${p.rank ? ` · #${p.rank}` : ' · not ranked yet'}` : 'not counted'}
+              {r.counted && p.total !== null ? `${p.total} point${p.total === 1 ? '' : 's'}${p.rank ? ` · #${p.rank}` : ' · not ranked yet'}` : 'not counted'}
             </span>
           </div>
         ))}

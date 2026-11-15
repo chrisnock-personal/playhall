@@ -61,3 +61,30 @@ export function Chip({ amount, size = 34 }: { amount: number; size?: number }) {
     </svg>
   );
 }
+
+const CLASH_FILL: Record<string, string> = { amber: '#E8952A', teal: '#2E9C8C', violet: '#7E5FC9', rose: '#C95A71' };
+const CLASH_MARK: Record<string, string> = { skip: '⊘', reverse: '⇄', draw2: '+2', wild: '', wild4: '+4' };
+
+/** A Colour Clash card in the kit's frame: the player colours, our own symbols. */
+export function ClashCardArt({ colour, value, width = 62, raised, dim }: {
+  colour: string; value: string; width?: number; raised?: boolean; dim?: boolean;
+}) {
+  const wild = colour === 'wild';
+  const mark = CLASH_MARK[value] ?? value;
+  const small = mark.length > 1 || value === 'wild';
+  return (
+    <svg className={`playing-card${raised ? ' raised' : ''}${dim ? ' dim' : ''}`} width={width} height={(width * 100) / 70} viewBox="0 0 70 100" aria-hidden="true">
+      <rect x="1" y="1" width="68" height="98" rx="7" fill={wild ? '#1B1E24' : CLASH_FILL[colour]} stroke="#FBF8F1" strokeWidth="3" />
+      {wild ? (
+        <g transform="translate(35 50) rotate(-30)">
+          <path d="M0 0 L0 -24 A24 34 0 0 1 24 0 Z" fill={CLASH_FILL.amber} />
+          <path d="M0 0 L24 0 A24 34 0 0 1 0 34 Z" fill={CLASH_FILL.teal} />
+          <path d="M0 0 L0 34 A24 34 0 0 1 -24 0 Z" fill={CLASH_FILL.violet} />
+          <path d="M0 0 L-24 0 A24 34 0 0 1 0 -24 Z" fill={CLASH_FILL.rose} />
+        </g>
+      ) : <ellipse cx="35" cy="50" rx="25" ry="36" transform="rotate(-30 35 50)" fill="#FBF8F1" />}
+      {mark && <text x="35" y={small ? 58 : 62} textAnchor="middle" fontSize={small ? 22 : 34} fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill={wild ? '#FBF8F1' : CLASH_FILL[colour]} stroke={wild ? '#1B1E24' : 'none'} strokeWidth="1">{mark}</text>}
+      <text x="9" y="17" fontSize="12" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill="#FBF8F1">{mark || 'W'}</text>
+    </svg>
+  );
+}

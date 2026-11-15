@@ -346,6 +346,24 @@ button.ludo-token:focus-visible { outline: 2px solid #fff; }
 .chip-btn { border: 0; padding: 0; background: transparent; cursor: pointer; border-radius: 50%; }
 .chip-btn:hover { transform: translateY(-2px); }
 .felt .stage-actions .note { color: #DCEBE3; }
+/* Colour Clash */
+.felt.clash { background: radial-gradient(ellipse at 50% 40%, #33405A, #1F2738 70%); }
+.opponents { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.opponent { background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+.opponent.to-move, .my-hand.to-move { border-color: #F0A53C; box-shadow: 0 0 0 1px #F0A53C; }
+.fan { display: flex; min-height: 50px; }
+.piles { display: flex; gap: 28px; justify-content: center; align-items: center; flex: 1; }
+.pile { display: flex; flex-direction: column; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; padding: 0; }
+button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover .playing-card { transform: translateY(-3px); }
+.in-play { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: #DCEBE3; }
+.my-hand { background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.hand-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.hand-card { border: 0; padding: 0; background: transparent; }
+.hand-card:not(:disabled) { cursor: pointer; }
+.playing-card.raised { transform: translateY(-6px); filter: drop-shadow(0 0 5px #F0A53C); }
+.playing-card.dim { opacity: .5; }
+.colour-pick { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; z-index: 7; box-shadow: 0 12px 30px rgba(0,0,0,.55); }
+.felt { position: relative; }
 @media (max-width: 900px) { .stage:has(.felt) { height: auto; container-type: inline-size; } .spots { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
 
 /* ---- how to play ---- */
