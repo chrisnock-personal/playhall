@@ -12,7 +12,9 @@ services:
     restart: unless-stopped
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Containerfile
     image: localhost/playhall:latest
     environment:
       DATABASE_URL: postgres://playhall:${POSTGRES_PASSWORD}@postgres:5432/playhall
