@@ -30,7 +30,7 @@ keeping score.
 | Push to talk, mute | In the browser (enabling the mic track), as in Parley: instant, no round trip |
 | Talking ring | LiveKit's active-speaker events |
 | Transcripts | A Playhall **transcriber** joins each LiveKit room as a hidden listener, cuts speech at pauses (Parley's voice-activity code), sends it to Whisper (`:8090`) and posts *said* lines into the chat |
-| HTTPS | Browsers only allow mics and cameras on HTTPS. On the home network: a certificate from a small local certificate authority (installed once per device). For friends elsewhere: a domain name and **Caddy** in front, with automatic certificates |
+| HTTPS | **TLS only, self-signed by default** (decided 2026-11-15, the same way as Alfoir): Playhall generates a certificate on first start and keeps it in a volume, so redeploys don't change it. People accept it once per device (the browser warns the first time). An **admin uploads a real certificate** later (server certificate plus intermediates as one PEM, and the key) under Admin → TLS certificate: Playhall checks the pair matches and hasn't expired, then swaps it in without dropping anyone (Node's `setSecureContext`). LiveKit's signalling is proxied through the same address, so one certificate covers both |
 | Friends outside the home network | Forward one TCP port (443) and LiveKit's UDP range on the router, or use LiveKit's built-in TURN on 443 |
 
 ## The camera table
@@ -56,7 +56,7 @@ A game type for **any** board game that isn't built in.
 
 ## Build order
 
-1. **Infrastructure**: LiveKit container, HTTPS (local CA first), token
+1. **Infrastructure**: LiveKit container, HTTPS (self-signed, then admin upload), token
    endpoint, the device picker and mic test. The browser test learns to use
    a fake mic.
 2. **Voice**: table and gallery, push to talk, talking ring, mute and volume,
@@ -69,7 +69,8 @@ A game type for **any** board game that isn't built in.
 
 ## To decide
 
-- **Friends outside the home network**: is there a domain name to use (or a
-  dynamic DNS name)? Without one, phase 2 works on the home network only.
+- ~~Friends outside the home network~~: decided, self-signed by default;
+  an admin can upload a real certificate (for a domain name) whenever there
+  is one.
 - **Where it runs**: the PC for now (it's the GPU box and already runs
   Whisper); the planned home server later.
