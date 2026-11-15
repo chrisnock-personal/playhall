@@ -120,6 +120,23 @@ phone, panels stack under a full-width stage.
   the shared Ollama.
 - **LibreRemotePlay** (GPL-3.0): phase 3's input path and host app.
 
+## Platforms: Windows, macOS and Linux
+
+Everything should work on all three wherever possible (user, 2026-11-15).
+
+| Part | Windows | macOS | Linux |
+|---|---|---|---|
+| Playing (the browser app) | Yes | Yes (Safari included) | Yes |
+| Running a Playhall server (containers) | Docker Desktop or Podman | Docker Desktop or Podman | Podman or Docker |
+| Phase 2 voice and video | Yes | Yes | Yes |
+| Phase 3 OpenBOR rooms | The server runs OpenBOR in a Linux container on any host; players use any browser | | |
+| Phase 4 host app: capture | Windows Graphics Capture / browser | ScreenCaptureKit / browser (needs Screen Recording permission) | PipeWire / browser |
+| Phase 4 host app: virtual gamepads | ViGEm | No supported virtual-gamepad driver without a signed DriverKit extension: keyboard and mouse input first, gamepads later | uinput |
+| Phase 4 host app: build | Go + Wails, one codebase for all three | | |
+
+Where a platform can't do something yet, the app says so and offers the
+fallback, rather than leaving it out silently.
+
 ## Phases
 
 1. **Done (2026-11-15)**: rooms and roles, the seat queue, Table/Gallery chat,
@@ -144,7 +161,8 @@ phone, panels stack under a full-width stage.
    from their browsers. Same streaming and input path as sharing a local
    game, without the Windows parts, so it comes first: see
    [openbor.md](openbor.md).
-4. Sharing a local game, v1.
+4. Sharing a local game, v1: a host app for Windows, macOS and Linux (see
+   Platforms above for what each can do).
 5. The web-game plug-in SDK; sharing a local game, v2.
 
 Ideas not in a phase yet (Ship2Shore, tournaments, more games, bots):
