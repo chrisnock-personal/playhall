@@ -196,3 +196,21 @@ test('the move timer: a player who runs out of time loses a two-player game', ()
   assert.equal(room.snapshotFor(host.id).game.result?.reason, 'Teal running out of move time');
   assert.throws(() => room.handle(host, { t: 'settings', settings: { moveSeconds: 7 } }), /from the list/);
 });
+
+test('games for more players start with some seats empty, once the minimum are seated', () => {
+  const t = setup();
+  t.rec.gameId = 'snakes';
+  const room = new Room(t.rec, {
+    now: () => 0, random: () => 0.5, setTimer: () => () => {}, save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {},
+  });
+  for (const u of [host, alex, priya]) room.join(u);
+  room.handle(host, { t: 'sit', seat: 'amber' });
+  assert.throws(() => room.handle(host, { t: 'start' }), /at least 2 players/);
+  room.handle(priya, { t: 'sit', seat: 'violet' });
+  room.handle(host, { t: 'start' });
+  const snap = room.snapshotFor(host.id);
+  assert.equal(snap.game.status, 'playing');
+  assert.ok(snap.chat.some((l) => l.text.startsWith('Game started: Amber Sam, Violet Priya')));
+  room.handle(host, { t: 'act', action: { type: 'roll' } });
+  assert.deepEqual(room.snapshotFor(host.id).game.turnSeats, ['violet']);
+});

@@ -93,6 +93,38 @@ export function MoveTimer({ snap, seatId, receivedAt }: { snap: RoomSnapshot; se
   return <span className={`clock running${left < 10_000 ? ' low' : ''}`} aria-label="Time left for this move">{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</span>;
 }
 
+/** The pawn from the Playhall logo, in a player's colour: Snakes and
+ *  Ladders and Ludo tokens. */
+export function Pawn({ colour, size = 28 }: { colour: string; size?: number | string }) {
+  const c = COLOURS[colour] ?? COLOURS.white;
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
+      <ellipse cx="20" cy="36" rx="12" ry="3" fill="rgba(0,0,0,.35)" />
+      <circle cx="20" cy="11" r="6.5" fill={c.fill} stroke={c.rim} strokeWidth="1.5" />
+      <rect x="13.5" y="18" width="13" height="3.5" rx="1.7" fill={c.fill} stroke={c.rim} strokeWidth="1.5" />
+      <path d="M17 21.5h6l3 9.5H14z" fill={c.fill} stroke={c.rim} strokeWidth="1.5" strokeLinejoin="round" />
+      <rect x="10.5" y="30.5" width="19" height="5" rx="2.2" fill={c.fill} stroke={c.rim} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+const PIPS: Record<number, [number, number][]> = {
+  1: [[50, 50]], 2: [[28, 28], [72, 72]], 3: [[28, 28], [50, 50], [72, 72]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]], 5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]],
+};
+
+/** One die. `rollKey` changing replays the roll animation. The value always
+ *  comes from the server. */
+export function Die({ value, size = 56, rollKey }: { value: number | null; size?: number; rollKey?: string | number }) {
+  return (
+    <svg key={rollKey} className="die" width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={value ? `Die showing ${value}` : 'Die'}>
+      <rect x="4" y="4" width="92" height="92" rx="18" fill="#F4EFE4" stroke="#9C9488" strokeWidth="3" />
+      {(PIPS[value ?? 0] ?? []).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="8.5" fill="#2A2219" />)}
+    </svg>
+  );
+}
+
 /** A seated player above or below a board: colour, name, whose turn it is,
  *  a "Sit here" button for a free seat, and a slot for a clock or score. */
 export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {

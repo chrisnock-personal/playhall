@@ -333,7 +333,7 @@ export class Room {
     this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null };
     this.lastResult = null;
     this.resetMoveDeadline();
-    const who = this.game.seats.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
+    const who = seated.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
     this.armTimer();
     this.touch();

@@ -150,7 +150,7 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
           <div key={g.id}>
             <label className={`game-pick${g.id === gameId ? ' on' : ''}`}>
               <input type="radio" name="game" value={g.id} checked={g.id === gameId} onChange={() => { setGameId(g.id); setConfig(null); }} />
-              <span className="game-pick-head"><strong>{g.name}</strong><span className="muted">{g.seats.length} players</span></span>
+              <span className="game-pick-head"><strong>{g.name}</strong><span className="muted">{g.minPlayers === g.seats.length ? g.seats.length : `${g.minPlayers}-${g.seats.length}`} players</span></span>
               <span className="muted">{g.description}</span>
             </label>
             {g.id === gameId && g.howToPlay && (

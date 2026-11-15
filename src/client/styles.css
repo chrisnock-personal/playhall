@@ -257,6 +257,33 @@ cg-board { background-color: #a97f57; }
 .square-board .sq.dark .coord { color: #F1E4C8; } .square-board .sq.light .coord { color: #8A6440; }
 .piece-count { font-size: 12px; color: var(--muted); }
 
+/* ---- kit: track board (Snakes and Ladders, later Ludo) ---- */
+.track-layout { width: 100%; height: 100%; display: flex; gap: 14px; align-items: center; justify-content: center; }
+.track-board { position: relative; width: min(100cqh - 20px, 100cqw - 290px); min-width: 260px; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.45); flex: none; }
+.track-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(10, 1fr); }
+.track-grid .cell { position: relative; }
+.track-grid .cell.light { background: #E6D5B3; } .track-grid .cell.dark { background: #D3B98F; }
+.track-grid .cell.last { background: #EED68A; }
+.track-grid .cell span { position: absolute; top: 2px; left: 4px; font: 600 clamp(8px, 1.1cqw, 11px) var(--body); color: #8A6440; }
+.track-art { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.track-art .ladder line { stroke: #7A5230; stroke-width: .9; stroke-linecap: round; }
+.track-art .snake .body { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.track-art .snake .belly { fill: none; stroke-width: .8; stroke-dasharray: 1.2 1.6; stroke: rgba(255,255,255,.55); }
+.track-art .snake.s0 .body, .track-art .snake.s0 .head { stroke: #3F8F64; fill: #3F8F64; }
+.track-art .snake.s1 .body, .track-art .snake.s1 .head { stroke: #B5523B; fill: #B5523B; }
+.track-art .snake.s2 .body, .track-art .snake.s2 .head { stroke: #6B5BA8; fill: #6B5BA8; }
+.track-art .snake .body { fill: none !important; }
+.track-token { position: absolute; width: 7%; height: 7%; transform: translate(-50%, -62%); transition: left .5s ease, top .5s ease; z-index: 2; }
+@media (prefers-reduced-motion: reduce) { .track-token { transition: none; } }
+.track-side { width: 260px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+.dice-row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.roll-note { flex: 1; display: flex; flex-direction: column; font-size: 13px; }
+.roll-note span { color: var(--muted); }
+@keyframes die-roll { 0% { transform: rotate(-200deg) scale(.6); } 70% { transform: rotate(12deg) scale(1.05); } 100% { transform: none; } }
+.die { animation: die-roll .45s ease-out; flex: none; }
+@media (prefers-reduced-motion: reduce) { .die { animation: none; } }
+@media (max-width: 900px) { .stage:has(.track-layout) { height: auto; container-type: inline-size; } .track-layout { flex-direction: column; } .track-board { width: 100%; } .track-side { width: 100%; } }
+
 /* ---- how to play ---- */
 .how-to-play { display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.5; }
 .how-to-play .goal { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-hover); font-weight: 500; }

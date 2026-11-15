@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import type { HowToPlay } from '../shared/game';
 
-export interface GameInfo { id: string; name: string; description: string; seats: { id: string; label: string }[]; defaultConfig: unknown; howToPlay?: HowToPlay }
+export interface GameInfo { id: string; name: string; description: string; seats: { id: string; label: string }[]; minPlayers: number; defaultConfig: unknown; howToPlay?: HowToPlay }
 
 let cache: GameInfo[] | null = null;
 
