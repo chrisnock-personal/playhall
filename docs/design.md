@@ -122,11 +122,12 @@ phone, panels stack under a full-width stage.
 
 ## Phases
 
-1. **In progress**: rooms and roles, the seat queue, Table/Gallery chat,
-   local accounts and guests, chess with clocks, the collapsible room layout,
-   host rules, points and leaderboards (done 2026-11-15); then eight more
-   games on a shared kit of boards, pieces, cards and dice: see
-   [games.md](games.md).
+1. **Done (2026-11-15)**: rooms and roles, the seat queue, Table/Gallery chat,
+   local accounts and guests, private rooms, the collapsible room layout,
+   host rules, the move timer and watcher delay, points, leaderboards, stats
+   and replays, a light theme, and nine games on one shared kit: chess,
+   checkers, Four in a Row, Snakes and Ladders, Ludo, Sea Battle, Blackjack,
+   Colour Clash and Texas Hold'em ([games.md](games.md)).
 2. **Voice and video, and any board game at all.** LiveKit in every room:
    voice with the same table/gallery split as the chat, push to talk, the
    talking ring, players' video on their seat cards, transcripts from the
@@ -145,7 +146,7 @@ phone, panels stack under a full-width stage.
 4. Sharing a local game, v1.
 5. The web-game plug-in SDK; sharing a local game, v2.
 
-Ideas not in a phase yet (tournaments, more games, bots, replays):
+Ideas not in a phase yet (Ship2Shore, tournaments, more games, bots):
 [backlog.md](backlog.md).
 
 ## Known gaps in phase 1
