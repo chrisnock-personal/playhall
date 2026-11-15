@@ -114,9 +114,8 @@ the logo's pawn are drawn to sit beside them.
    15 s to 5 min a move; run out and you lose a two-player game).
 2. **Done**: **Four in a Row** and **Checkers** on the kit's discs, colours,
    square board and player strip (`src/client/kit/`).
-3. Dice and the track board: **Snakes and Ladders done** (2-4 players, places
-   for everyone, the die rolled for you if the move timer runs out); **Ludo**
-   next.
+3. **Done**: dice and the track boards: **Snakes and Ladders** and **Ludo**
+   (2-4 players, places for everyone, the move timer rolls or moves for you).
 4. Hidden information: **Sea Battle**.
 5. Cards and chips: **Blackjack**, **Colour Clash**, then **Texas Hold'em**
    (the biggest: betting, side pots, timeouts).

@@ -81,6 +81,7 @@ input:disabled { opacity: 0.6; }
 .pill.idle { background: var(--accent-soft); color: var(--accent-hover); }
 .pill.role-player { background: var(--accent-soft); color: var(--accent-hover); }
 .pill.warn { background: var(--danger-bg); color: var(--danger); }
+.pill.delayed { background: #1f2a3a; color: #9cc3f0; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--text); font-weight: 600; flex: none; }
 .avatar.ring { box-shadow: 0 0 0 2px var(--accent); }
@@ -283,6 +284,13 @@ cg-board { background-color: #a97f57; }
 .die { animation: die-roll .45s ease-out; flex: none; }
 @media (prefers-reduced-motion: reduce) { .die { animation: none; } }
 @media (max-width: 900px) { .stage:has(.track-layout) { height: auto; container-type: inline-size; } .track-layout { flex-direction: column; } .track-board { width: 100%; } .track-side { width: 100%; } }
+
+.ludo-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ludo-token { width: 5.6%; height: 5.6%; border: 0; padding: 0; background: transparent; }
+button.ludo-token { cursor: pointer; border-radius: 50%; animation: token-pulse 1s ease-in-out infinite alternate; z-index: 3; }
+button.ludo-token:focus-visible { outline: 2px solid #fff; }
+@keyframes token-pulse { from { filter: drop-shadow(0 0 0 #fff); } to { filter: drop-shadow(0 0 4px #fff); } }
+@media (prefers-reduced-motion: reduce) { button.ludo-token { animation: none; filter: drop-shadow(0 0 3px #fff); } }
 
 /* ---- how to play ---- */
 .how-to-play { display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.5; }

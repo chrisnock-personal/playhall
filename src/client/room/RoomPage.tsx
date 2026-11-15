@@ -97,6 +97,7 @@ function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<ty
           </div>
           <span className={`pill ${snap.game.status}`}>{status}</span>
           <span className={`pill ${snap.you.seat ? 'role-player' : 'role-watch'}`}>You: {role}</span>
+          {snap.you.delay > 0 && <span className="pill delayed" title="The host has set a delay for watchers">{snap.you.delay < 60 ? `${snap.you.delay} s` : `${snap.you.delay / 60} min`} behind live</span>}
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <div className="room-top-right">
             <div className="segmented small" role="group" aria-label="Layout">
@@ -112,7 +113,7 @@ function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<ty
       ) : (
         <div className="room-top-compact">
           <strong>{snap.room.name}</strong>
-          <span className="muted">{snap.room.gameName} · {status} · {role}</span>
+          <span className="muted">{snap.room.gameName} · {status} · {role}{snap.you.delay > 0 ? ` · ${snap.you.delay} s behind` : ''}</span>
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <button className="icon-btn small" aria-label="Show the top bar" onClick={() => set('top', NEXT.top[layout.top])}><Icon name="down" size={16} /></button>
         </div>

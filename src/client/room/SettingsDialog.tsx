@@ -79,6 +79,14 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
             <span className="hint">Seats go to people asking for one, oldest first. If nobody is asking, the players stay.</span>
           </div>
           {game && <game.ConfigPicker value={s.gameConfig} onChange={(v) => update({ gameConfig: v })} disabled={playing} />}
+          <label className="field"><span>Delay for watchers</span>
+            <select value={s.watcherDelay} disabled={playing} onChange={(e) => update({ watcherDelay: Number(e.target.value) })}>
+              {[[0, 'None: watchers see it live'], [15, '15 seconds'], [30, '30 seconds'], [60, '1 minute'], [120, '2 minutes']].map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+            <span className="hint">Watchers see the board and the table chat this far behind, so nobody can pass moves to a player. Players aren’t affected.</span>
+          </label>
           {snap.room.moveTimer && (
             <label className="field"><span>Move timer</span>
               <select value={s.moveSeconds} disabled={playing} onChange={(e) => update({ moveSeconds: Number(e.target.value) })}>

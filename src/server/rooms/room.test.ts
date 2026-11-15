@@ -214,3 +214,25 @@ test('games for more players start with some seats empty, once the minimum are s
   room.handle(host, { t: 'act', action: { type: 'roll' } });
   assert.deepEqual(room.snapshotFor(host.id).game.turnSeats, ['violet']);
 });
+
+test('watcher delay: off by default; when set, watchers see the board and table chat late', () => {
+  const plain = setup();
+  assert.equal(plain.rec.settings.watcherDelay, 0);
+  const { room, advance } = setup({ watcherDelay: 30 });
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.handle(host, { t: 'start' });
+  room.handle(host, move('e2', 'e4'));
+  room.handle(host, { t: 'chat', channel: 'table', text: 'Bold opening' });
+  const watcher = room.snapshotFor(priya.id);
+  assert.equal(watcher.you.delay, 30);
+  assert.equal((watcher.game.view as { san: string[] }).san.length, 0, 'the watcher hasn’t seen e4 yet');
+  assert.ok(!watcher.chat.some((l) => l.text === 'Bold opening'));
+  assert.equal((room.snapshotFor(alex.id).game.view as { san: string[] }).san.length, 1, 'players see it live');
+  room.handle(alex, { t: 'act', action: { type: 'resign' } });
+  assert.equal(room.snapshotFor(priya.id).game.result, null, 'the result isn’t given away early');
+  advance(31_000);
+  const later = room.snapshotFor(priya.id);
+  assert.equal(later.game.status, 'over');
+  assert.ok(later.chat.some((l) => l.text === 'Bold opening'));
+});

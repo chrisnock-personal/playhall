@@ -21,6 +21,9 @@ export interface RoomSettings {
   /** Seconds each player has for a move, 0 = no limit (games with their
    *  own clocks, like chess, don't use it). */
   moveSeconds: number;
+  /** Watchers see the game (and the table chat) this many seconds late,
+   *  so nobody can pass moves to a player. 0 = live (the default). */
+  watcherDelay: number;
   /** Finished games here count for the leaderboards (between account
    *  holders). Off makes a casual room. */
   ranked: boolean;
@@ -37,6 +40,7 @@ export const DEFAULT_SETTINGS: Omit<RoomSettings, 'gameConfig'> = {
   afterGame: 'same',
   ranked: true,
   moveSeconds: 0,
+  watcherDelay: 0,
 };
 
 export interface MemberView {
@@ -101,6 +105,8 @@ export interface RoomSnapshot {
     seat: SeatId | null;
     canRead: Channel[];
     canWrite: Channel[];
+    /** Seconds behind live that this person sees the game (watchers only). */
+    delay: number;
   };
   serverNow: number;
 }

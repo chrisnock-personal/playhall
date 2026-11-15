@@ -83,6 +83,9 @@ export class Room {
   private nextChatId: number;
   private cancelTimer: (() => void) | null = null;
   private lastResult: LastResult | null = null;
+  /** The game's states over time, for watchers who see it late. */
+  private history: { at: number; state: unknown }[] = [];
+  private endedAt: number | null = null;
 
   constructor(readonly rec: RoomRecord, private hooks: RoomHooks, history: ChatLine[] = []) {
     const game = GAMES[rec.gameId];
@@ -250,6 +253,7 @@ export class Room {
     if (!body) return;
     if (body.length > CHAT_MAX) throw new RoomError(`Keep messages under ${CHAT_MAX} characters`);
     this.addLine({ channel, kind: 'typed', userId: user.id, name: user.name, text: body });
+    if (channel === 'table' && this.rec.settings.watcherDelay) this.hooks.setTimer(this.rec.settings.watcherDelay * 1000 + 50, () => this.hooks.changed());
     this.hooks.changed();
   }
 
@@ -278,10 +282,25 @@ export class Room {
       this.finish(result);
       return true;
     }
+    this.record();
     this.resetMoveDeadline();
     this.armTimer();
     this.touch();
     return false;
+  }
+
+  /** Keep the state for delayed watchers, and wake them when it's their turn to see it. */
+  private record(): void {
+    const delay = this.rec.settings.watcherDelay;
+    if (!delay) return;
+    this.history.push({ at: this.hooks.now(), state: this.rec.game.state });
+    if (this.history.length > 1000) this.history.splice(0, this.history.length - 1000);
+    this.hooks.setTimer(delay * 1000 + 50, () => this.hooks.changed());
+  }
+
+  /** Seconds behind live that this person sees the game. */
+  delayFor(userId: string): number {
+    return this.seatOf(userId) === null ? this.rec.settings.watcherDelay : 0;
   }
 
   /** A fresh move timer for whoever's turn it now is (after every action). */
@@ -332,6 +351,8 @@ export class Room {
     const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random() };
     this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null };
     this.lastResult = null;
+    this.history = [{ at: now, state: this.rec.game.state }];
+    this.endedAt = null;
     this.resetMoveDeadline();
     const who = seated.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
@@ -345,6 +366,8 @@ export class Room {
     const players = this.rec.game.players ?? {};
     this.rec.game.status = 'over';
     this.rec.game.result = result;
+    this.endedAt = this.hooks.now();
+    this.record();
     this.rec.game.moveDeadline = null;
     const placings = placingsOf(result, Object.keys(players));
     const who = (seat: SeatId) => `${players[seat]?.name ?? this.seatLabel(seat)} (${this.seatLabel(seat)})`;
@@ -436,6 +459,11 @@ export class Room {
     }
     if (r.seatPolicy === 'open' || r.seatPolicy === 'host') s.seatPolicy = r.seatPolicy;
     if (r.afterGame === 'same' || r.afterGame === 'winnerStays' || r.afterGame === 'rotate') s.afterGame = r.afterGame;
+    if (typeof r.watcherDelay === 'number' && r.watcherDelay !== s.watcherDelay) {
+      if (this.status === 'playing') throw new RoomError('Change the watcher delay between games');
+      if (![0, 15, 30, 60, 120].includes(r.watcherDelay)) throw new RoomError('Pick a delay from the list');
+      s.watcherDelay = r.watcherDelay;
+    }
     if (typeof r.moveSeconds === 'number' && r.moveSeconds !== s.moveSeconds) {
       if (this.status === 'playing') throw new RoomError('Change the move timer between games');
       if (![0, 15, 30, 60, 120, 300].includes(r.moveSeconds)) throw new RoomError('Pick a move timer from the list');
@@ -503,11 +531,37 @@ export class Room {
     return [...out.values()];
   }
 
+  /** The game as this person may see it: live for players, late for
+   *  watchers when the room has a watcher delay. */
+  private gameFor(userId: string, now: number): RoomSnapshot['game'] {
+    const g = this.rec.game;
+    const delayMs = this.delayFor(userId) * 1000;
+    const live = {
+      status: g.status,
+      view: g.state ? this.game.view(g.state, now, this.seatOf(userId)) : null,
+      result: g.result ?? (g.state ? this.game.result(g.state) : null),
+      turnSeats: g.status === 'playing' && g.state ? this.game.turn?.(g.state) ?? [] : [],
+      moveDeadline: g.status === 'playing' ? g.moveDeadline ?? null : null,
+    };
+    const inWindow = g.status === 'playing' || (g.status === 'over' && this.endedAt !== null && now - this.endedAt < delayMs);
+    if (!delayMs || !inWindow || !this.history.length) return live;
+    const seenAt = now - delayMs;
+    const entry = [...this.history].reverse().find((h) => h.at <= seenAt) ?? this.history[0];
+    // Still inside the delay: the game isn't over yet as far as they know.
+    return {
+      status: 'playing',
+      view: this.game.view(entry.state, Math.max(entry.at, seenAt), null),
+      result: null,
+      turnSeats: this.game.turn?.(entry.state) ?? [],
+      moveDeadline: null,
+    };
+  }
+
   snapshotFor(userId: string): RoomSnapshot {
     const now = this.hooks.now();
+    const delayMs = this.delayFor(userId) * 1000;
     const canRead = this.canRead(userId);
     const config = this.game.parseConfig(this.rec.settings.gameConfig);
-    const g = this.rec.game;
     return {
       room: {
         id: this.rec.id,
@@ -527,20 +581,17 @@ export class Room {
       members: this.members(),
       queue: [...this.queue],
       lastResult: this.lastResult,
-      game: {
-        status: g.status,
-        view: g.state ? this.game.view(g.state, now, this.seatOf(userId)) : null,
-        result: g.result ?? (g.state ? this.game.result(g.state) : null),
-        turnSeats: g.status === 'playing' && g.state ? this.game.turn?.(g.state) ?? [] : [],
-        moveDeadline: g.status === 'playing' ? g.moveDeadline ?? null : null,
-      },
-      chat: this.chatLines.filter((l) => canRead.includes(l.channel)),
+      game: this.gameFor(userId, now),
+      // Delayed watchers get the table (the players' talk) late too; the gallery stays live.
+      chat: this.chatLines.filter((l) => canRead.includes(l.channel)
+        && !(l.channel === 'table' && delayMs && l.at > now - delayMs)),
       you: {
         userId,
         host: this.isHost(userId),
         seat: this.seatOf(userId),
         canRead,
         canWrite: this.canWrite(userId),
+        delay: this.delayFor(userId),
       },
       serverNow: now,
     };

@@ -58,8 +58,6 @@ the rules (drawn from the kit).
   don't count for the leaderboard.
 - **Replays**: step through a finished game move by move, from its stored
   state ("Review the game" on the end-of-game card).
-- **Watcher delay**: watchers see the board and players' video a set time or
-  number of moves behind (mocked up in Room rules).
 - **Kick and ban** for hosts; reporting for admins.
 - **Light theme.**
 - **Rematch** button for the players themselves, not only the host.
