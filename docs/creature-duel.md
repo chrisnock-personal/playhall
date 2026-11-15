@@ -55,3 +55,25 @@ sometimes a **special ability**:
 - The name ("Realm Duel" is a placeholder).
 - Balancing the 30 creatures: borrow the original's stat ranges, then tune by
   simulation.
+
+## Pieces (mockups approved for now, 2026-11-15; may be improved later)
+
+Canvas board 19. The kit's card frame (cream face), simple creature art in
+the element's colour plus an element icon (readable without colour); a
+violet card back with the logo's arch (distinct from the playing cards'
+amber back).
+
+- **Starters (draft, balance by simulation):** Emberfox (Fire; STR 6 AGI 9
+  INT 5 DEF 4 MAG 6, HP 28, Swift: strikes first on a tie), Tidecaller (Water;
+  4/6/8/5/8, 30, Undertow: Stun on a magic hit 1 in 3), Stonehorn (Earth;
+  9/3/4/9/2, 40, Shield: half damage on its first round), Galewing (Air;
+  5/8/6/3/6, 26, Gust: Stun on a ranged hit 1 in 4), Lumen Stag (Light;
+  6/6/7/6/7, 32, Mend: heals 4 after each round), Duskmaw (Shadow;
+  7/6/6/5/8, 30, Poison bite: poisons on a melee hit).
+- **Elements:** Fire > Air > Earth > Water > Fire; Light and Shadow beat each
+  other; +50% damage against the element you beat.
+- **Attacks:** Melee (Strength), Ranged (Agility), Magic (Magic + Intellect).
+  Agility decides who strikes first; Defence cuts melee and ranged, Intellect
+  cuts magic.
+- **Effects:** Poisoned (2 a round), Stunned (misses a round), Shielded (half
+  damage). Health bar teal > 50%, amber < 50%, red < 25%; knocked out greys.

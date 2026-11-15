@@ -54,3 +54,19 @@ game's.
 
 - The map: nine rooms, their connections and the two hidden passages.
 - Whether to allow a quick "Suggest from anywhere" mode for short games.
+
+## Pieces (mockups approved for now, 2026-11-15; may be improved later)
+
+Canvas board 20. The kit's card frame; each kind has its own band colour and
+picture shape so they're told apart without colour:
+
+- **Suspects** (deep red band, round portrait): Admiral Hale, Dr Okafor,
+  Lady Vane, Mr Pike, Miss Rowe, Canon Ashby.
+- **Objects** (blue band, line drawing): the hatpin, the decanter, the fire
+  iron, the croquet mallet, the rope, the telescope.
+- **Rooms** (green band, a 3 × 3 plan with the room lit): the Observatory,
+  Music Room, Boathouse, Map Room, Chapel, Greenhouse, Armoury, Wine Cellar,
+  Nursery.
+- **Back:** dark wood with the logo's arch and a magnifying glass.
+- **Envelope:** sealed with a red "B" seal; holds who, what, where.
+- **Tokens:** the kit's pawns in the seat colours. Notebook marks ✓ ✗ ?.
