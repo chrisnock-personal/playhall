@@ -138,6 +138,7 @@ phone, panels stack under a full-width stage.
    any board game, including ones nobody has written a plug-in for. Games
    played this way are scored by hand: the host enters the placings at the
    end, and they count if the players confirm. Needs HTTPS (getUserMedia).
+   Plan: [phase2.md](phase2.md).
 3. **OpenBOR rooms**: the server runs OpenBOR in a container per room, the
    host picks a mod, the game is streamed and up to four players control it
    from their browsers. Same streaming and input path as sharing a local
