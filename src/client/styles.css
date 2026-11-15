@@ -364,6 +364,10 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .playing-card.dim { opacity: .5; }
 .colour-pick { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; z-index: 7; box-shadow: 0 12px 30px rgba(0,0,0,.55); }
 .felt { position: relative; }
+.card-slot { width: 56px; height: 80px; border-radius: 7px; border: 1.5px dashed rgba(255,255,255,.18); }
+.pot { display: inline-flex; gap: 8px; align-items: center; color: #F4EFE4; font-weight: 600; }
+.button-chip { width: 20px; height: 20px; border-radius: 50%; background: #F4EFE4; color: #1A1A1A; font: 700 11px var(--body); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.bet-row input[type=range] { width: 140px; height: auto; accent-color: var(--accent); }
 @media (max-width: 900px) { .stage:has(.felt) { height: auto; container-type: inline-size; } .spots { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
 
 /* ---- how to play ---- */

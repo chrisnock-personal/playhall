@@ -7,9 +7,10 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Phase 1 has six board games so far: chess, checkers, Four in a Row, Snakes
-and Ladders, Ludo and Sea Battle, drawn from one shared kit of boards,
-pieces and dice (card games next: [docs/games.md](docs/games.md)), built for more games: every game is a plug-in with its own
+Phase 1 has nine games: chess, checkers, Four in a Row, Snakes and Ladders,
+Ludo, Sea Battle, Blackjack, Colour Clash and Texas Hold'em, drawn from one
+shared kit of boards, pieces, cards, chips and dice
+([docs/games.md](docs/games.md)), built for more games: every game is a plug-in with its own
 seats, rules and board, and the room around it stays the same. Voice and video,
 sharing a game running on your own PC with remote players using controllers,
 OpenBOR rooms run on the server ([docs/openbor.md](docs/openbor.md)), and

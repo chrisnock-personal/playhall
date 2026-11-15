@@ -121,8 +121,9 @@ the logo's pawn are drawn to sit beside them.
 5. Cards and chips: **Blackjack done** (1-4 players against the house, play
    chips, sessions of 5/10/20 hands; one-player sessions are practice and
    don't count); **Colour Clash done** (2-4 players, our own 108-card deck in
-   the player colours, hidden hands); **Texas Hold'em** next (the biggest:
-   betting, side pots, timeouts).
+   the player colours, hidden hands); **Texas Hold'em done** (2-4 player
+   sit-and-go, side pots, rising blinds, our own hand evaluator; fuzzed for
+   chip conservation). **All nine phase 1 games are in.**
 
 Every game ships its own **How to play** (the goal and short sections on
 turns, moves and endings), shown in the room's Rules tab and in the lobby.
