@@ -213,6 +213,33 @@ const SCENES = {
     const phone = await open('Kai', code, { width: 390, height: 844 });
     await sleep(800); await phone.screenshot({ path: `${out}/07-phone.png`, fullPage: true }); console.log('saved 07-phone.png');
   },
+
+  // Realm Duel: Sam against a bot, a couple of rounds in, choosing again.
+  async realmduel() {
+    const { page: p } = await room('realmduel', 'Sam', { name: 'Realm Duel' });
+    await bots(p, 1); await start(p);
+    for (let k = 0; k < 3; k++) {
+      await until(p, async () => (await p.locator('button.rd-pick:not([disabled])').count()) > 0, async () => false, 20000);
+      if (k === 2) {
+        await p.locator('button.rd-pick:not([disabled])').first().click();
+        await p.getByRole('button', { name: /^Magic/ }).click().catch(() => {});
+        break;
+      }
+      await p.locator('button.rd-pick:not([disabled])').first().click();
+      await p.getByRole('button', { name: /^Melee/ }).click();
+      await p.getByRole('button', { name: 'Lock in' }).click(); await sleep(3500);
+    }
+    await shot(p, '25-realm-duel.png');
+  },
+  // Manor Mystery: three people (it has no bots yet); Priya's view at the start.
+  async manormystery() {
+    const { code, page: sam } = await room('manormystery', 'Sam', { name: 'Murder at Blackthorn Hall' });
+    const priya = await open('Priya', code), kai = await open('Kai', code);
+    await priya.getByRole('button', { name: 'Sit here' }).first().click(); await sleep(400);
+    await kai.getByRole('button', { name: 'Sit here' }).first().click(); await sleep(400);
+    await start(sam); await sleep(1500);
+    await shot(priya, '26-manor-mystery.png');
+  },
 };
 
 browser = await chromium.launch();
