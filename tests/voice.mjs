@@ -18,6 +18,9 @@ const wp = await open({ token: w.token, user: w.user });
 await hp.getByRole('button', { name: /Join voice: Table/ }).click();
 await wp.getByRole('button', { name: 'Table', exact: true }).click();
 for (const p of [hp, wp]) await p.waitForSelector('.voice-dock.on', { timeout: 20000 });
+// Everyone joins muted; unmute to talk.
+for (const p of [hp, wp]) { await p.waitForSelector('.voice-dock.on button[aria-label="Unmute your microphone"]'); await p.click('.voice-dock.on button[aria-label="Unmute your microphone"]'); }
+for (const p of [hp, wp]) await p.waitForSelector('.voice-dock.on button[aria-label="Mute your microphone"]');
 await hp.waitForFunction(() => document.querySelectorAll('.voice-av').length === 2, null, { timeout: 15000 });
 // Each hears the other: a remote audio element, and the other's beep shows as talking.
 const hears = async (p) => p.waitForFunction(async () => {

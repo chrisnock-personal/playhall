@@ -90,8 +90,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
       const prefs = readDevicePrefs();
       const out = devices ? chosen('audiooutput', devices.audiooutput, prefs) : undefined;
       if (out && canPickSpeaker()) await r.switchActiveDevice('audiooutput', out).catch(() => {});
-      // Talkers join unmuted, as in a real room; one click mutes.
-      if (data.talk) await r.localParticipant.setMicrophoneEnabled(true, constraints('audio', prefs, devices?.audioinput) as object);
+      // You join muted (the plan for phase 2): one click on the mic to talk.
       setNeedsClick(!r.canPlaybackAudio);
       setState('on');
       refresh();
