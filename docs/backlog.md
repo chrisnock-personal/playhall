@@ -5,6 +5,22 @@ from this list. The phases themselves are in [design.md](design.md#phases).
 
 ## Still open
 
+### Bridge (2026-11-16, #37)
+
+Contract bridge for four in two partnerships: the deal, the auction (to a
+contract, with doubles), dummy laid face up and played by the declarer,
+thirteen tricks, Chicago scoring first (rubber as an option, duplicate later
+with tournaments). Both partners score a win (`teamWin`). Bots that bid a
+simple natural system and play by simple rules make it playable with one to
+three people.
+
+### Shithead (2026-11-16, #36)
+
+The traditional shedding game (also known as Palace) for 2-6 with a 52-card
+deck: three face-down, three face-up and a hand of three; play equal or
+higher, pick up the pile if you can't; 2 resets, 10 burns (house rules to
+settle); the last player with cards loses. A folk game, on our own cards.
+
 ### Realm Duel team battles (2026-11-16, #34)
 
 2v2 and 3v3 team battles (and free-for-all) alongside the 1v1 duel: each
