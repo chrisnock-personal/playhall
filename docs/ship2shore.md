@@ -21,9 +21,9 @@ them are who they say they are.
 
 | Faction | Wants the ship to reach | Notes |
 |---|---|---|
-| **Royal Navy** (the loyal crew) | **Plymouth**, the Allied port to the north-east | The majority |
-| **Spies** (enemy agents) | **The U-boat rendezvous** to the south-west | Learn who the other spies are before play (at night, as in the room's private reveal) |
-| **The Black Market** | **Lisbon**, the neutral port to the south | One **Fixer**, who starts alone and can **bribe** others onto their side during play. The Fixer also wins if thrown to the sharks: "a body was never found" |
+| **Royal Navy** (the loyal crew) | **Plymouth**, top right | The majority |
+| **Spies** (enemy agents) | **The U-boat rendezvous**, top left | Learn who the other spies are before play (at night, as in the room's private reveal) |
+| **The Black Market** | **Lisbon**, dead ahead at the top, between the other two | One **Fixer**, who starts alone and can **bribe** others onto their side during play. The Fixer also wins if thrown to the sharks: "a body was never found" |
 
 | Players | Navy | Spies | Fixer |
 |---|---|---|---|
@@ -48,9 +48,10 @@ Teams win together, including players already thrown to the sharks.
 3. **Plotting the course.** The captain and first officer each draw two
    **course orders**, keep one and discard one, unseen. The helmsman sees the
    two kept orders, discards one, and the captain reveals the other and
-   carries it out: the ship moves one sea area in that order's direction
-   (north-east, south-west or south), then any **chart action** on the new
-   area happens, then the order's own effect.
+   carries it out: the ship moves to the neighbouring sea area that the
+   order's **heading** (Navy, U-boat or Lisbon) is marked towards on the area
+   she's in, then any **chart action** on the new area happens, then the
+   order's own effect.
 4. **Off watch**: the helmsman (and in bigger games the first officer and
    captain) rest for one round.
 
@@ -63,15 +64,15 @@ captain must pick an emergency helmsman at once.
 
 ## Course orders (the deck)
 
-| Order | Direction | Effect |
+| Order | Heading | Effect |
 |---|---|---|
 | Steady as she goes | any | None |
 | Shore leave | any | The captain is relieved: the captaincy passes to the player with the fewest orders carried out |
-| Arms locker | north-east | The helmsman gains a round |
-| Confiscated | north-east | The helmsman loses a round |
-| Radio intercept | south-west | A chosen player secretly looks at the last three discarded orders |
-| Spotter | south-west | A chosen player looks at the top order and keeps or discards it |
-| Contraband | south | The Fixer's move: a **bribe**, a **cash stash** (the Fixer quietly hands out up to three rounds), or a **look at the bridge** (the Fixer secretly sees the three bridge players' allegiances) |
+| Arms locker | Navy | The helmsman gains a round |
+| Confiscated | Navy | The helmsman loses a round |
+| Radio intercept | U-boat | A chosen player secretly looks at the last three discarded orders |
+| Spotter | U-boat | A chosen player looks at the top order and keeps or discards it |
+| Contraband | Lisbon | The Fixer's move: a **bribe**, a **cash stash** (the Fixer quietly hands out up to three rounds), or a **look at the bridge** (the Fixer secretly sees the three bridge players' allegiances) |
 
 ## Chart actions (on some sea areas)
 
@@ -117,7 +118,7 @@ before release.
   still has Lisbon as its main route.
 - **Map size.** Recommended: two charts, a short one for 5-7 players and a
   longer one for 8-11 (with a resupply line where everyone tops up to three
-  rounds).
+  rounds). Built that way, as hex diamonds with headings marked per area.
 
 ## Where it fits
 
@@ -166,9 +167,9 @@ two charts. Where the plan left something open, the simplest sensible rule:
 - **Never fewer than three aboard**: with three left, the sharks find nobody
   and nobody may abandon post.
 
-**The deck (28 orders, ours)**: north-east: Steady ×6, Shore leave, Arms
-locker ×2, Confiscated ×2; south-west: Steady ×6, Shore leave, Radio intercept
-×2, Spotter ×2; south: Steady, Shore leave, Contraband ×4. Carried-out orders
+**The deck (28 orders, ours)**: Navy heading: Steady ×6, Shore leave, Arms
+locker ×2, Confiscated ×2; U-boat heading: Steady ×6, Shore leave, Radio
+intercept ×2, Spotter ×2; Lisbon heading: Steady, Shore leave, Contraband ×4. Carried-out orders
 are kept face up; discards face down. When the deck runs short, both piles
 are shuffled back in.
 - **Shore leave**: command passes to the player aboard (not the captain, not
@@ -184,15 +185,29 @@ are shuffled back in.
   learns only that someone handed them rounds. Look at the bridge: this
   round's captain, first officer and helmsman.
 
-**The charts**: sea areas on a slanted grid (north-east is up-right, south-west
-down-left, south straight down). Short (5-7): 7 areas across × 5 down;
-Plymouth or the rendezvous 4 steps east or west of the start, Lisbon 5 south.
-Long (8-11): 9 × 6; 5 steps either way, Lisbon 6 south, and a resupply line
-between the third and fourth rows (crossing it heading south tops everyone
-aboard up to three rounds; more than three are kept). Chart actions are
-spread over both (see `CHARTS`). Moves from an area always stay on the chart
-or reach a port. In random-play simulations each port wins roughly a quarter
-to a third of games; real tuning needs playtests.
+**The charts**: flat-topped hex sea areas in a diamond, from the start at
+the southern point to the ports' waters along the top: the U-boats' to the
+left, Lisbon's in the middle, Plymouth's to the right (columns ≤ -2, -1 to 1
+and ≥ 2 from the start's column; no neutral water). The Navy and the spies
+pull against each other; the Black Market wins by holding her course between
+them. Every area marks, on its
+edges, where each heading takes the ship from there (the faction's shape and
+colour): usually north-west for the U-boats, north for Lisbon and north-east
+for the Navy, at the chart's sides straight on, and on some areas
+somewhere else (`twists` in `CHARTS`), sideways or even back. No set of
+headings goes round in circles, so every voyage ends in a port. Short (5-7):
+8 rows, 4 areas either side of the start, about 11 orders a voyage. Long
+(8-11): 10 rows, about 14 orders, and a resupply line 5 rows up (crossing it
+tops everyone aboard up to three rounds; more than three are kept). Chart
+actions are spread over both, no sharks in the first two rows.
+
+The twists are tuned so that random play (each round's sailed order a random
+one of the four drawn) gives about **40% the spies, 40% the Navy and 20% the
+Black Market**: the Black Market is the hardest win, and it has the Fixer's
+shark escape too, which random play doesn't count. `npx tsx
+scripts/ship2shore-chart.ts` prints both charts' odds (exact, and played with
+the real deck: 39/39/22 short, 39/39/21 long); `... tune short 40,40,20`
+searches for twists. Real tuning needs playtests.
 - Chart actions use the captain at that moment; kit inspection, interrogation,
   radio silence and sharks can't pick the captain. Radio silence is a marker
   (the game can't mute the chat): the player is asked to keep quiet.

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  ACTIONS, CHARTS, DIRS, FACTIONS, ORDERS, ROLES, orderDir, orderKind, orderName,
+  ACTIONS, CHARTS, FACTIONS, HEADINGS, ORDERS, ROLES, orderHeading, orderKind, orderName,
   type Faction, type LogEntry, type Secret, type ShipView, type TargetKind,
 } from '../../shared/games/ship2shore';
 import type { GameClient, StageProps } from './types';
@@ -33,22 +33,24 @@ function ShipStage(props: StageProps) {
   return (
     <div className="s2s-stage">
       <div className="s2s-layout">
-        <div className="s2s-main">
-          {v?.you && <RolePanel v={v} name={name} />}
-          <div className="s2s-box s2s-controls" aria-live="polite">
-            {!v && <p className="s2s-status">The ship sails when the host starts the game. 5 to 11 players.</p>}
-            {v && <Controls v={v} send={send} name={name} playing={playing} />}
+        {/* The chart takes the full height; what you must do, then the crew
+            and the log, run down a column beside it (above it on phones). */}
+        <div className="s2s-box s2s-chart-box">
+          <div className="s2s-chart-head">
+            <strong>{v ? `Round ${v.round}` : 'The SS Marigold'}</strong>
+            {v && <span className="muted small" data-fly="s2s-deck">{CHARTS[v.chart].name} · {v.deckCount} orders in the deck · mutiny needs {v.threshold} rounds</span>}
           </div>
-          <div className="s2s-box s2s-chart-box">
-            <div className="s2s-chart-head">
-              <strong>{v ? `Round ${v.round}` : 'The SS Marigold'}</strong>
-              {v && <span className="muted small" data-fly="s2s-deck">{CHARTS[v.chart].name} · {v.deckCount} orders in the deck · mutiny needs {v.threshold} rounds</span>}
-            </div>
-            <SeaChart chartId={v?.chart ?? 'short'} ship={v ? v.ship : { a: 0, b: 0 }} next={!!v && !v.result} />
-          </div>
-          {v?.result && v.reveal && <Reveal v={v} name={name} />}
+          <SeaChart chartId={v?.chart ?? 'short'} ship={v ? v.ship : { q: 0, r: 0 }} next={!!v && !v.result} />
         </div>
         <div className="s2s-side">
+          <div className="s2s-act">
+            {v?.you && <RolePanel v={v} name={name} />}
+            <div className="s2s-box s2s-controls" aria-live="polite">
+              {!v && <p className="s2s-status">The ship sails when the host starts the game. 5 to 11 players.</p>}
+              {v && <Controls v={v} send={send} name={name} playing={playing} />}
+            </div>
+            {v?.result && v.reveal && <Reveal v={v} name={name} />}
+          </div>
           <div className="s2s-box s2s-crew">
             {order.map((p) => (
               <PlayerStrip key={p} snap={snap} send={send} seatId={p} receivedAt={receivedAt}
@@ -321,7 +323,7 @@ function entryText(e: LogEntry, name: Name): ReactNode {
     case 'tiebreak': return <>{name(e.seat)} handed command to {name(e.captain)}{late}.</>;
     case 'abandon': return <><strong>{name(e.seat)} abandoned post</strong> and jumped overboard.</>;
     case 'emergency': return <>{name(e.seat)} picked {name(e.helm)} as emergency helmsman{late}.</>;
-    case 'order': return <>The ship sailed {DIRS[orderDir(e.order)].arrow} {DIRS[orderDir(e.order)].name} on <strong>{ORDERS[orderKind(e.order)].title}</strong>.</>;
+    case 'order': return <>The ship sailed on the {HEADINGS[orderHeading(e.order)]}: <strong>{ORDERS[orderKind(e.order)].title}</strong>.</>;
     case 'resupply': return <>Resupplied: everyone aboard tops up to three rounds.</>;
     case 'action':
       if (!e.target) return <>{ACTIONS[e.action].title}: nobody could be picked.</>;

@@ -13,16 +13,16 @@ import { randInt, withHistory, type GameHistory } from './history';
 export type Faction = 'navy' | 'spy' | 'bm';
 /** What you were dealt. A bribed player keeps their role but changes faction. */
 export type Role = 'navy' | 'spy' | 'fixer' | 'smuggler';
-export type Dir = 'ne' | 'sw' | 's';
 export type OrderKind = 'steady' | 'shoreleave' | 'armslocker' | 'confiscated' | 'intercept' | 'spotter' | 'contraband';
-/** A course order: direction and kind, e.g. 'ne.armslocker'. */
-export type Order = `${Dir}.${OrderKind}`;
+/** A course order: whose heading it is and its kind, e.g. 'navy.armslocker'.
+ *  Where a heading takes the ship depends on the sea area she's in. */
+export type Order = `${Faction}.${OrderKind}`;
 export type ChartAction = 'inspect' | 'interrogate' | 'silence' | 'sharks';
 
-export const FACTIONS: Record<Faction, { name: string; short: string; port: string; dir: Dir }> = {
-  navy: { name: 'the Royal Navy', short: 'Royal Navy', port: 'Plymouth', dir: 'ne' },
-  spy: { name: 'the spies', short: 'Spy', port: 'the U-boat rendezvous', dir: 'sw' },
-  bm: { name: 'the Black Market', short: 'Black Market', port: 'Lisbon', dir: 's' },
+export const FACTIONS: Record<Faction, { name: string; short: string; port: string }> = {
+  navy: { name: 'the Royal Navy', short: 'Royal Navy', port: 'Plymouth' },
+  spy: { name: 'the spies', short: 'Spy', port: 'the U-boat rendezvous' },
+  bm: { name: 'the Black Market', short: 'Black Market', port: 'Lisbon' },
 };
 export const ROLES: Record<Role, { title: string; faction: Faction; line: string }> = {
   navy: { title: 'Royal Navy', faction: 'navy', line: 'Bring the Marigold home to Plymouth.' },
@@ -30,11 +30,8 @@ export const ROLES: Record<Role, { title: string; faction: Faction; line: string
   fixer: { title: 'The Fixer', faction: 'bm', line: 'Bring the Marigold to Lisbon, or be thrown to the sharks: a body was never found.' },
   smuggler: { title: 'Smuggler', faction: 'bm', line: 'The Fixer’s hand aboard. Bring the Marigold to Lisbon.' },
 };
-export const DIRS: Record<Dir, { name: string; arrow: string; toward: string }> = {
-  ne: { name: 'north-east', arrow: '↗', toward: 'Plymouth' },
-  sw: { name: 'south-west', arrow: '↙', toward: 'the rendezvous' },
-  s: { name: 'south', arrow: '↓', toward: 'Lisbon' },
-};
+/** What an order's heading is called on its card and in the log. */
+export const HEADINGS: Record<Faction, string> = { navy: 'Navy heading', spy: 'U-boat heading', bm: 'Lisbon heading' };
 export const ORDERS: Record<OrderKind, { title: string; effect: string }> = {
   steady: { title: 'Steady as she goes', effect: 'No effect.' },
   shoreleave: { title: 'Shore leave', effect: 'The captain is relieved: the player with the fewest orders carried out takes command.' },
@@ -51,78 +48,143 @@ export const ACTIONS: Record<ChartAction, { title: string; text: string }> = {
   sharks: { title: 'Sharks', text: 'The captain throws another player overboard. If that’s the Fixer, the Black Market wins.' },
 };
 
-/** The deck: 28 orders. North-east and south-west are even; south is the
- *  Fixer's way and the thinnest. */
+/** The deck: 28 orders. The Navy's and the spies' headings are even; the
+ *  Lisbon heading is the Fixer's and the thinnest. */
 export const DECK: [Order, number][] = [
-  ['ne.steady', 6], ['ne.shoreleave', 1], ['ne.armslocker', 2], ['ne.confiscated', 2],
-  ['sw.steady', 6], ['sw.shoreleave', 1], ['sw.intercept', 2], ['sw.spotter', 2],
-  ['s.steady', 1], ['s.shoreleave', 1], ['s.contraband', 4],
+  ['navy.steady', 6], ['navy.shoreleave', 1], ['navy.armslocker', 2], ['navy.confiscated', 2],
+  ['spy.steady', 6], ['spy.shoreleave', 1], ['spy.intercept', 2], ['spy.spotter', 2],
+  ['bm.steady', 1], ['bm.shoreleave', 1], ['bm.contraband', 4],
 ];
 export const FULL_DECK: Order[] = DECK.flatMap(([o, n]) => Array<Order>(n).fill(o));
-export const orderDir = (o: Order) => o.split('.')[0] as Dir;
+export const orderHeading = (o: Order) => o.split('.')[0] as Faction;
 export const orderKind = (o: Order) => o.split('.')[1] as OrderKind;
-export const orderName = (o: Order) => `${ORDERS[orderKind(o)].title} (${DIRS[orderDir(o)].name})`;
+export const orderName = (o: Order) => `${ORDERS[orderKind(o)].title} (${HEADINGS[orderHeading(o)]})`;
 
 // ---- The chart ----
 
-/** A sea area: `a` counts north-east steps (south-west takes one back), `b`
- *  south steps. The ship starts at 0,0. a = +reach is Plymouth, a = -reach
- *  the U-boat rendezvous, b = depth Lisbon. */
-export interface Pos { a: number; b: number }
+/** A sea area: flat-topped hexes in axial coordinates, `q` columns east of
+ *  the start (west negative) and `r` down the column (north is r - 1). The
+ *  ship starts at 0,0, the chart's southern point. */
+export interface Pos { q: number; r: number }
+export type HexDir = 'n' | 'ne' | 'se' | 's' | 'sw' | 'nw';
+export const HEX: Record<HexDir, Pos> = { n: { q: 0, r: -1 }, ne: { q: 1, r: -1 }, se: { q: 1, r: 0 }, s: { q: 0, r: 1 }, sw: { q: -1, r: 1 }, nw: { q: -1, r: 0 } };
+export const posKey = (p: Pos) => `${p.q},${p.r}`;
+const step = (p: Pos, d: HexDir): Pos => ({ q: p.q + HEX[d].q, r: p.r + HEX[d].r });
+
+export interface SeaArea extends Pos {
+  /** Orders from the start to here, the shortest way. */
+  step: number;
+  /** Whose port these waters are: sailing into them ends the voyage. */
+  port: Faction | null;
+  action: ChartAction | null;
+  /** Which neighbour each heading takes the ship to (none in a port's waters). */
+  to: Record<Faction, HexDir> | null;
+}
 export interface Chart {
   id: 'short' | 'long';
   name: string;
-  reach: number;
-  depth: number;
-  /** Crossing south into this row tops everyone aboard up to three rounds. */
+  /** Orders from the start to the ports' waters, the shortest way. */
+  length: number;
+  /** How far either side of the start's column the chart reaches. */
+  width: number;
+  /** Sailing into this many orders' distance from the start tops everyone
+   *  aboard up to three rounds. */
   resupplyRow: number | null;
-  actions: Record<string, ChartAction>;
+  areas: Record<string, SeaArea>;
 }
 
-/** Rows of sea areas, west to east (a = -reach+1 … reach-1), north first:
- *  . nothing, i inspection, q interrogation, r radio silence, x sharks. */
-function rows(lines: string[]): Record<string, ChartAction> {
-  const code: Record<string, ChartAction> = { i: 'inspect', q: 'interrogate', r: 'silence', x: 'sharks' };
-  const out: Record<string, ChartAction> = {};
-  const reach = (lines[0].length + 1) / 2;
-  lines.forEach((line, b) => [...line].forEach((ch, k) => { if (code[ch]) out[`${k - reach + 1},${b}`] = code[ch]; }));
-  return out;
+/** The usual way of each heading: the rendezvous to the north-west, Lisbon
+ *  dead ahead, Plymouth to the north-east. The Navy and the spies pull
+ *  against each other; the Black Market wins by holding her course between
+ *  them. Twists send some areas' headings elsewhere, as marked on the chart. */
+const USUAL: Record<Faction, HexDir> = { spy: 'nw', bm: 'n', navy: 'ne' };
+const ACTION_CODE: Record<string, ChartAction> = { i: 'inspect', q: 'interrogate', r: 'silence', x: 'sharks' };
+
+interface ChartSpec {
+  id: Chart['id']; name: string; length: number; width: number; resupplyRow: number | null;
+  /** The ports' waters (the top row) by column: the U-boats' up to the
+   *  first, Plymouth's from the second, Lisbon's between. */
+  ports: [number, number];
+  /** 'q,r heading:dir', e.g. '1,-3 spy:n'. */
+  twists: string[];
+  /** 'q,r:x' with x as in ACTION_CODE. */
+  actions: string[];
+}
+
+/** Lays out a chart: every area within `width` columns of the start that the
+ *  ship can reach sailing north, north-west or north-east, `length` orders at
+ *  the most; the last row is the ports' waters. */
+export function buildChart(spec: ChartSpec): Chart {
+  const areas: Record<string, SeaArea> = {};
+  let frontier: Pos[] = [{ q: 0, r: 0 }];
+  areas['0,0'] = { q: 0, r: 0, step: 0, port: null, action: null, to: null };
+  for (let k = 1; k <= spec.length; k++) {
+    const next: Pos[] = [];
+    for (const p of frontier) for (const d of ['nw', 'n', 'ne'] as HexDir[]) {
+      const n = step(p, d);
+      if (Math.abs(n.q) > spec.width || areas[posKey(n)]) continue;
+      areas[posKey(n)] = { ...n, step: k, port: null, action: null, to: null };
+      next.push(n);
+    }
+    frontier = next;
+  }
+  const on = (p: Pos) => !!areas[posKey(p)];
+  for (const a of Object.values(areas)) {
+    if (a.step === spec.length) { a.port = a.q <= spec.ports[0] ? 'spy' : a.q >= spec.ports[1] ? 'navy' : 'bm'; continue; }
+    const way = (f: Faction): HexDir => [USUAL[f], 'n', 'nw', 'ne'].find((d) => on(step(a, d as HexDir))) as HexDir;
+    a.to = { navy: way('navy'), spy: way('spy'), bm: way('bm') };
+  }
+  for (const t of spec.twists) {
+    const [, q, r, f, d] = /^(-?\d+),(-?\d+) (navy|spy|bm):(n|ne|se|s|sw|nw)$/.exec(t) ?? [];
+    const a = areas[`${q},${r}`];
+    if (!a?.to || !on(step(a, d as HexDir))) throw new Error(`${spec.id} chart: bad twist ${t}`);
+    a.to[f as Faction] = d as HexDir;
+  }
+  for (const x of spec.actions) {
+    const [k, c] = x.split(':');
+    const a = areas[k];
+    if (!a || a.port || a.step === 0 || !ACTION_CODE[c]) throw new Error(`${spec.id} chart: bad action ${x}`);
+    a.action = ACTION_CODE[c];
+  }
+  // Every heading must lead on towards a port: no way round in circles.
+  const state: Record<string, 1 | 2> = {};
+  const visit = (k: string) => {
+    if (state[k] === 2) return;
+    if (state[k] === 1) throw new Error(`${spec.id} chart: the headings loop through ${k}`);
+    state[k] = 1;
+    const a = areas[k];
+    if (a.to) for (const d of Object.values(a.to)) visit(posKey(step(a, d)));
+    state[k] = 2;
+  };
+  Object.keys(areas).forEach(visit);
+  const { ports: _p, twists: _t, actions: _a, ...rest } = spec;
+  return { ...rest, areas };
 }
 
 export const CHARTS: Record<'short' | 'long', Chart> = {
-  // 5-7 players: seven areas across, five down.
-  short: {
-    id: 'short', name: 'The short chart', reach: 4, depth: 5, resupplyRow: null,
-    actions: rows([
-      'x.i..q.',
-      '.r.q.xi',
-      'i.x.r..',
-      '.q.x.i.',
-      'r..i.q.',
-    ]),
-  },
-  // 8-11 players: nine across, six down, and a resupply line halfway.
-  long: {
-    id: 'long', name: 'The long chart', reach: 5, depth: 6, resupplyRow: 3,
-    actions: rows([
-      '.x.i..q.x',
-      'i.r.q.x..',
-      '.q.x.i.r.',
-      'x.i.x..q.',
-      '.r.q.x.i.',
-      'q..i.r..x',
-    ]),
-  },
+  // 5-7 players.
+  short: buildChart({
+    id: 'short', name: 'The short chart', length: 8, width: 4, resupplyRow: null, ports: [-2, 2],
+    twists: ['-1,-6 bm:sw', '-1,0 bm:ne', '-2,-5 navy:nw', '-2,0 navy:nw', '1,-5 bm:se', '2,-2 spy:n', '2,-5 spy:ne'],
+    actions: ['-1,0:i', '2,-2:q', '-2,-1:r', '0,-3:x', '-4,0:i', '4,-4:q', '-2,-3:r', '1,-5:x', '3,-5:i', '-4,-2:q', '-2,-4:r', '-2,-5:x', '0,-7:i', '2,-7:q', '4,-7:r'],
+  }),
+  // 8-11 players, with a resupply line halfway.
+  long: buildChart({
+    id: 'long', name: 'The long chart', length: 10, width: 4, resupplyRow: 5, ports: [-2, 2],
+    twists: ['-2,-2 navy:nw', '-3,-3 navy:nw', '-3,-4 navy:n', '0,-8 navy:nw', '1,-6 spy:n', '2,-7 spy:n', '2,-8 spy:ne', '3,-3 spy:ne'],
+    actions: ['-1,0:i', '1,-1:q', '0,-2:r', '-3,0:x', '2,-3:i', '-2,-2:q', '0,-4:r', '4,-4:x', '-4,-1:i', '0,-5:q', '3,-5:r', '-2,-4:x', '2,-6:i', '1,-7:q', '4,-7:r', '-4,-4:x', '-2,-6:i', '1,-8:q', '3,-8:r', '-1,-8:x', '2,-9:i'],
+  }),
 };
+
 export const chartFor = (players: number): Chart => CHARTS[players <= 7 ? 'short' : 'long'];
-export const actionAt = (chart: Chart, p: Pos): ChartAction | null => chart.actions[`${p.a},${p.b}`] ?? null;
-const STEP: Record<Dir, Pos> = { ne: { a: 1, b: 0 }, sw: { a: -1, b: 0 }, s: { a: 0, b: 1 } };
-/** The port at `p`, if the ship has reached one. */
-export function portAt(chart: Chart, p: Pos): Faction | null {
-  if (p.a >= chart.reach) return 'navy';
-  if (p.a <= -chart.reach) return 'spy';
-  if (p.b >= chart.depth) return 'bm';
-  return null;
+export const areaAt = (chart: Chart, p: Pos): SeaArea | null => chart.areas[posKey(p)] ?? null;
+export const actionAt = (chart: Chart, p: Pos): ChartAction | null => areaAt(chart, p)?.action ?? null;
+/** The port whose waters the ship is in, if she's reached them. */
+export const portAt = (chart: Chart, p: Pos): Faction | null => areaAt(chart, p)?.port ?? null;
+/** Where an order on `heading` takes the ship from `p`. */
+export function sailFrom(chart: Chart, p: Pos, heading: Faction): Pos {
+  const to = areaAt(chart, p)?.to;
+  return to ? step(p, to[heading]) : p;
 }
 
 // ---- Who's who ----
@@ -430,8 +492,7 @@ function advance(s: ShipState, _random?: () => number): ShipState {
 /** The helmsman's choice is carried out: move, then the chart, then the order. */
 function carryOut(s: ShipState, order: Order, random: () => number): ShipState {
   const chart = CHARTS[s.chart];
-  const d = STEP[orderDir(order)];
-  const to = { a: s.ship.a + d.a, b: s.ship.b + d.b };
+  const to = sailFrom(chart, s.ship, orderHeading(order));
   let next = log({
     ...s, ship: to, played: [...s.played, order], helmCards: [], hands: {}, kept: {},
     carried: { ...s.carried, [s.captain]: (s.carried[s.captain] ?? 0) + 1 },
@@ -439,7 +500,8 @@ function carryOut(s: ShipState, order: Order, random: () => number): ShipState {
   const port = portAt(chart, to);
   if (port) return finish(next, port, PORT_REASON[port]);
   const todo: Step[] = [];
-  if (orderDir(order) === 's' && chart.resupplyRow === to.b) todo.push({ k: 'resupply' });
+  const r = chart.resupplyRow;
+  if (r !== null && areaAt(chart, s.ship)!.step < r && areaAt(chart, to)!.step >= r) todo.push({ k: 'resupply' });
   const action = actionAt(chart, to);
   if (action) todo.push({ k: 'chart', action });
   if (orderKind(order) !== 'steady') todo.push({ k: 'order', order });
@@ -754,10 +816,10 @@ const base: GameModule<ShipState, Record<string, never>> = {
         'A helmsman can abandon post instead: both orders are discarded unseen, they go overboard, and the captain picks an emergency helmsman.',
       ] },
       { title: 'Orders and the chart', points: [
-        'Each order moves the ship one sea area: north-east (towards Plymouth), south-west (towards the rendezvous) or south (towards Lisbon). Then any chart action on the new area happens, then the order’s own effect.',
+        'Each order is on one faction’s heading: the Navy’s (a circle), the U-boats’ (a diamond) or Lisbon’s (a hexagon). The ship moves to the neighbouring sea area that heading’s mark points to on the area she’s in: usually north-west for the U-boats, north for Lisbon and north-east for Plymouth, but some areas send a heading elsewhere. Then any chart action on the new area happens, then the order’s own effect. Sailing into a port’s waters along the top ends the voyage.',
         'Shore leave: the player with the fewest orders carried out takes command. Arms locker / Confiscated: the helmsman gains / loses a round. Radio intercept: someone the captain picks reads the last three discards. Spotter: someone the captain picks looks at the top order and keeps or discards it. Contraband: the Fixer bribes someone, hands out up to three rounds, or looks at the bridge watch’s allegiances.',
         'Chart actions: kit inspection (the captain secretly sees someone’s allegiance), interrogation (everyone sees one faction a player is not), radio silence (that player keeps quiet and can’t be captain), sharks (the captain throws someone overboard). Players who’ve been inspected or interrogated can’t be bribed.',
-        'The short chart (5-7 players) and the long chart (8-11, with a resupply line that tops everyone up to three rounds).',
+        'The short chart (5-7 players, about 11 orders to the ports) and the long chart (8-11, about 14 orders, with a resupply line that tops everyone up to three rounds when the ship crosses it).',
       ] },
       { title: 'Timing and leaving', points: [
         'Out of time: the captain’s picks are made at random, you commit no rounds, you keep your first order, the helmsman discards at random, a spotter keeps the card and the Fixer looks at the bridge.',
@@ -786,7 +848,7 @@ const base: GameModule<ShipState, Record<string, never>> = {
       ammo: Object.fromEntries(order.map((p) => [p, START_AMMO])),
       carried: Object.fromEntries(order.map((p) => [p, 0])),
       overboard: [], silenced: [], checked: [], resigned: [],
-      ship: { a: 0, b: 0 }, round: 0, captain, officer: null, helm: null, offWatch: [], phase: 'pick', mutinied: false,
+      ship: { q: 0, r: 0 }, round: 0, captain, officer: null, helm: null, offWatch: [], phase: 'pick', mutinied: false,
       votes: {}, tied: [], hands: {}, kept: {}, helmCards: [], deck: shuffle(FULL_DECK, ctx.random), discard: [], played: [],
       todo: [], target: null, spotter: null, spotCard: null, acked: [], secrets: {}, log: [], result: null,
     };

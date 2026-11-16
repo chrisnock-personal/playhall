@@ -4,14 +4,14 @@
 // ports, the ship, the bridge markers (captain, first officer, helmsman),
 // rounds of ammunition, and the markers for the sharks, radio silence,
 // inspection and off watch. Every piece reads without colour: factions are a
-// circle (Navy), a diamond (spies) and a hexagon (Black Market); directions
-// are arrows. Our own drawings (docs/ship2shore.md).
+// circle (Navy), a diamond (spies) and a hexagon (Black Market), and so are
+// the headings marked on the chart. Our own drawings (docs/ship2shore.md).
 
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { animate } from '../kit/motion';
 import {
-  ACTIONS, CHARTS, DIRS, FACTIONS, ORDERS, ROLES, actionAt, orderDir, orderKind,
-  type ChartAction, type Dir, type Faction, type Order, type OrderKind, type Pos, type Role,
+  ACTIONS, CHARTS, FACTIONS, HEADINGS, HEX, ORDERS, ROLES, orderHeading, orderKind,
+  type ChartAction, type Faction, type HexDir, type Order, type OrderKind, type Pos, type Role,
 } from '../../shared/games/ship2shore';
 
 export const INK = '#1E2328';
@@ -23,8 +23,8 @@ export const FACTION_COLOUR: Record<Faction, { fill: string; deep: string; light
   spy: { fill: '#8E2F33', deep: '#4E171B', light: '#F1D3D3' },
   bm: { fill: '#B98A1E', deep: '#5E4410', light: '#F4E5BE' },
 };
-export const DIR_COLOUR: Record<Dir, string> = { ne: '#2F5D8A', sw: '#8E2F33', s: '#9A6F12' };
-const DIR_FACTION: Record<Dir, Faction> = { ne: 'navy', sw: 'spy', s: 'bm' };
+/** Each faction's heading, on order cards and the chart. */
+export const HEADING_COLOUR: Record<Faction, string> = { navy: '#2F5D8A', spy: '#8E2F33', bm: '#9A6F12' };
 const SANS = 'Inter, system-ui, sans-serif';
 const TYPE = '"Courier New", Courier, monospace';
 const POSTER = '"Space Grotesk", Inter, system-ui, sans-serif';
@@ -137,7 +137,7 @@ export function RoleCard({ role, width = 70, bribed, className }: { role: Role |
       {ROLE_ART[role](col)}
       <rect x="7" y="74" width="56" height="12" fill={CREAM} />
       <text x="35" y="80.5" textAnchor="middle" dominantBaseline="central" fill={col.deep} fontSize={r.title.length > 10 ? 7 : 8} fontWeight="800" letterSpacing=".6" fontFamily={POSTER}>{r.title.toUpperCase()}</text>
-      <text x="35" y="92" textAnchor="middle" fill={CREAM} fontSize="5.2" fontWeight="700" letterSpacing=".8" fontFamily={SANS}>{DIRS[FACTIONS[r.faction].dir].arrow} {port}</text>
+      <text x="35" y="92" textAnchor="middle" fill={CREAM} fontSize="5.2" fontWeight="700" letterSpacing=".8" fontFamily={SANS}>TO {port}</text>
       {bribed && (
         <g transform="rotate(-22 35 50)">
           <rect x="6" y="41" width="58" height="17" rx="2" fill={FACTION_COLOUR.bm.light} fillOpacity=".92" stroke={FACTION_COLOUR.bm.deep} strokeWidth="1.6" />
@@ -150,17 +150,25 @@ export function RoleCard({ role, width = 70, bribed, className }: { role: Role |
 
 // ---- Course orders ----
 
-/** An arrow pointing the order's way, in a stamp: ↗ ↙ ↓. */
-function DirStamp({ dir, x, y, r = 14 }: { dir: Dir; x: number; y: number; r?: number }) {
-  const turn = dir === 'ne' ? 45 : dir === 'sw' ? 225 : 180;
-  const c = DIR_COLOUR[dir];
+/** A heading's mark: its faction's shape (circle, diamond, hexagon) at
+ *  radius `r` round 0,0. */
+export function HeadingShape({ faction, r, fill, stroke, strokeWidth = 1 }: { faction: Faction; r: number; fill: string; stroke: string; strokeWidth?: number }) {
+  if (faction === 'navy') return <circle r={r} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+  if (faction === 'spy') { const d = r * 1.25; return <path d={`M0 ${-d}L${d} 0 0 ${d}${-d} 0z`} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round" />; }
+  const pts = Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2; return `${(r * 1.1 * Math.cos(a)).toFixed(2)},${(r * 1.1 * Math.sin(a)).toFixed(2)}`; }).join(' ');
+  return <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round" />;
+}
+
+/** The order's heading stamped on: its faction's shape and emblem in a ring. */
+function HeadingStamp({ faction, x, y, r = 14 }: { faction: Faction; x: number; y: number; r?: number }) {
+  const c = HEADING_COLOUR[faction];
+  const emblem = faction === 'navy' ? <Anchor c={CREAM} /> : faction === 'spy' ? <g transform="translate(5 5) scale(.75)"><Periscope c={CREAM} /></g> : <Pound c={CREAM} />;
   return (
     <g transform={`translate(${x} ${y})`}>
       <circle r={r} fill="none" stroke={c} strokeWidth="1.8" />
       <circle r={r - 3} fill="none" stroke={c} strokeWidth=".6" strokeDasharray="1.5 1.2" />
-      <g transform={`rotate(${turn}) scale(${r / 14})`}>
-        <path d="M0-9.5L6.5-1.5H2.6V9H-2.6V-1.5H-6.5z" fill={c} />
-      </g>
+      <HeadingShape faction={faction} r={r * 0.62} fill={c} stroke={c} />
+      <g transform={`scale(${r / 40}) translate(-20 -20)`}>{emblem}</g>
     </g>
   );
 }
@@ -205,23 +213,23 @@ export function OrderCard({ order, width = 70, raised, dim, className }: { order
       </svg>
     );
   }
-  const dir = orderDir(order), kind = orderKind(order);
-  const c = DIR_COLOUR[dir];
+  const heading = orderHeading(order), kind = orderKind(order);
+  const c = HEADING_COLOUR[heading];
   const lines = TITLE_LINES[kind];
   return (
     <svg className={cls} width={width} height={(width * 100) / 70} viewBox="0 0 70 100" role="img"
-      aria-label={`${ORDERS[kind].title}, ${DIRS[dir].name}`}>
+      aria-label={`${ORDERS[kind].title}, ${HEADINGS[heading]}`}>
       <rect x="1" y="1" width="68" height="98" rx="7" fill={PAPER} stroke="#BFAE88" strokeWidth="1.5" />
       <path d="M1.75 8a6.25 6.25 0 0 1 6.25-6.25h54a6.25 6.25 0 0 1 6.25 6.25v4h-66.5z" fill={c} />
       <text x="6" y="20" fill={INK} fontSize="5" fontWeight="700" letterSpacing=".6" fontFamily={TYPE}>COURSE ORDER</text>
       <path d="M6 23h58" stroke={INK} strokeWidth=".4" strokeDasharray="1 1" />
-      <DirStamp dir={dir} x={35} y={40} />
+      <HeadingStamp faction={heading} x={35} y={40} />
       {lines.map((l, i) => (
         <text key={l} x="35" y={lines.length === 1 ? 67 : 64 + i * 8} textAnchor="middle" fill={INK} fontSize={l.length > 8 ? 6.8 : 7.6} fontWeight="800" letterSpacing=".3" fontFamily={TYPE}>{l}</text>
       ))}
       <g transform="translate(6 77)"><EffectIcon kind={kind} /></g>
-      <text x="64" y="85" textAnchor="end" fill={c} fontSize="5.4" fontWeight="800" letterSpacing=".5" fontFamily={SANS}>{DIRS[dir].name.toUpperCase()}</text>
-      <text x="64" y="92" textAnchor="end" fill={INK} fontSize="4.4" fontFamily={SANS} opacity=".75">to {DIRS[dir].toward}</text>
+      <text x="64" y="85" textAnchor="end" fill={c} fontSize="5.4" fontWeight="800" letterSpacing=".5" fontFamily={SANS}>{HEADINGS[heading].replace(' heading', '').toUpperCase()}</text>
+      <text x="64" y="92" textAnchor="end" fill={INK} fontSize="4.4" fontFamily={SANS} opacity=".75">heading</text>
     </svg>
   );
 }
@@ -334,10 +342,20 @@ export function Marker({ kind, size = 20 }: { kind: MarkerKind | ChartAction; si
 
 // ---- The chart ----
 
-const DX = 34, DY = 32;
-/** Where a sea area sits on the chart: north-east is up and right, south-west
- *  down and left, south straight down. */
-export const chartXY = (p: Pos) => ({ x: p.a * DX, y: p.b * DY - (p.a * DY) / 2 });
+/** Flat-topped hexes, `HR` from the centre to a corner. */
+const HR = 20;
+const SQ3 = Math.sqrt(3);
+/** Where a sea area's centre sits on the chart. */
+export const chartXY = (p: Pos) => ({ x: 1.5 * HR * p.q, y: SQ3 * HR * (p.r + p.q / 2) });
+const ANGLE: Record<HexDir, number> = { n: -90, ne: -30, se: 30, s: 90, sw: 150, nw: 210 };
+const corner = (x: number, y: number, deg: number, r = HR) => ({ x: x + r * Math.cos((deg * Math.PI) / 180), y: y + r * Math.sin((deg * Math.PI) / 180) });
+const hexPoints = (x: number, y: number, r: number) => Array.from({ length: 6 }, (_, i) => { const c = corner(x, y, 60 * i, r); return `${c.x.toFixed(2)},${c.y.toFixed(2)}`; }).join(' ');
+// The sea chart's own colours (the same in both themes): deep water that
+// shades lighter towards the ports, faction waters along the top.
+const SEA = { deep: '#123a52', shallow: '#1d5673', tile: '#2c7193', edge: '#7fb4cc', label: '#d9ecf3', foam: '#bfe3ef', land: '#c9b98c', landEdge: '#8a7448', chip: '#eaf4f8', chipInk: '#123a52' };
+const WATERS: Record<Faction, string> = { spy: '#4a5866', navy: '#2f6fb3', bm: '#c2862a' };
+/** Heading marks, brightened to read on dark water. */
+const CHART_HEADING: Record<Faction, string> = { navy: '#8fc3f5', spy: '#f2898a', bm: '#f2c14e' };
 
 function Port({ faction, x, y }: { faction: Faction; x: number; y: number }) {
   const col = FACTION_COLOUR[faction];
@@ -360,84 +378,129 @@ function Port({ faction, x, y }: { faction: Faction; x: number; y: number }) {
   );
 }
 
-/** The chart of the Bay of Biscay: sea areas joined the three ways the ship
- *  can sail, chart actions on some of them, the three ports along the edges
- *  and the ship. `next` shows where each heading would take her. */
+/** West to east, as the ports lie along the top. */
+const FACTION_ORDER: Faction[] = ['spy', 'bm', 'navy'];
+
+/** The chart of the Bay of Biscay: hex sea areas from the start in the south
+ *  to the ports' waters along the top. Each area marks, on its edges, where
+ *  each heading takes the ship from there (its faction's shape and colour);
+ *  chart actions sit in the middle. `next` makes the marks of the ship's area
+ *  stand out, with a line to each place she could go. */
 export function SeaChart({ chartId, ship, next, className }: { chartId: 'short' | 'long'; ship: Pos | null; next?: boolean; className?: string }) {
   const chart = CHARTS[chartId];
-  const { reach: R, depth: D } = chart;
-  const cells: Pos[] = [];
-  for (let b = 0; b < D; b++) for (let a = -R + 1; a < R; a++) cells.push({ a, b });
-  const minX = -R * DX - 40, maxX = R * DX + 40;
-  const minY = -(R * DY) / 2 - 34, maxY = D * DY + (R * DY) / 2 + 34;
+  const areas = Object.values(chart.areas);
+  const xs = areas.map((a) => chartXY(a).x), ys = areas.map((a) => chartXY(a).y);
+  const minX = Math.min(...xs) - HR - 26, maxX = Math.max(...xs) + HR + 26;
+  const minY = Math.min(...ys) - HR - 58, maxY = Math.max(...ys) + HR + 26;
   const w = maxX - minX, h = maxY - minY;
-  const line = (p: Pos, q: Pos, key: string) => { const u = chartXY(p), v = chartXY(q); return <path key={key} d={`M${u.x} ${u.y}L${v.x} ${v.y}`} />; };
-  const edges: ReactNode[] = [];
-  for (const p of cells) {
-    edges.push(line(p, { a: p.a + 1, b: p.b }, `${p.a},${p.b}e`));
-    edges.push(line(p, { a: p.a, b: p.b + 1 }, `${p.a},${p.b}s`));
-    if (p.a === -R + 1) edges.push(line(p, { a: p.a - 1, b: p.b }, `${p.a},${p.b}w`));
-  }
-  const coast = (pts: Pos[]) => pts.map((p, i) => { const { x, y } = chartXY(p); return `${i ? 'L' : 'M'}${x} ${y}`; }).join('');
-  const plymouth = Array.from({ length: D }, (_, b) => ({ a: R, b }));
-  const uboats = Array.from({ length: D }, (_, b) => ({ a: -R, b }));
-  const lisbon = Array.from({ length: 2 * R - 1 }, (_, i) => ({ a: i - R + 1, b: D }));
-  const resupply = chart.resupplyRow;
+  const here = ship ? chart.areas[`${ship.q},${ship.r}`] : null;
   const shipAt = ship ? chartXY(ship) : null;
-  const heads: [Dir, Pos][] = ship && next ? (['ne', 'sw', 's'] as Dir[]).map((d) => [d, { a: ship.a + (d === 'ne' ? 1 : d === 'sw' ? -1 : 0), b: ship.b + (d === 's' ? 1 : 0) }]) : [];
+  // The resupply line: the edges between areas before it and after it.
+  const resupply: string[] = [];
+  if (chart.resupplyRow !== null) {
+    for (const a of areas) {
+      if (a.step < chart.resupplyRow) continue;
+      for (const d of Object.keys(HEX) as HexDir[]) {
+        const n = chart.areas[`${a.q + HEX[d].q},${a.r + HEX[d].r}`];
+        if (!n || n.step >= chart.resupplyRow) continue;
+        const { x, y } = chartXY(a);
+        const c1 = corner(x, y, ANGLE[d] - 30), c2 = corner(x, y, ANGLE[d] + 30);
+        resupply.push(`M${c1.x.toFixed(1)} ${c1.y.toFixed(1)}L${c2.x.toFixed(1)} ${c2.y.toFixed(1)}`);
+      }
+    }
+  }
+  // Each port above the top of its own waters.
+  const ports = FACTION_ORDER.map((f) => {
+    const mine = areas.filter((a) => a.port === f).map(chartXY);
+    const top = Math.min(...mine.map((p) => p.y));
+    const x = mine.reduce((t, p) => t + p.x, 0) / mine.length;
+    return { f, x, y: top - HR - 22 };
+  });
+  const uid = useId().replace(/:/g, '');
+  const rose = { x: minX + 30, y: maxY - 32 };
   return (
     <svg className={`s2s-chart${className ? ` ${className}` : ''}`} viewBox={`${minX} ${minY} ${w} ${h}`} role="img"
-      aria-label={`${chart.name} of the Bay of Biscay${ship ? `; the ship is ${ship.a >= 0 ? ship.a : -ship.a} step${Math.abs(ship.a) === 1 ? '' : 's'} ${ship.a >= 0 ? 'north-east' : 'south-west'} and ${ship.b} south of the start` : ''}`}>
-      <rect x={minX} y={minY} width={w} height={h} rx="10" fill="#C9DCE0" />
-      <rect x={minX + 4} y={minY + 4} width={w - 8} height={h - 8} rx="7" fill="none" stroke="#7E9CA6" strokeWidth="1" />
-      {/* The ports: a strip of coast (or dark water, for the U-boats) along each edge. */}
-      {([['navy', plymouth], ['spy', uboats], ['bm', lisbon]] as [Faction, Pos[]][]).map(([f, pts]) => (
-        <g key={f} fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <path d={coast(pts)} stroke={f === 'spy' ? '#3F5560' : '#8C7444'} strokeWidth="30" />
-          <path d={coast(pts)} stroke={f === 'spy' ? '#5C7680' : '#E3D3A8'} strokeWidth="27" />
+      aria-label={`${chart.name} of the Bay of Biscay${here ? `; the ship is ${here.step} order${here.step === 1 ? '' : 's'} from the start` : ''}`}>
+      <defs>
+        <radialGradient id={`${uid}deep`} cx="50%" cy="45%" r="75%"><stop offset="0%" stopColor={SEA.shallow} /><stop offset="100%" stopColor={SEA.deep} /></radialGradient>
+        <clipPath id={`${uid}frame`}><rect x={minX} y={minY} width={w} height={h} rx="10" /></clipPath>
+      </defs>
+      <rect x={minX} y={minY} width={w} height={h} rx="10" fill={`url(#${uid}deep)`} />
+      <g clipPath={`url(#${uid}frame)`}>
+        {/* Rhumb lines from the compass rose. */}
+        {Array.from({ length: 16 }, (_, i) => {
+          const a = (i * 22.5 * Math.PI) / 180;
+          return <path key={i} d={`M${rose.x} ${rose.y}l${Math.cos(a) * 1400} ${Math.sin(a) * 1400}`} stroke={SEA.foam} strokeWidth={i % 4 ? 0.4 : 0.8} opacity=".25" />;
+        })}
+        {/* Coasts in the corners: Cornwall top right, Iberia down the right. */}
+        <path d={`M${maxX - 88} ${minY}L${maxX} ${minY}L${maxX} ${minY + 52}Q${maxX - 20} ${minY + 60} ${maxX - 38} ${minY + 48}Q${maxX - 56} ${minY + 37} ${maxX - 68} ${minY + 28}Q${maxX - 80} ${minY + 16} ${maxX - 88} ${minY}Z`} fill={SEA.land} stroke={SEA.landEdge} strokeWidth="1.2" />
+        <path d={`M${maxX} ${minY + h * 0.42}Q${maxX - 16} ${minY + h * 0.47} ${maxX - 22} ${minY + h * 0.55}Q${maxX - 28} ${minY + h * 0.66} ${maxX - 16} ${minY + h * 0.74}Q${maxX - 10} ${minY + h * 0.8} ${maxX} ${minY + h * 0.84}Z`} fill={SEA.land} stroke={SEA.landEdge} strokeWidth="1.2" />
+        <text x={maxX - 40} y={minY + 18} textAnchor="middle" fill={SEA.landEdge} fontSize="6" fontWeight="700" letterSpacing="1" fontFamily={POSTER}>CORNWALL</text>
+        <text x={maxX - 9} y={minY + h * 0.63} textAnchor="middle" fill={SEA.landEdge} fontSize="6" fontWeight="700" letterSpacing="1" fontFamily={POSTER} transform={`rotate(90 ${maxX - 9} ${minY + h * 0.63})`}>IBERIA</text>
+      </g>
+      <rect x={minX + 3} y={minY + 3} width={w - 6} height={h - 6} rx="8" fill="none" stroke={SEA.edge} strokeOpacity=".45" strokeWidth="1" />
+      {areas.map((a) => {
+        const { x, y } = chartXY(a);
+        return a.port
+          ? <polygon key={`h${a.q},${a.r}`} points={hexPoints(x, y, HR - 1.2)} fill={WATERS[a.port]} fillOpacity=".95" stroke={WATERS[a.port]} strokeWidth="2" />
+          : <polygon key={`h${a.q},${a.r}`} points={hexPoints(x, y, HR - 1.2)} fill={SEA.tile} fillOpacity={0.35 + (a.step / chart.length) * 0.3} stroke={SEA.edge} strokeOpacity=".7" strokeWidth="1" />;
+      })}
+      {resupply.length > 0 && (
+        <g>
+          <path d={resupply.join('')} stroke="#8fe3a8" strokeWidth="2.5" strokeDasharray="6 3" strokeLinecap="round" fill="none" />
+          <g transform={`translate(${maxX - 12} ${maxY - 14})`}>
+            <path d="M-84 0h16" stroke="#8fe3a8" strokeWidth="2.5" strokeDasharray="6 3" />
+            <text x="0" y="0" textAnchor="end" dominantBaseline="central" fill="#8fe3a8" fontSize="7" fontWeight="800" fontFamily={SANS}>RESUPPLY LINE</text>
+          </g>
         </g>
-      ))}
-      <g stroke="#7E9CA6" strokeWidth="1.2" strokeDasharray="2 2.5">{edges}</g>
-      {resupply !== null && (() => {
-        const a1 = chartXY({ a: -R + 0.5, b: resupply - 0.5 }), a2 = chartXY({ a: R - 0.5, b: resupply - 0.5 });
+      )}
+      {areas.map((a) => {
+        const { x, y } = chartXY(a);
+        const act = a.action;
+        const start = a.step === 0;
+        const isHere = !!here && next && a === here;
+        // Headings that share an edge sit side by side along it.
+        const byEdge = new Map<HexDir, Faction[]>();
+        if (a.to) for (const f of FACTION_ORDER) byEdge.set(a.to[f], [...(byEdge.get(a.to[f]) ?? []), f]);
         return (
-          <g>
-            <path d={`M${a1.x} ${a1.y}L${a2.x} ${a2.y}`} stroke="#3F7A4E" strokeWidth="2.5" strokeDasharray="7 4" />
-            <g transform={`translate(${maxX - 10} ${minY + 28})`}>
-              <path d="M-86 0h18" stroke="#3F7A4E" strokeWidth="2.5" strokeDasharray="7 4" />
-              <text x="0" y="0" textAnchor="end" dominantBaseline="central" fill="#3F7A4E" fontSize="7" fontWeight="800" fontFamily={SANS}>RESUPPLY LINE</text>
-            </g>
-          </g>
-        );
-      })()}
-      {cells.map((p) => {
-        const { x, y } = chartXY(p);
-        const act = actionAt(chart, p);
-        const start = p.a === 0 && p.b === 0;
-        return (
-          <g key={`${p.a},${p.b}`} transform={`translate(${x} ${y})`}>
-            <circle r="12" fill={act ? '#FBF6EA' : '#E7EFEF'} stroke={act ? INK : '#7E9CA6'} strokeWidth={act ? 1.4 : 1} />
-            {act && <g transform="translate(-8.5 -8.5) scale(.85)"><ActionGlyph kind={act} /></g>}
-            {start && !act && <text textAnchor="middle" dominantBaseline="central" fill="#5C7680" fontSize="6" fontWeight="800" fontFamily={SANS}>START</text>}
-            {act && <title>{ACTIONS[act].title}</title>}
+          <g key={`a${a.q},${a.r}`}>
+            {act && (
+              <g>
+                <circle cx={x} cy={y} r={HR * 0.5} fill={SEA.chip} stroke={SEA.chipInk} strokeWidth="1" />
+                <g transform={`translate(${x - 7} ${y - 7}) scale(.7)`}><ActionGlyph kind={act} c={SEA.chipInk} /></g>
+                <title>{ACTIONS[act].title}</title>
+              </g>
+            )}
+            {start && !act && <text x={x} y={y + 13} textAnchor="middle" dominantBaseline="central" fill={SEA.label} fontSize="4.6" fontWeight="800" letterSpacing=".5" fontFamily={SANS}>START</text>}
+            {a.port && <g transform={`translate(${x} ${y})`}><HeadingShape faction={a.port} r={4.5} fill={CREAM} stroke={WATERS[a.port]} /></g>}
+            {[...byEdge].flatMap(([d, fs]) => fs.map((f, i) => {
+              const off = (i - (fs.length - 1) / 2) * 9;
+              const rad = (ANGLE[d] * Math.PI) / 180;
+              const dist = HR * 0.6;
+              const mx = x + dist * Math.cos(rad) - off * Math.sin(rad), my = y + dist * Math.sin(rad) + off * Math.cos(rad);
+              return (
+                <g key={`${d}${f}`} transform={`translate(${mx.toFixed(2)} ${my.toFixed(2)})`}>
+                  <HeadingShape faction={f} r={isHere ? 4.4 : 3.3} fill={CHART_HEADING[f]} stroke={SEA.deep} strokeWidth={isHere ? 1.2 : 0.8} />
+                </g>
+              );
+            }))}
           </g>
         );
       })}
-      {heads.map(([d, q]) => {
-        const u = chartXY(ship!), v = chartXY(q);
-        const mx = u.x + (v.x - u.x) * 0.62, my = u.y + (v.y - u.y) * 0.62;
-        return <g key={d} transform={`translate(${mx} ${my}) rotate(${d === 'ne' ? 45 + 18 : d === 'sw' ? 225 + 18 : 180}) scale(.55)`}><path d="M0-9.5L6.5-1.5H2.6V9H-2.6V-1.5H-6.5z" fill={DIR_COLOUR[d]} stroke={CREAM} strokeWidth="1" /></g>;
+      {here?.to && next && shipAt && FACTION_ORDER.map((f) => {
+        const d = HEX[here.to![f]];
+        const t = chartXY({ q: here.q + d.q, r: here.r + d.r });
+        return <path key={`l${f}`} d={`M${shipAt.x} ${shipAt.y}L${t.x} ${t.y}`} stroke={CHART_HEADING[f]} strokeWidth="1.8" strokeDasharray="2 2.5" opacity=".9" />;
       })}
-      <Port faction="navy" {...chartXY({ a: R, b: Math.floor(D / 2) })} />
-      <Port faction="spy" {...chartXY({ a: -R, b: Math.floor(D / 2) })} />
-      <Port faction="bm" {...chartXY({ a: 0, b: D })} />
-      <g transform={`translate(${minX + 24} ${minY + 26})`}><Compass x={0} y={0} r={13} c="#4E6A74" /></g>
-      <text x={maxX - 10} y={minY + 16} textAnchor="end" fill="#4E6A74" fontSize="8" fontWeight="800" letterSpacing="1" fontFamily={POSTER}>BAY OF BISCAY · 1943</text>
+      {ports.map((p) => <Port key={p.f} faction={p.f} x={p.x} y={p.y} />)}
+      <circle cx={rose.x} cy={rose.y} r="17" fill={SEA.deep} stroke={SEA.label} strokeWidth="1" />
+      <Compass x={rose.x} y={rose.y} r={14} c={SEA.label} />
+      <text x={minX + 12} y={minY + 16} fill={SEA.label} fontSize="8" fontWeight="800" letterSpacing="1" fontFamily={POSTER}>BAY OF BISCAY · 1943</text>
       {shipAt && (
         <g className="s2s-ship" transform={`translate(${shipAt.x} ${shipAt.y})`}>
           <ShipGlide at={shipAt}>
-            <circle r="15" fill="#F2C84B" stroke={INK} strokeWidth="1.6" />
-            <g transform="translate(-12 -13) scale(.6)"><Ship size={40} colour={INK} /></g>
+            <circle r="11" fill="#F2C84B" stroke={INK} strokeWidth="1.4" />
+            <g transform="translate(-9 -10) scale(.45)"><Ship size={40} colour={INK} /></g>
           </ShipGlide>
         </g>
       )}
@@ -463,4 +526,3 @@ function ShipGlide({ at, children }: { at: { x: number; y: number }; children: R
   return <g ref={ref}>{children}</g>;
 }
 
-export { DIR_FACTION };

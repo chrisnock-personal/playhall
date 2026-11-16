@@ -154,7 +154,7 @@ test('sound settings: defaults (off while watching) and bad values', () => {
 test('camera table and Ship2Shore: a roll; orders passed to you, the ship sailing on', () => {
   assert.deepEqual(sounds(C.cameraCues(as({ rollCount: 2 }), as({ rollCount: 3 }))), ['dice']);
   assert.deepEqual(C.cameraCues(as({ rollCount: 3 }), as({ rollCount: 3 })), []);
-  const ship = { ship: { a: 0, b: 0 }, phase: 'pick', you: { hand: null, helmCards: null } };
-  assert.deepEqual(sounds(C.shipCues(as(ship), as({ ...ship, phase: 'draw', you: { hand: ['ne.x', 's.y'], helmCards: null } }))), ['draw', 'draw']);
-  assert.deepEqual(sounds(C.shipCues(as(ship), as({ ...ship, ship: { a: 1, b: 0 } }))), ['move', 'splash']);
+  const ship = { ship: { q: 0, r: 0 }, phase: 'pick', you: { hand: null, helmCards: null } };
+  assert.deepEqual(sounds(C.shipCues(as(ship), as({ ...ship, phase: 'draw', you: { hand: ['navy.x', 'bm.y'], helmCards: null } }))), ['draw', 'draw']);
+  assert.deepEqual(sounds(C.shipCues(as(ship), as({ ...ship, ship: { q: 1, r: -1 } }))), ['move', 'splash']);
 });
