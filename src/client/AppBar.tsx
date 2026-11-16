@@ -2,7 +2,7 @@ import type { Session } from './api';
 import { Avatar, Logo } from './ui';
 import { useTheme, type Theme } from './theme';
 
-export type Section = 'rooms' | 'leaderboard' | 'stats' | 'settings';
+export type Section = 'rooms' | 'leaderboard' | 'stats' | 'settings' | 'admin';
 
 const LINKS: [Section, string, string][] = [
   ['rooms', 'Rooms', '#/'],
@@ -10,13 +10,15 @@ const LINKS: [Section, string, string][] = [
   ['stats', 'My stats', '#/stats'],
   ['settings', 'Settings', '#/settings'],
 ];
+// Only admins see this one.
+const ADMIN_LINK: [Section, string, string] = ['admin', 'Platform', '#/admin'];
 
 export function AppBar({ session, onSignOut, active }: { session: Session; onSignOut(): void; active: Section | null }) {
   return (
     <header className="appbar">
       <a href="#/" className="logo-link" aria-label="Playhall: rooms"><Logo /></a>
       <nav className="appnav" aria-label="Main">
-        {LINKS.map(([id, label, href]) => (
+        {[...LINKS, ...(session.user.admin ? [ADMIN_LINK] : [])].map(([id, label, href]) => (
           <a key={id} href={href} className={active === id ? 'on' : ''} aria-current={active === id ? 'page' : undefined}>{label}</a>
         ))}
       </nav>

@@ -7,9 +7,12 @@ import { RoomPage } from './room/RoomPage';
 import { Leaderboard } from './pages/Leaderboard';
 import { PlayerStats } from './pages/PlayerStats';
 import { Replay } from './pages/Replay';
+import { Admin } from './pages/Admin';
+import { api } from './api';
 
 // Routes live in the #hash: #/ is the lobby, #/r/CODE a room, #/leaderboard,
-// #/stats (your own), #/players/ID and #/settings.
+// #/stats (your own), #/players/ID, #/settings (yours) and #/admin (the
+// platform settings, admins only).
 function useHash(): string {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
@@ -28,11 +31,26 @@ export function App() {
   const signIn = (s: Session) => { saveSession(s); setSession(s); };
   const signOut = () => { saveSession(null); setSession(null); };
 
+  // Refresh who we are once per load (e.g. made an admin since signing in).
+  const token = session?.token;
+  useEffect(() => {
+    if (!token) return;
+    api<{ user: Session['user'] }>('/auth/me', { token }).then(({ user }) => {
+      setSession((s) => {
+        if (!s || s.token !== token || JSON.stringify(s.user) === JSON.stringify(user)) return s;
+        const next = { ...s, user };
+        saveSession(next);
+        return next;
+      });
+    }).catch(() => {});
+  }, [token]);
+
   if (!session) return <SignIn onSignedIn={signIn} roomCode={roomCode} />;
   if (roomCode) return <RoomPage key={roomCode} code={roomCode} session={session} onSignOut={signOut} />;
   const replayId = /^#\/replay\/(\d+)/.exec(hash)?.[1];
   if (replayId) return <Replay key={replayId} session={session} onSignOut={signOut} id={replayId} />;
   if (hash.startsWith('#/leaderboard')) return <Leaderboard session={session} onSignOut={signOut} />;
+  if (hash.startsWith('#/admin')) return <Admin session={session} onSignOut={signOut} />;
   if (hash.startsWith('#/settings')) return <Settings session={session} onSignOut={signOut} />;
   const player = /^#\/players\/([0-9a-f-]{36})/.exec(hash)?.[1];
   if (player || hash.startsWith('#/stats')) {
