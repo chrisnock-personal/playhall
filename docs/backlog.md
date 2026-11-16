@@ -5,6 +5,13 @@ from this list. The phases themselves are in [design.md](design.md#phases).
 
 ## Still open
 
+### Chinese checkers (2026-11-16, #41)
+
+The star-board hopping race for 2, 3, 4 or 6 players: ten marbles each, move
+a step or hop over any marble (in chains), first to fill the opposite point
+wins. A hex-grid board on the kit, hop chains highlighted and animated, and
+bots that favour the longest forward hops.
+
 ### Hearts, Spades and Gin Rummy (2026-11-16, #38, #39, #40)
 
 Three more classic card games on the card kit: **Hearts** for four (pass
