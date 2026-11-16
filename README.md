@@ -82,6 +82,8 @@ has left the old container running.
 | `PLAYHALL_PORT` | Port on the host (default 8450) |
 | `TLS` | `on` (default): HTTPS; `off`: plain HTTP, e.g. behind your own proxy that does HTTPS |
 | `TLS_HOSTS` | Extra names or addresses for the self-signed certificate, comma-separated (e.g. `playhall.home,192.168.1.50`); localhost is always in it |
+| `WHISPER_URL` | A whisper.cpp server (`POST /inference`) for transcripts, e.g. `http://host.containers.internal:8090`; empty = no transcripts. Playhall never starts its own |
+| `TRANSCRIPTS` | `off` switches transcripts off on this server even with `WHISPER_URL` set. When on, each room's host decides (off by default); only the text is kept, never the audio |
 
 ## Develop
 
@@ -93,6 +95,7 @@ DATABASE_URL=postgres://... JWT_SECRET=... TLS=off npm run dev:server   # :8450
 npm run dev:client       # Vite on :5173, proxying /api and /ws
 node scripts/smoke.mjs http://localhost:8450   # end-to-end check against a running server
 node tests/browser.mjs http://localhost:8450   # the same in a real browser (Playwright)
+node tests/transcripts.mjs https://host:8450    # speech to said lines (needs LiveKit and WHISPER_URL)
 npm run demo             # demo data into DATABASE_URL (--remove to take it out)
 ```
 
