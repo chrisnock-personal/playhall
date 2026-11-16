@@ -6,10 +6,11 @@ import type { Db } from './db';
 import { GAMES } from '../shared/games';
 import {
   MIN_RANKED_GAMES,
-  type LastResult, type LeaderboardResponse, type LeaderboardRow, type Outcome, type Period, type PlayerStatsResponse,
+  type BoardNamesResponse, type LastResult, type LeaderboardResponse, type LeaderboardRow, type Outcome, type Period, type PlayerStatsResponse,
 } from '../shared/protocol';
 import type { FinishedGame } from './rooms/room';
 import { score } from '../shared/scoring';
+import { nameKey, tidyName } from '../shared/games/cameratable';
 
 const SINCE: Record<Period, string> = {
   week: `date_trunc('week', now())`,
@@ -23,11 +24,28 @@ export function isGameFilter(g: string): boolean {
   return g === 'all' || g in GAMES;
 }
 
+/** Games played under a typed name (the camera table): the name as typed and
+ *  the key results group by, or nulls for every other game. */
+export function boardNameOf(gameId: string, state: unknown): { name: string; key: string } | { name: null; key: null } {
+  const raw = GAMES[gameId]?.boardName?.(state);
+  const name = raw ? tidyName(raw) : '';
+  return name ? { name, key: nameKey(name) } : { name: null, key: null };
+}
+
+/** A name filter from a query string: the normalised key, null for none, or
+ *  undefined when it's not a usable name. */
+export function nameFilter(raw: unknown): string | null | undefined {
+  if (raw === undefined || raw === '') return null;
+  if (typeof raw !== 'string' || raw.length > 200) return undefined;
+  return nameKey(raw) || undefined;
+}
+
 /** Store a finished game and its results; returns the standings to show in
  *  the room (null for a stopped game). */
 export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()): Promise<LastResult | null> {
   const seats = Object.entries(g.players);
   const scores = score(g.result, seats.map(([s]) => s));
+  const board = boardNameOf(g.rec.gameId, g.state);
   const client = await db.connect();
   let gameRowId = '';
   try {
@@ -43,9 +61,9 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
         const { outcome, points } = scores[seat];
         const opponent = seats.length === 2 ? seats.find(([s]) => s !== seat)![1].userId : null;
         await client.query(
-          `INSERT INTO game_results (game_row_id, room_id, game_id, user_id, seat, outcome, points, reason, opponent_id, counted, ended_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [rows[0].id, g.rec.id, g.rec.gameId, holder.userId, seat, outcome, points, g.result.reason, opponent, g.counted, endedAt]);
+          `INSERT INTO game_results (game_row_id, room_id, game_id, user_id, seat, outcome, points, reason, opponent_id, counted, ended_at, game_name, game_key)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [rows[0].id, g.rec.id, g.rec.gameId, holder.userId, seat, outcome, points, g.result.reason, opponent, g.counted, endedAt, board.name, board.key]);
       }
     }
     await client.query('COMMIT');
@@ -57,15 +75,16 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
   }
   if (g.result.aborted) return null;
 
-  const standings = g.counted ? await leaderboard(db, g.rec.gameId, 'all') : null;
+  // A camera table game's standings are among games of the same name.
+  const standings = g.counted ? await leaderboard(db, g.rec.gameId, 'all', board.key) : null;
   const all = standings ? [...standings.ranked, ...standings.unranked] : [];
   let headToHead: LastResult['headToHead'] = null;
   if (g.counted && seats.length === 2) {
     const { rows } = await db.query<{ w: number; d: number; l: number }>(
       `SELECT count(*) FILTER (WHERE outcome = 'win')::int AS w, count(*) FILTER (WHERE outcome = 'draw')::int AS d,
               count(*) FILTER (WHERE outcome = 'loss')::int AS l
-         FROM game_results WHERE counted AND game_id = $1 AND user_id = $2 AND opponent_id = $3`,
-      [g.rec.gameId, seats[0][1].userId, seats[1][1].userId]);
+         FROM game_results WHERE counted AND game_id = $1 AND user_id = $2 AND opponent_id = $3 AND ($4::text IS NULL OR game_key = $4)`,
+      [g.rec.gameId, seats[0][1].userId, seats[1][1].userId, board.key]);
     headToHead = rows[0];
   }
   return {
@@ -82,7 +101,9 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
   };
 }
 
-export async function leaderboard(db: Db, game: string, period: Period): Promise<LeaderboardResponse> {
+/** Leaderboards: one game (or 'all'), and for games played under typed
+ *  names, optionally one name (its key from nameKey()). */
+export async function leaderboard(db: Db, game: string, period: Period, name: string | null = null): Promise<LeaderboardResponse> {
   const { rows } = await db.query<Omit<LeaderboardRow, 'rank'>>(
     `SELECT r.user_id AS "userId", u.display_name AS name, count(*)::int AS played,
             count(*) FILTER (WHERE outcome = 'win')::int AS w,
@@ -91,17 +112,30 @@ export async function leaderboard(db: Db, game: string, period: Period): Promise
             sum(points)::int AS points,
             (array_agg(outcome ORDER BY ended_at DESC))[1:5] AS form
        FROM game_results r JOIN users u ON u.id = r.user_id
-      WHERE r.counted AND ($1 = 'all' OR r.game_id = $1) AND r.ended_at >= ${SINCE[period]}
+      WHERE r.counted AND ($1 = 'all' OR r.game_id = $1) AND ($2::text IS NULL OR r.game_key = $2) AND r.ended_at >= ${SINCE[period]}
       GROUP BY r.user_id, u.display_name
       ORDER BY points DESC, sum(points)::float / count(*) DESC, w DESC, name`,
-    [game]);
+    [game, name]);
   const ranked: LeaderboardRow[] = [];
   const unranked: LeaderboardRow[] = [];
   for (const r of rows) {
     if (r.played >= MIN_RANKED_GAMES) ranked.push({ ...r, rank: ranked.length + 1 });
     else unranked.push({ ...r, rank: null });
   }
-  return { game, period, ranked, unranked, minGames: MIN_RANKED_GAMES };
+  return { game, period, ranked, unranked, minGames: MIN_RANKED_GAMES, ...(name ? { name } : {}) };
+}
+
+/** The names a game has been played under (the camera table), most played
+ *  first: one leaderboard tab each. The label is the latest spelling. */
+export async function boardNames(db: Db, game: string): Promise<BoardNamesResponse> {
+  const { rows } = await db.query<{ key: string; name: string; games: number }>(
+    `SELECT game_key AS key, (array_agg(game_name ORDER BY ended_at DESC))[1] AS name, count(DISTINCT game_row_id)::int AS games
+       FROM game_results
+      WHERE counted AND game_id = $1 AND game_key IS NOT NULL
+      GROUP BY game_key
+      ORDER BY games DESC, key
+      LIMIT 100`, [game]);
+  return { game, names: rows };
 }
 
 interface ResultRow {
