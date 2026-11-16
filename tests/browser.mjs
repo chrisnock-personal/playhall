@@ -139,12 +139,11 @@ try {
   if (base.startsWith('https:') || /localhost|127\.0\.0\.1/.test(base)) {
     const sp = await open({ token: host.token, user: host.user });
     await sp.goto(`${base}/#/settings`);
-    // With the fake-UI flag permission is already granted, so the Allow step may not show.
+    // With the fake-UI flag permission is already granted, so the list fills
+    // in by itself; only if it doesn't, use the Allow step.
     await sp.waitForSelector('.devices');
-    const allow = sp.getByRole('button', { name: 'Allow microphone and camera' });
-    if (await allow.isVisible()) await allow.dispatchEvent('click');
-    await sp.waitForFunction(() => document.querySelectorAll('#dev-audioinput option').length > 1, null, { timeout: 10_000 })
-      .catch(async (e) => { console.log('devices page:', await sp.locator('.devices').innerText()); throw e; });
+    const listed = () => sp.waitForFunction(() => document.querySelectorAll('#dev-audioinput option').length > 1, null, { timeout: 8000 });
+    await listed().catch(async () => { await sp.getByRole('button', { name: 'Allow microphone and camera' }).click(); await listed(); });
     await sp.waitForFunction(() => document.querySelectorAll('#dev-audioinput option').length > 1);
     const mics = await sp.locator('#dev-audioinput option').allInnerTexts();
     assert.ok(mics.some((m) => /fake/i.test(m)), `fake microphones listed: ${mics}`);
