@@ -7,7 +7,7 @@
 
 import { GAMES } from '../../shared/games';
 import { placingsOf } from '../../shared/scoring';
-import type { GameContext, GameModule, GameResult, SeatId } from '../../shared/game';
+import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId } from '../../shared/game';
 import type {
   Channel, ChatLine, ClientMessage, GameStatus, LastResult, MediaRight, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
 } from '../../shared/protocol';
@@ -38,6 +38,10 @@ export interface RoomRecord {
   passwordHash: string | null;
   /** People the host removed; they can't come back. */
   banned: string[];
+  /** Camera table rooms: the device the host made the table camera (a random
+   *  id in its link), or none. Making a new link or stopping it replaces it,
+   *  which cuts the old device off. */
+  tableCamera?: { id: string; since: number } | null;
   seats: Record<SeatId, SeatHolder | null>;
   game: {
     status: GameStatus; state: unknown; startedAt: number | null; players: Record<SeatId, SeatHolder> | null;
@@ -76,6 +80,8 @@ export interface RoomHooks {
   kick(userId: string, reason: string): void;
   /** The server allows transcripts at all (see ../transcripts.ts). */
   transcriptsAllowed?(): boolean;
+  /** A random, unguessable id (the table camera's). */
+  newId?(): string;
 }
 
 /** How long a player who drops out mid-game has to come back. */
@@ -154,6 +160,7 @@ export class Room {
     const seat = this.seatOf(user.id);
     const away = seat ? this.leaving.get(seat) : undefined;
     if (seat && away) { away.cancel(); this.leaving.delete(seat); this.system(`${user.name} is back`); }
+    else if (!p && seat && this.status === 'playing' && this.game.keepsDroppedPlayers && this.rec.game.players?.[seat]) this.system(`${user.name} is back`);
     this.hooks.changed();
   }
 
@@ -168,7 +175,9 @@ export class Room {
     this.present.delete(userId);
     this.queue = this.queue.filter((id) => id !== userId);
     const seat = this.seatOf(userId);
-    if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)
+    if (seat && this.status === 'playing' && this.game.keepsDroppedPlayers && this.rec.game.players && seat in this.rec.game.players) {
+      this.system(`${p.user.name} dropped out: the game waits for them`);
+    } else if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)
       && this.rec.game.joined?.includes(seat)) {
       const deadline = this.hooks.now() + GRACE_MS;
       const cancel = this.hooks.setTimer(GRACE_MS, () => { this.leaving.delete(seat); this.forfeit(seat); });
@@ -273,6 +282,35 @@ export class Room {
     return { table: right('table'), gallery: right('gallery') };
   }
 
+  // ---- the table camera ----------------------------------------------
+  // A camera table room's board camera is a device, not a person: it joins
+  // the table's video with a link the host made (see ../media.ts), takes no
+  // seat, hears and sees nothing, and sends only its camera.
+
+  /** The device id for the host's table camera link: the current one, or a
+   *  new one (`fresh`, or none yet), which cuts off any device using the old. */
+  tableCameraId(fresh = false): string {
+    if (!this.game.tableCamera) throw new RoomError('Only camera table rooms have a table camera');
+    if (!this.rec.tableCamera || fresh) {
+      this.rec.tableCamera = { id: this.hooks.newId?.() ?? Math.random().toString(36).slice(2, 14), since: this.hooks.now() };
+      this.touch();
+    }
+    return this.rec.tableCamera.id;
+  }
+
+  /** The host stopped the table camera: its link stops working. */
+  stopTableCamera(): void {
+    if (!this.rec.tableCamera) return;
+    this.rec.tableCamera = null;
+    this.system('The host stopped the table camera');
+    this.touch();
+  }
+
+  /** Is this the room's table camera now? */
+  isTableCamera(id: string): boolean {
+    return !!this.game.tableCamera && !!id && this.rec.tableCamera?.id === id;
+  }
+
   // ---- messages -------------------------------------------------------
 
   handle(user: RoomUser, msg: ClientMessage): void {
@@ -283,6 +321,7 @@ export class Room {
       case 'hand': return this.hand(user, !!msg.up);
       case 'chat': return this.chat(user, msg.channel, msg.text);
       case 'act': return this.act(user, msg.action);
+      case 'hostAct': this.hostOnly(user); return this.hostAct(user, msg.action);
       case 'rematch': return this.askRematch(user, msg.want !== false);
       case 'start': this.hostOnly(user); return this.start();
       case 'seat': this.hostOnly(user); return this.seatSomeone(msg.userId, msg.seat);
@@ -303,7 +342,12 @@ export class Room {
   }
 
   private checkSeat(seat: SeatId): void {
-    if (!this.game.seats.some((s) => s.id === seat)) throw new RoomError('No such seat');
+    if (!this.seatDefs.some((s) => s.id === seat)) throw new RoomError('No such seat');
+  }
+
+  /** The seats in use (all the game's, or as many as its settings say). */
+  get seatDefs(): SeatDef[] {
+    return seatsIn(this.game, this.rec.settings.gameConfig);
   }
 
   private checkCanPlay(user: { guest: boolean }): void {
@@ -397,9 +441,24 @@ export class Room {
       if (this.afterChange()) return;
     }
     const r = this.game.act(this.rec.game.state, seat, action, now, this.context());
+    this.accept(r, seat);
+  }
+
+  /** Games the host runs (the camera table): the host acts, seated or not. */
+  private hostAct(user: RoomUser, action: unknown): void {
+    if (this.status !== 'playing') throw new RoomError('No game is being played');
+    if (!this.game.hostAct) throw new RoomError('Unknown request');
+    const r = this.game.hostAct(this.rec.game.state, action, this.hooks.now(), this.context());
+    const seat = this.seatOf(user.id);
+    this.accept(r, seat && this.rec.game.players && seat in this.rec.game.players ? seat : null);
+  }
+
+  /** An action the game accepted (or refused): post what it says, then carry on. */
+  private accept(r: ActResult<unknown>, seat: SeatId | null): void {
     if ('error' in r) throw new RoomError(r.error);
     this.rec.game.state = r.state;
-    if (!this.rec.game.joined?.includes(seat)) this.rec.game.joined = [...(this.rec.game.joined ?? []), seat];
+    if (seat && !this.rec.game.joined?.includes(seat)) this.rec.game.joined = [...(this.rec.game.joined ?? []), seat];
+    for (const line of r.say ?? []) this.system(line.slice(0, CHAT_MAX));
     this.afterChange();
   }
 
@@ -454,10 +513,15 @@ export class Room {
 
   /** The seats with someone in them (while a game is on, its players' seats). */
   private context(): GameContext {
-    const seats = this.rec.game.status === 'playing' && this.rec.game.players
-      ? this.game.seats.map((s) => s.id).filter((id) => id in this.rec.game.players!)
-      : this.game.seats.map((s) => s.id).filter((id) => this.rec.seats[id]);
-    return { seats, random: () => this.hooks.random(), isWord: this.hooks.isWord };
+    const playing = this.rec.game.status === 'playing' && this.rec.game.players;
+    const holders: Record<SeatId, SeatHolder | null> = playing ? this.rec.game.players! : this.rec.seats;
+    const seats = (playing ? this.game.seats : this.seatDefs).map((s) => s.id).filter((id) => holders[id]);
+    const names = Object.fromEntries(seats.map((id) => [id, holders[id]!.name]));
+    const hostSeat = this.seatOf(this.rec.hostId);
+    return {
+      seats, random: () => this.hooks.random(), isWord: this.hooks.isWord, names,
+      host: { name: this.rec.hostName, seat: hostSeat && seats.includes(hostSeat) ? hostSeat : null },
+    };
   }
 
   /** Players can start the next game themselves when they all agree,
@@ -469,7 +533,7 @@ export class Room {
   /** Who has to agree to a rematch: everyone seated for the next game (the
    *  room's after-game rule has already moved people when the game ended). */
   private rematchNeeded(): string[] {
-    return this.game.seats.map((s) => this.rec.seats[s.id]?.userId).filter((id): id is string => !!id);
+    return this.seatDefs.map((s) => this.rec.seats[s.id]?.userId).filter((id): id is string => !!id);
   }
 
   /** The seated players who agreed to a rematch, in seat order. */
@@ -500,22 +564,27 @@ export class Room {
 
   /** Fewest players to start this game. */
   get minPlayers(): number {
-    return this.game.minPlayers ?? this.game.seats.length;
+    return this.game.minPlayers ?? this.seatDefs.length;
   }
 
   private start(): void {
     if (this.status === 'playing') throw new RoomError('A game is already on');
-    const seated = this.game.seats.filter((s) => this.rec.seats[s.id]);
+    const defs = this.seatDefs;
+    const seated = defs.filter((s) => this.rec.seats[s.id]);
     if (seated.length < this.minPlayers) {
-      throw new RoomError(this.minPlayers === this.game.seats.length
-        ? `Fill every seat first (${this.game.seats.filter((s) => !this.rec.seats[s.id]).map((s) => s.label).join(', ')})`
+      throw new RoomError(this.minPlayers === defs.length
+        ? `Fill every seat first (${defs.filter((s) => !this.rec.seats[s.id]).map((s) => s.label).join(', ')})`
         : `${this.game.name} needs at least ${this.minPlayers} players`);
     }
     const config = this.game.parseConfig(this.rec.settings.gameConfig);
     const now = this.hooks.now();
     const players: Record<SeatId, SeatHolder> = {};
     for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
-    const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random(), isWord: this.hooks.isWord };
+    const ctx: GameContext = {
+      seats: seated.map((s) => s.id), random: () => this.hooks.random(), isWord: this.hooks.isWord,
+      names: Object.fromEntries(seated.map((s) => [s.id, players[s.id].name])),
+      host: { name: this.rec.hostName, seat: this.seatOf(this.rec.hostId) },
+    };
     const joined = seated.map((s) => s.id).filter((id) => this.present.has(players[id].userId));
     this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, aliveAt: now };
     this.lastResult = null;
@@ -561,12 +630,12 @@ export class Room {
     const policy = this.rec.settings.afterGame;
     if (policy === 'same') return;
     let free: SeatId[];
-    if (policy === 'rotate') free = this.game.seats.map((s) => s.id);
+    if (policy === 'rotate') free = this.seatDefs.map((s) => s.id);
     else {
       // Winner stays: everyone but a sole winner makes way.
       const first = placingsOf(result, Object.keys(this.rec.game.players ?? {}))[0];
       if (first.length !== 1) return;
-      free = this.game.seats.map((s) => s.id).filter((id) => id !== first[0] && this.rec.seats[id]);
+      free = this.seatDefs.map((s) => s.id).filter((id) => id !== first[0] && this.rec.seats[id]);
     }
     for (const seat of free) {
       const nextId = this.queue.find((id) => {
@@ -670,9 +739,16 @@ export class Room {
     }
     if (r.gameConfig !== undefined) {
       if (this.status === 'playing') throw new RoomError('Change the game settings between games');
+      const bad = this.game.configError?.(r.gameConfig);
+      if (bad) throw new RoomError(bad);
       s.gameConfig = this.game.parseConfig(r.gameConfig);
     }
     this.rec.settings = s;
+    // Fewer seats (the camera table): whoever sat in a seat that's gone watches.
+    const inUse = new Set(this.seatDefs.map((d) => d.id));
+    for (const [seat, h] of Object.entries(this.rec.seats)) {
+      if (h && !inUse.has(seat)) { this.rec.seats[seat] = null; this.system(`${h.name} is watching: the ${this.seatLabel(seat)} seat is gone`); }
+    }
     this.touch();
   }
 
@@ -778,8 +854,9 @@ export class Room {
         moveTimer: !!this.game.turn,
         minPlayers: this.minPlayers,
         transcriptsAllowed: this.hooks.transcriptsAllowed?.() ?? false,
+        tableCamera: this.game.tableCamera ? { on: !!this.rec.tableCamera } : null,
       },
-      seats: this.game.seats.map((s) => ({
+      seats: this.seatDefs.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
       })),
       members: this.members(),
@@ -813,7 +890,7 @@ export class Room {
       configLabel: this.game.describeConfig(this.game.parseConfig(this.rec.settings.gameConfig)),
       hostName: this.rec.hostName,
       status: this.rec.game.status,
-      seats: this.game.seats.map((s) => ({
+      seats: this.seatDefs.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
       })),
       watching: [...this.present.keys()].filter((id) => !seated.has(id)).length,
