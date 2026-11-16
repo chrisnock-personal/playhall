@@ -76,7 +76,15 @@ with remote players using controllers, OpenBOR rooms run on the server
   the theme.
 - **A room layout that gets out of the way.** The top bar, players, watchers
   and side panel each expand, shrink or hide; Default, Focus and Social
-  layouts; your layout is remembered per game. Works on a phone.
+  layouts; your layout is remembered per game. During a game the players
+  panel shrinks to avatars (the game shows the players), and on windows
+  narrower than 1600 px the chat shows as a rail with unread counts until
+  you open it. Works on a phone.
+- **Animations and table sounds.** Dice tumble, cards are dealt and fly to
+  the pile, chips slide to the pot, pieces walk, hop and climb, Sea Battle
+  shots land with a splash; each with a short sound made in the browser (no
+  audio files), quieter under voice chat, off for watchers unless they turn
+  it on. A speaker button in the room mutes them or sets the volume.
 - **Computer players** in every game but chess, Letterworks, Manor Mystery
   and the camera table. The host can put a bot in any
   free seat between games, so a small group can fill a bigger table. A bot
