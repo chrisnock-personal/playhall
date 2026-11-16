@@ -69,6 +69,7 @@ await wp.waitForSelector('.voice-dock .cam-live', { timeout: 15000 });
 // Pat (a player, the gallery isn't hidden between games) sees it in the full gallery strip (Social layout).
 await pp.getByRole('button', { name: 'Social', exact: true }).click();
 assert.ok(await playing(pp, `.gallery-tile[data-user="${vic.user.id}"] video`), 'a player sees the watcher’s camera in the gallery strip');
+await wp.getByRole('button', { name: 'Social', exact: true }).click();   // the full gallery strip shows tiles
 assert.ok(await playing(wp, `.gallery-tile[data-user="${vic.user.id}"] video.mirror`), 'the watcher sees their own tile, mirrored');
 
 // The host turns the rule off: the watcher's camera stops for everyone.
