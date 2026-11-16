@@ -668,3 +668,5 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .cam-live { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #E07A6E; }
 .cam-live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #E0453A; }
 .voice-dock .icon-btn.cam.on-air { color: #E0453A; }
+.change-password { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+.change-password p { margin: 0; }

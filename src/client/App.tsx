@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChangePassword } from './ChangePassword';
 import { Settings } from './pages/Settings';
 import { loadSession, saveSession, type Session } from './api';
 import { SignIn } from './pages/SignIn';
@@ -46,6 +47,15 @@ export function App() {
   }, [token]);
 
   if (!session) return <SignIn onSignedIn={signIn} roomCode={roomCode} />;
+  if (session.user.mustChangePassword) {
+    return (
+      <main className="settings-page">
+        <h1>Choose a new password</h1>
+        <section className="settings-card"><ChangePassword session={session} onChanged={signIn} required /></section>
+        <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={signOut}>Sign out</button>
+      </main>
+    );
+  }
   if (roomCode) return <RoomPage key={roomCode} code={roomCode} session={session} onSignOut={signOut} />;
   const replayId = /^#\/replay\/(\d+)/.exec(hash)?.[1];
   if (replayId) return <Replay key={replayId} session={session} onSignOut={signOut} id={replayId} />;

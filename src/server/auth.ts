@@ -25,6 +25,8 @@ export class Auth {
   /** Ids of every admin account, from the database and ADMIN_USERNAMES, so
    *  checking a session needs no query. Kept current by setAdmin(). */
   private admins = new Set<string>();
+  /** Accounts that must choose a new password first (the default admin). */
+  private mustChange = new Set<string>();
 
   constructor(private db: Db, private secret: string, adminUsernames: string[] = []) {
     this.envAdmins = new Set(adminUsernames.map((u) => u.trim().toLowerCase()).filter(Boolean));
@@ -35,6 +37,24 @@ export class Auth {
     const { rows } = await this.db.query<{ id: string }>(
       `SELECT id FROM users WHERE kind = 'account' AND (is_admin OR username = ANY($1))`, [[...this.envAdmins]]);
     this.admins = new Set(rows.map((r) => r.id));
+    const { rows: mc } = await this.db.query<{ id: string }>(`SELECT id FROM users WHERE must_change_password`);
+    this.mustChange = new Set(mc.map((r) => r.id));
+  }
+
+  /** A fresh install with no admin gets one: username "admin", password
+   *  ADMIN_PASSWORD or "admin", which must be changed at the first sign-in
+   *  (user, 2026-11-16: ship a default admin/admin). */
+  async ensureDefaultAdmin(): Promise<boolean> {
+    if (this.admins.size) return false;
+    const { rows: taken } = await this.db.query(`SELECT 1 FROM users WHERE kind = 'account' AND username = 'admin'`);
+    if (taken.length) return false;
+    const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin', 11);
+    const { rows } = await this.db.query<{ id: string }>(
+      `INSERT INTO users (kind, username, display_name, password_hash, is_admin, must_change_password)
+       VALUES ('account', 'admin', 'Admin', $1, true, true) RETURNING id`, [hash]);
+    this.admins.add(rows[0].id);
+    this.mustChange.add(rows[0].id);
+    return true;
   }
 
   isAdmin(userId: string): boolean {
@@ -62,7 +82,7 @@ export class Auth {
     try {
       const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { name: string; guest: boolean; scope?: string };
       if (!p.sub || typeof p.name !== 'string' || p.scope) return null;
-      return { id: p.sub, name: p.name, guest: !!p.guest, admin: !p.guest && this.admins.has(p.sub) };
+      return { id: p.sub, name: p.name, guest: !!p.guest, admin: !p.guest && this.admins.has(p.sub), ...(this.mustChange.has(p.sub) ? { mustChangePassword: true } : {}) };
     } catch {
       return null;
     }
@@ -90,6 +110,10 @@ export class Auth {
     const h = req.headers.authorization;
     const user = this.verify(h?.startsWith('Bearer ') ? h.slice(7) : null);
     if (!user) { res.status(401).json({ error: 'Sign in first' }); return; }
+    // The default admin must choose a new password before anything else.
+    if (user.mustChangePassword && !/^\/api\/auth\/(password|me)\b/.test(req.originalUrl)) {
+      res.status(403).json({ error: 'Choose a new password first', mustChangePassword: true }); return;
+    }
     req.user = user;
     next();
   };
@@ -141,7 +165,23 @@ export class Auth {
       const ok = await bcrypt.compare(password, row?.password_hash ?? DUMMY_HASH);
       if (!row || !ok) { res.status(401).json({ error: 'Wrong username or password' }); return; }
       await this.db.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [row.id]);
-      const user = { id: row.id, name: row.display_name, guest: false, admin: this.admins.has(row.id) };
+      const user = { id: row.id, name: row.display_name, guest: false, admin: this.admins.has(row.id), ...(this.mustChange.has(row.id) ? { mustChangePassword: true } : {}) };
+      res.json({ token: this.sign(user), user });
+    });
+
+    // Change your password (accounts). Required first for the default admin.
+    r.post('/password', limiter, this.requireUser, async (req, res) => {
+      const me = req.user!;
+      if (me.guest) { res.status(400).json({ error: 'Guests don’t have a password' }); return; }
+      const current = typeof req.body?.current === 'string' ? req.body.current : '';
+      const next = typeof req.body?.next === 'string' ? req.body.next : '';
+      const { rows } = await this.db.query<{ password_hash: string; username: string }>('SELECT password_hash, username FROM users WHERE id = $1', [me.id]);
+      if (!rows[0] || !(await bcrypt.compare(current, rows[0].password_hash))) { res.status(403).json({ error: 'Your current password isn’t right' }); return; }
+      if (next.length < 8 || next.length > 200) { res.status(400).json({ error: 'Passwords need at least 8 characters' }); return; }
+      if (next === current || next.toLowerCase() === rows[0].username.toLowerCase()) { res.status(400).json({ error: 'Choose a password that isn’t your old one or your username' }); return; }
+      await this.db.query('UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2', [await bcrypt.hash(next, 11), me.id]);
+      this.mustChange.delete(me.id);
+      const user = { id: me.id, name: me.name, guest: false, admin: this.admins.has(me.id) };
       res.json({ token: this.sign(user), user });
     });
 

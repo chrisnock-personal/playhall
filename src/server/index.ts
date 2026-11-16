@@ -29,6 +29,9 @@ async function main(): Promise<void> {
   await loadPlatformSettings(db, { signupsAllowed: config.allowSignup });
   const auth = new Auth(db, config.jwtSecret, config.adminUsernames);
   await auth.loadAdmins();
+  if (await auth.ensureDefaultAdmin()) {
+    console.log('[playhall] made the default admin account: username admin, password ' + (process.env.ADMIN_PASSWORD ? 'from ADMIN_PASSWORD' : 'admin') + '. It must choose a new password at its first sign-in.');
+  }
   if (!config.adminUsernames.length && auth.adminCount === 0) console.log('[playhall] no admins yet: set ADMIN_USERNAMES to an account\'s username to open the platform settings page');
   // The sockets need the manager and the manager reports changes to the
   // sockets, so one is handed to the other through a getter.
