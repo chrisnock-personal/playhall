@@ -1,6 +1,8 @@
 import { HOME, SAFE, START, type LudoView } from '../../shared/games/ludo';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Die, GameActions, Pawn, PlayerStrip } from '../kit/kit';
+import { Mover, usePrevious, type Point } from '../kit/motion';
+import { pathTime } from '../kit/cues';
 
 // The board is a 15×15 grid: four yards in the corners, a 52-square track
 // round a cross, a coloured home column for each player and home in the
@@ -70,6 +72,15 @@ function Board() {
   );
 }
 
+/** Changes when the die is rolled (not when the token is then moved), so the die tumbles once per roll. */
+function dieKey(v: LudoView | null): string | undefined {
+  if (!v) return undefined;
+  const j = (x: unknown) => JSON.stringify(x ?? null);
+  if (v.roll !== null) return `p:${j(v.last)}`;
+  if (!v.last) return undefined;
+  return v.last.token === null ? `n:${j(v.last)}` : `p:${j(v.log[v.log.length - 2])}`;
+}
+
 function LudoStage(props: StageProps) {
   const { snap, send, receivedAt } = props;
   const v = snap.game.view as LudoView | null;
@@ -79,6 +90,8 @@ function LudoStage(props: StageProps) {
   const order = v?.order ?? snap.seats.filter((s) => s.userId).map((s) => s.id);
   const movable = new Set(myTurn ? v?.movable ?? [] : []);
   const last = v?.last;
+  const lastKey = last ? `${v?.log.length}:${JSON.stringify(last)}` : undefined;
+  const before = usePrevious(v);
 
   // Tokens on the same spot are nudged apart.
   const spots = new Map<string, number>();
@@ -96,15 +109,34 @@ function LudoStage(props: StageProps) {
         <div className="track-board ludo-board" role="img" aria-label={`Ludo board. ${order.map((s) => `${COLOURS[s].label}: ${(v?.tokens[s] ?? []).filter((p) => p === HOME).length} home`).join(', ')}`}>
           <Board />
           {tokens.map((t) => {
-            const style = { left: `${(t.c / 15) * 100}%`, top: `${(t.r / 15) * 100}%` };
-            return t.seat === mine && movable.has(t.i)
-              ? (
-                <button key={`${t.seat}${t.i}`} className="track-token ludo-token movable" style={style}
-                  aria-label={`Move token ${t.i + 1}`} onClick={() => send({ t: 'act', action: { type: 'move', token: t.i } })}>
-                  <Pawn colour={t.seat} size="100%" />
-                </button>
-              )
-              : <span key={`${t.seat}${t.i}`} className="track-token ludo-token" style={style}><Pawn colour={t.seat} size="100%" /></span>;
+            const at: Point = [(t.c / 15) * 100, (t.r / 15) * 100];
+            const pct = ([r, c]: [number, number]): Point => [(c / 15) * 100, (r / 15) * 100];
+            // The token just moved steps square by square; one it captured goes back to the yard (#28).
+            const was = before?.tokens[t.seat]?.[t.i];
+            let path: Point[] | null = null, delay = 0;
+            if (last && was !== undefined && was !== t.p) {
+              if (last.seat === t.seat && last.token === t.i) {
+                const steps = was === -1 ? [-1, 0] : Array.from({ length: t.p - was + 1 }, (_, k) => was + k);
+                path = [...steps.slice(0, -1).map((p) => pct(place(t.seat, p, t.i))), at];
+              } else if (t.p === -1 && was >= 0) {
+                const moved = before?.tokens[last.seat]?.[last.token ?? 0] ?? 0;
+                delay = pathTime(Math.max(1, (v?.tokens[last.seat]?.[last.token ?? 0] ?? 0) - moved));
+                path = [pct(place(t.seat, was, t.i)), at];
+              }
+            }
+            const movableHere = t.seat === mine && movable.has(t.i);
+            return (
+              <Mover key={`${t.seat}${t.i}`} className={`track-token ludo-token${movableHere ? ' movable' : ''}`} x={at[0]} y={at[1]}
+                path={path} play={path ? lastKey : undefined} delay={delay} hop={!!path && !delay}>
+                {movableHere
+                  ? (
+                    <button className="ludo-token-btn" aria-label={`Move token ${t.i + 1}`} onClick={() => send({ t: 'act', action: { type: 'move', token: t.i } })}>
+                      <Pawn colour={t.seat} size="100%" />
+                    </button>
+                  )
+                  : <Pawn colour={t.seat} size="100%" />}
+              </Mover>
+            );
           })}
         </div>
         <div className="track-side">
@@ -114,7 +146,7 @@ function LudoStage(props: StageProps) {
           ))}
           {snap.seats.filter((s) => !order.includes(s.id)).map((s) => <PlayerStrip key={s.id} snap={snap} send={send} seatId={s.id} toMove={false} />)}
           <div className="dice-row">
-            <Die value={v?.roll ?? last?.roll ?? null} rollKey={`${v?.log.length}-${v?.roll}`} />
+            <Die value={v?.roll ?? last?.roll ?? null} rollKey={dieKey(v)} />
             <div className="roll-note">
               {myTurn && v?.roll !== null ? <strong>You rolled {v?.roll}: pick a token</strong>
                 : last ? (

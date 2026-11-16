@@ -1,10 +1,13 @@
 import { LADDERS, SNAKES, type SnakesView } from '../../shared/games/snakes';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Die, GameActions, Pawn, PlayerStrip } from '../kit/kit';
+import { Mover, type Point } from '../kit/motion';
+import { snakesWalk, TIMING } from '../kit/cues';
 
 /** Centre of square n (1-100) in a 100×100 drawing: 1 is bottom left and the
  *  rows snake back and forth. */
 function centre(n: number): [number, number] {
+  if (n <= 0) return [-5, 95]; // off the board, next to square 1
   const row = Math.floor((n - 1) / 10);
   const col = row % 2 === 0 ? (n - 1) % 10 : 9 - ((n - 1) % 10);
   return [col * 10 + 5, (9 - row) * 10 + 5];
@@ -57,6 +60,7 @@ function SnakesStage(props: StageProps) {
     if (p > 0) bySquare.set(p, [...(bySquare.get(p) ?? []), seat]);
   }
   const last = v?.last;
+  const rollKey = last ? JSON.stringify(last) : undefined;
 
   return (
     <div className="board-stage">
@@ -74,13 +78,21 @@ function SnakesStage(props: StageProps) {
             {Object.entries(LADDERS).map(([a, b]) => <Ladder key={a} from={+a} to={b} />)}
             {Object.entries(SNAKES).map(([a, b], i) => <Snake key={a} from={+a} to={b} n={i} />)}
           </svg>
-          {[...bySquare].map(([sq, seats]) => {
+          {order.map((seat) => {
+            const sq = v?.pos[seat] ?? 0;
+            const seats = bySquare.get(sq);
+            if (!seats) return null;
+            const k = seats.indexOf(seat);
             const [x, y] = centre(sq);
-            return seats.map((seat, k) => (
-              <span key={seat} className="track-token" style={{ left: `${x + (k - (seats.length - 1) / 2) * 3}%`, top: `${y}%` }}>
+            const at: Point = [x + (k - (seats.length - 1) / 2) * 3, y];
+            // The roll's walk, then up the ladder or down the snake (#28).
+            const walk = last && last.seat === seat ? snakesWalk(last.from, last.value).map(centre) : null;
+            const path: Point[] | null = walk && last ? (last.via ? [...walk, at] : [...walk.slice(0, -1), at]) : null;
+            return (
+              <Mover key={seat} className="track-token" x={at[0]} y={at[1]} path={path} play={last?.seat === seat ? rollKey : undefined} delay={TIMING.pathStart} hop={walk ? walk.length - 1 : false}>
                 <Pawn colour={seat} size="100%" />
-              </span>
-            ));
+              </Mover>
+            );
           })}
         </div>
         <div className="track-side">
@@ -92,7 +104,7 @@ function SnakesStage(props: StageProps) {
             <PlayerStrip key={s.id} snap={snap} send={send} seatId={s.id} toMove={false} />
           ))}
           <div className="dice-row">
-            <Die value={last?.value ?? null} rollKey={v?.rolls.length} />
+            <Die value={last?.value ?? null} rollKey={rollKey} />
             <div className="roll-note">
               {last ? (
                 <>

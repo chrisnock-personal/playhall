@@ -63,8 +63,11 @@ function run(sound: Sound, n: number, start: number, gap: number, max = 6): Cue[
   return Array.from({ length: Math.max(0, Math.min(n, max)) }, (_, i) => cue(sound, start + i * gap));
 }
 
+/** How long a token takes over a path of `steps` (each up to 160 ms, all
+ *  within `max`). */
+export const pathTime = (steps: number, max: number = TIMING.path) => Math.min(max, 160 * Math.max(0, steps));
 /** How long each step of a path takes when it has `steps` of them. */
-export const stepTime = (steps: number, total: number = TIMING.path) => (steps > 0 ? Math.min(140, total / steps) : 0);
+export const stepTime = (steps: number) => (steps > 0 ? pathTime(steps) / steps : 0);
 
 // ---- per game: old view (null when the game has just started) -> new view ----
 
@@ -75,11 +78,11 @@ export function snakesCues(prev: SnakesView | null, next: SnakesView): Cue[] {
   const l = next.last;
   if (!l || !prev || sig(prev.last) === sig(l)) return [];
   const out = [cue('dice')];
-  const walk = snakesWalk(l.from, l.value);
-  const steps = walk.length - 1 + (l.via ? 2 : 0);
-  const t = stepTime(steps);
-  if (walk.length > 1) out.push(cue('move', TIMING.pathStart + (walk.length - 1) * t * 0.5));
-  if (l.via) out.push(cue(l.via === 'ladder' ? 'climb' : 'slide', TIMING.pathStart + (walk.length - 1) * t));
+  const walked = snakesWalk(l.from, l.value).length - 1;
+  const steps = walked + (l.via ? 1 : 0);
+  const t = pathTime(steps) / Math.max(1, steps);
+  if (walked) out.push(cue('move', TIMING.pathStart + t * 0.5));
+  if (l.via) out.push(cue(l.via === 'ladder' ? 'climb' : 'slide', TIMING.pathStart + walked * t));
   return out;
 }
 

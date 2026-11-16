@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FLEET, SIZE, cellsFor, type SeaView, type Shot, type Ship } from '../../shared/games/seabattle';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, PlayerStrip, SquareBoard } from '../kit/kit';
 import { ShipArt } from '../kit/ships';
+import { ShotFx } from '../kit/shotfx';
+import { reducedMotion } from '../kit/motion';
+import { TIMING } from '../kit/cues';
 
 const FILES = 'ABCDEFGHIJ';
 const sizeOf = (name: string) => FLEET.find((f) => f.name === name)?.size ?? 2;
@@ -41,6 +44,13 @@ function Waters({ title, fleet, shots, sunk, onFire, label }: {
 }) {
   const shotAt = new Map(shots.map((s) => [s.cell, s]));
   const last = shots[shots.length - 1]?.cell;
+  // A new shot flies in and lands (#28); not the ones there when you arrived.
+  const [fx, setFx] = useState<{ shot: Shot; n: number } | null>(null);
+  const seen = useRef(shots.length);
+  useEffect(() => {
+    if (shots.length > seen.current && !reducedMotion()) setFx({ shot: shots[shots.length - 1], n: shots.length });
+    seen.current = shots.length;
+  }, [shots.length]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="waters">
       <div className="waters-head"><strong>{title}</strong><span className="muted">{FLEET.length - sunk.length} of {FLEET.length} ships afloat</span></div>
@@ -51,10 +61,13 @@ function Waters({ title, fleet, shots, sunk, onFire, label }: {
           mark={(i) => [i === last ? 'last' : '', onFire && !shotAt.has(i) ? 'aim' : ''].join(' ')}
           render={(i) => {
             const shot = shotAt.get(i);
-            return shot ? <span className={`peg ${shot.hit ? 'hit' : 'miss'}`} aria-label={shot.hit ? 'hit' : 'miss'} /> : null;
+            const landing = fx && fx.shot.cell === i;
+            return shot ? <span className={`peg ${shot.hit ? 'hit' : 'miss'}${landing ? ' landing' : ''}`} aria-label={shot.hit ? 'hit' : 'miss'}
+              style={landing ? { ['--land' as string]: `${TIMING.shot}ms` } : undefined} /> : null;
           }}
         />
         {fleet && <ShipLayer ships={fleet} sunk={sunk} />}
+        {fx && <ShotFx key={fx.n} cell={fx.shot.cell} size={SIZE} kind={fx.shot.sunk ? 'sink' : fx.shot.hit ? 'hit' : 'miss'} onDone={() => setFx(null)} />}
       </div>
       <ul className="fleet-list">
         {FLEET.map((f) => <li key={f.name} className={sunk.includes(f.name) ? 'sunk' : ''}>{f.name} ({f.size})</li>)}
