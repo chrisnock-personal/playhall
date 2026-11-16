@@ -52,6 +52,34 @@ export function aiPrompt(game: AiGame, view: unknown, seat: SeatId, names: Recor
   return { system, user };
 }
 
+/** The prompt for answering a question at the table: the model is told what
+ *  really happened and decides whether to tell it straight. */
+export function aiReplyPrompt(game: AiGame, view: unknown, seat: SeatId, names: Record<SeatId, string>, chat: string[], question: string, truth: string): { system: string; user: string } {
+  const system = [
+    'You are a player in a game among friends, and someone at the table has asked you something.',
+    'Answer in one short line, in character, as yourself. Tell the truth or lie, whichever helps your side: stories that don\u2019t match get caught, so lie only when the truth would give you away.',
+    'Answer with JSON only: {"say": "<your line>"}.',
+  ].join('\n');
+  const user = [
+    game.describe(view, seat, names),
+    chat.length ? `Table chat, latest last:\n${chat.join('\n')}` : '',
+    `What really happened: ${truth}`,
+    `You were asked: "${question.slice(0, 300)}"`,
+  ].filter(Boolean).join('\n\n');
+  return { system, user };
+}
+
+/** Read a reply: one line to say, or null. */
+export function readSay(text: string): string | null {
+  try {
+    const raw = JSON.parse(text.trim().replace(/^```(json)?|```$/g, ''));
+    const say = typeof raw?.say === 'string' ? raw.say.trim().replace(/^["']|["']$/g, '').slice(0, 200) : '';
+    return say || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Read the model's answer: the option number (1-based) and any talk. */
 export function readAnswer(text: string, count: number): AiAnswer | null {
   try {

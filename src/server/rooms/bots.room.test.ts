@@ -130,3 +130,28 @@ test('AI players: off unless the server has them; the model picks the social mov
   for (let i = 0; i < 3000 && quiet.rec.game.status === 'playing'; i++) { quiet.advance(2000); await settle(); }
   assert.equal(quiet.rec.game.status, 'over', 'the game ended without the model');
 });
+
+test('bots and AI players answer when someone asks what orders they had', async () => {
+  const { room, rec, lines, advance } = setup('ship2shore', { ask: async (system) => (/asked you something/.test(system) ? '{"say": "Two Navy orders, I swear."}' : '{"choice": 1}') });
+  room.handle(host, { t: 'sit', seat: 'amber' });
+  for (const seat of ['teal', 'violet', 'rose', 'lime']) room.handle(host, { t: 'addBot', seat, ai: seat === 'rose' });
+  room.handle(host, { t: 'start' });
+  const st = () => rec.game.state as { secrets: Record<string, { k: string }[]>; result: unknown };
+  const bridged = (seat: string) => st().secrets[seat]?.some((x) => x.k === 'drew' || x.k === 'steered');
+  // Play (the host as a bot too) until a bot and the AI player have both had orders in hand.
+  for (let i = 0; i < 4000 && rec.game.status === 'playing' && !(['teal', 'violet', 'lime'].some(bridged) && bridged('rose')); i++) {
+    const v = room.snapshotFor(host.id).game.view as ShipView;
+    if (v.you?.toAct) room.handle(host, { t: 'act', action: BOTS.ship2shore(v, 'amber', Math.random) });
+    else { advance(2000); await settle(); }
+  }
+  assert.equal(rec.game.status, 'playing', 'still sailing when the questions are asked');
+  const names = Object.fromEntries(room.snapshotFor(host.id).seats.map((s) => [s.id, (s.name ?? '').replace(/ \((bot|AI)\)$/, '')]));
+  const bot = ['teal', 'violet', 'lime'].find(bridged)!;
+  const before = lines.length;
+  room.handle(host, { t: 'chat', channel: 'table', text: `${names[bot]}, what orders did you have?` });
+  room.handle(host, { t: 'chat', channel: 'table', text: `And ${names.rose}, what did you have?` });
+  for (let i = 0; i < 40 && lines.slice(before).filter((l) => /order|U-boat|Navy|Lisbon/i.test(l)).length < 3; i++) { advance(3000); await settle(); }
+  const after = lines.slice(before);
+  assert.ok(after.some((l) => /(Navy|U-boat|Lisbon)/.test(l) && !/swear/.test(l) && !/what/.test(l)), `the bot answered: ${after.join(' | ')}`);
+  assert.ok(after.includes('Two Navy orders, I swear.'), 'the AI player answered in its own words');
+});

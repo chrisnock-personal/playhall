@@ -9,6 +9,7 @@
 import { ship2shoreBot } from './games/ship2shore.bot';
 import { checkersBot, fourBot, ludoBot, snakesBot } from './games/board.bots';
 import { blackjackBot, clashBot, pokerBot, realmBot, seaBot } from './games/card.bots';
+import { ship2shoreTalk } from './games/ship2shore.talk';
 
 /** A bot: its seat's view and its seat in, the action it takes out. */
 export type Bot = (view: unknown, seat: string, random: () => number) => unknown | null;
@@ -25,6 +26,24 @@ export const BOTS: Record<string, Bot> = {
   colourclash: clashBot,
   seabattle: seaBot,
   realmduel: realmBot,
+};
+
+/** Answering at the table: games where players ask each other things
+ *  (Ship2Shore: "what orders did you have?") let bots and AI players answer. */
+export interface BotTalk {
+  /** Whether this line from someone at the table asks this seat something it
+   *  should answer. */
+  asked(view: unknown, seat: string, text: string, names: Record<string, string>): boolean;
+  /** What really happened, in words, for an AI player's prompt. */
+  truth(view: unknown, seat: string): string | null;
+  /** A rule bot's answer: the truth, or a lie where the truth gives it away. */
+  answer(view: unknown, seat: string, random: () => number): string | null;
+  /** Whether this seat may talk now. */
+  canTalk(view: unknown, seat: string): boolean;
+}
+
+export const BOT_TALK: Record<string, BotTalk> = {
+  ship2shore: ship2shoreTalk,
 };
 
 /** Bots' seats hold a made-up id with this prefix, never a real account. */
