@@ -144,6 +144,8 @@ Marigold; rules as built in [ship2shore.md](ship2shore.md), pieces in
 [mockups/ship2shore-pieces.html](mockups/ship2shore-pieces.html)). It brings
 seat colours 7-11 (red, slate, gold, mint, plum) and team wins: every member
 of the winning faction scores 3.
+**Who Dat?** is in (2 players, a guess-the-face game with our own cast of 24;
+rules as built in [who-dat.md](who-dat.md)).
 
 ## The camera table (phase 2.4)
 

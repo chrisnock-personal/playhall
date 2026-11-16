@@ -7,10 +7,11 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Thirteen games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Fourteen games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Letterworks (a crossword tile
 game), Realm Duel (a creature card duel), Manor Mystery (a country-house
-murder mystery) and Ship2Shore (a WW2 hidden-role game for 5-11), drawn from
+murder mystery), Ship2Shore (a WW2 hidden-role game for 5-11) and Who Dat?
+(a guess-the-face game for two), drawn from
 one shared kit of boards, pieces, cards, chips and dice
 ([docs/games.md](docs/games.md)), plus the **camera table** for any real
 board game on your own table. Every game is a plug-in with its own

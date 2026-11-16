@@ -6,6 +6,7 @@ import type { SnakesView } from './snakes';
 import { HOME, SAFE, square, type LudoView } from './ludo';
 import { COLS, ROWS, landing, lineThrough, type FourSeat, type FourView } from './fourinarow';
 import { legalMoves, type CheckersMove, type CheckersSide, type CheckersView, type Piece } from './checkers';
+import { CAST, bestQuestion, openQuestions, type WhoView } from './whodat';
 
 /** Snakes and Ladders has no choices: roll when it's your turn. */
 export function snakesBot(view: unknown, seat: SeatId): unknown | null {
@@ -164,4 +165,17 @@ export function checkersBot(view: unknown, seat: SeatId, random: () => number): 
     if (val > best + 1e-9) { best = val; picks = [m]; } else if (Math.abs(val - best) <= 1e-9) picks.push(m);
   }
   return { type: 'move', path: picks[Math.floor(random() * picks.length)].path };
+}
+
+// ---- Who Dat?: ask the question that halves the faces still up ----
+
+export function whoDatBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as WhoView;
+  const up = v.up[seat];
+  if (v.result || v.turn !== seat || !up) return null;
+  const left = CAST.map((_, i) => i).filter((i) => up[i]);
+  if (left.length === 1) return { type: 'guess', face: left[0] };
+  const q = bestQuestion(up, openQuestions(v.asked, seat), random);
+  if (q) return { type: 'ask', q: q.id };
+  return { type: 'guess', face: left.length ? left[Math.floor(random() * left.length)] : 0 };
 }

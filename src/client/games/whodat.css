@@ -1,0 +1,52 @@
+/* ---- Who Dat? (the board of faces, the questions, the log) ---- */
+.wd-stage { width: 100%; height: 100%; overflow: hidden; padding: 10px; box-sizing: border-box; align-self: stretch; }
+.wd-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 12px; height: 100%; }
+.wd-boards { min-height: 0; overflow: auto; display: grid; gap: 12px; align-content: start; }
+.wd-boards.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wd-board-head { font: 600 13px var(--head); margin: 0 0 6px 2px; display: flex; gap: 6px; align-items: center; }
+/* The board keeps its shape: as big as the stage allows, never taller than it. */
+.wd-board { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px; border-radius: 18px; background: #2f8fa8; box-shadow: inset 0 -6px 0 rgba(0,0,0,.18); width: min(100%, calc((100cqh - 40px) * 1.08)); margin: 0 auto; box-sizing: border-box; }
+.wd-boards.n2 .wd-board { gap: 4px; padding: 8px; width: 100%; }
+.wd-board.guessing { background: #e2574c; }
+.wd-wait { margin: 0 0 8px; color: var(--muted); }
+.wd-face { position: relative; display: block; border: 0; padding: 0; background: none; aspect-ratio: 3 / 4; min-width: 0; perspective: 600px; font: inherit; }
+button.wd-face { cursor: pointer; }
+button.wd-face:focus-visible { outline: 3px solid #f0a53c; outline-offset: 2px; border-radius: 10px; }
+.wd-inner { position: absolute; inset: 0; transition: transform .45s cubic-bezier(.3, .7, .3, 1.2); transform-style: preserve-3d; transform-origin: 50% 50%; }
+.wd-face.down .wd-inner { transform: rotateX(180deg); }
+.wd-front, .wd-back { position: absolute; inset: 0; border-radius: 10px; backface-visibility: hidden; overflow: hidden; border: 2px solid rgba(0,0,0,.08); }
+.wd-front { background: #ffe9c7; display: flex; flex-direction: column; }
+.wd-front svg { width: 100%; flex: 1; min-height: 0; display: block; }
+.wd-name { font: 600 12px var(--head); text-align: center; padding: 1px 0 3px; color: #2a2238; background: #fff3dc; }
+.wd-back { transform: rotateX(180deg); background: #d9cbb3 repeating-linear-gradient(45deg, transparent 0 8px, rgba(0,0,0,.06) 8px 16px); display: flex; align-items: center; justify-content: center; font: 700 26px var(--head); color: rgba(0,0,0,.2); }
+.wd-face.hl .wd-front { box-shadow: 0 0 0 3px #f0a53c inset; }
+.wd-board.guessing button.wd-face:hover .wd-front { transform: translateY(-3px); box-shadow: 0 0 0 3px #fff inset; }
+@media (prefers-reduced-motion: reduce) { .wd-inner { transition: none; } }
+.wd-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: auto; }
+.wd-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.wd-h { margin: 0 0 8px; font: 600 14px var(--head); }
+.wd-mine { display: flex; gap: 12px; align-items: center; }
+.wd-mine .wd-face { width: 72px; flex: none; }
+.wd-turn { display: block; font: 600 15px var(--head); color: var(--accent); margin: 2px 0; }
+.wd-qs { display: flex; flex-wrap: wrap; gap: 6px; }
+.wd-q { font: 600 13px var(--body); border: 1px solid var(--line); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 5px 10px; min-height: 32px; cursor: pointer; }
+.wd-q:hover:not(:disabled) { border-color: var(--accent); }
+.wd-q:disabled { opacity: .45; cursor: default; }
+.wd-q.asked { text-decoration: line-through; }
+.wd-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.wd-players { display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+.wd-left { font: 700 15px var(--mono); margin-left: auto; } .wd-left small { font: 500 11px var(--body); color: var(--muted); }
+.wd-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; max-height: 260px; overflow: auto; }
+.wd-log b.yes { color: var(--live); } .wd-log b.no { color: var(--danger); }
+.wd-stage .small { font-size: 12px; }
+
+/* Small screens: one column, the stage grows to fit. */
+@media (max-width: 900px) {
+  .stage:has(.wd-stage) { height: auto; container-type: inline-size; }
+  .wd-stage { overflow: visible; height: auto; padding: 6px; }
+  .wd-layout { display: flex; flex-direction: column; height: auto; }
+  .wd-boards { overflow: visible; }
+  .wd-boards.n2 { grid-template-columns: 1fr; }
+  .wd-board { width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px; }
+  .wd-side { overflow: visible; }
+}
