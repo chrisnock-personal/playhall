@@ -55,10 +55,18 @@ jobs:
           psql "$DATABASE_URL" -tAc "SELECT count(*) FROM game_results" | grep -qv '^0$'
           node dist/server/demo.js --remove
           test "$(psql "$DATABASE_URL" -tAc 'SELECT count(*) FROM users WHERE is_demo')" = 0
-      - name: Chromium for the browser test
-        run: npx playwright install --with-deps chromium
-      - name: Browser test
-        run: node tests/browser.mjs http://localhost:8450
+      - name: Browsers for the browser test (Chromium, Firefox, WebKit)
+        id: browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Browser test, Chromium
+        run: node tests/browser.mjs http://localhost:8450 chromium
+      # Firefox and WebKit (Safari's engine) run even if an engine before them failed.
+      - name: Browser test, Firefox
+        if: ${{ !cancelled() && steps.browsers.outcome == 'success' }}
+        run: node tests/browser.mjs http://localhost:8450 firefox
+      - name: Browser test, WebKit
+        if: ${{ !cancelled() && steps.browsers.outcome == 'success' }}
+        run: node tests/browser.mjs http://localhost:8450 webkit
       - name: Server log, if it failed
         if: failure()
         run: tail -50 server.log
