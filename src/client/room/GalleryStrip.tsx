@@ -1,9 +1,12 @@
 import type { ClientMessage, RoomSnapshot } from '../../shared/protocol';
-import type { Panel3 } from './layout';
+import type { Panel3, VideoSize } from './layout';
+import type { Voice } from './useVoice';
+import { VideoTile } from './VideoTile';
 import { Avatar, Icon } from '../ui';
 
-export function GalleryStrip({ state, onSet, snap, send, handUp }: {
+export function GalleryStrip({ state, onSet, snap, send, handUp, voice, video }: {
   state: Panel3; onSet(v: Panel3): void; snap: RoomSnapshot; send(m: ClientMessage): void; handUp: boolean;
+  voice: Voice; video: VideoSize;
 }) {
   const watchers = snap.members.filter((m) => !m.seat && m.online);
   const watching = !snap.you.seat;
@@ -36,7 +39,7 @@ export function GalleryStrip({ state, onSet, snap, send, handUp }: {
   }
 
   return (
-    <div className="gallery full" aria-label="Watching">
+    <div className={`gallery full video-${video}`} aria-label="Watching">
       <div className="panel-head">
         <span className="label">Watching · {watchers.length}</span>
         <div className="row">
@@ -47,11 +50,13 @@ export function GalleryStrip({ state, onSet, snap, send, handUp }: {
       <div className="gallery-tiles">
         {watchers.length === 0 && <p className="empty">Nobody watching yet.</p>}
         {watchers.map((w) => (
-          <div key={w.userId} className="gallery-tile">
-            <Avatar name={w.name} id={w.userId} size={36} ring={w.hand} />
-            <span>{w.name}{w.userId === snap.you.userId ? ' (you)' : ''}</span>
-            {w.hand && <span className="hand-tag">Wants a seat</span>}
-          </div>
+          // Watchers' cameras (when the host allows them) show here, in the full strip only.
+          <VideoTile key={w.userId} voice={voice} channel="gallery" id={w.userId} name={w.name} className="gallery-tile"
+            fallback={<>
+              <Avatar name={w.name} id={w.userId} size={36} ring={w.hand} />
+              <span>{w.name}{w.userId === snap.you.userId ? ' (you)' : ''}</span>
+              {w.hand && <span className="hand-tag">Wants a seat</span>}
+            </>} />
         ))}
       </div>
     </div>

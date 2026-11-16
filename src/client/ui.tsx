@@ -27,6 +27,8 @@ const PATHS: Record<string, ReactNode> = {
   mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>,
   micOff: <><path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.6 2.5M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.5 2.6M12 18v3M3 3l18 18" /></>,
   headphones: <><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><rect x="3" y="15" width="4" height="6" rx="1.5" /><rect x="17" y="15" width="4" height="6" rx="1.5" /></>,
+  camera: <><rect x="2" y="6" width="14" height="12" rx="2" /><path d="M16 10l6-3v10l-6-3z" /></>,
+  cameraOff: <><path d="M10.5 6H14a2 2 0 0 1 2 2v3.5M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2M16 10l6-3v10l-4.5-2.2M3 3l18 18" /></>,
   volume: <><path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /></>,
   up: <path d="M18 15l-6-6-6 6" />,
   down: <path d="M6 9l6 6 6-6" />,

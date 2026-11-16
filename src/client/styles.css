@@ -199,7 +199,7 @@ input:disabled { opacity: 0.6; }
 .seat-card.mine { border-color: var(--accent); }
 .seat-card .btn { margin: 0 8px; width: auto; }
 .seat-tile { aspect-ratio: 16 / 10; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; }
-.video-note { font-size: 10px; color: var(--muted); }
+.seats-panel.video-big { width: 340px; }
 .seat-meta { display: flex; align-items: center; gap: 8px; padding: 0 10px; }
 .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .who strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
@@ -213,6 +213,7 @@ input:disabled { opacity: 0.6; }
 .gallery-avatars { display: flex; gap: 6px; flex: 1; min-width: 0; overflow-x: auto; padding: 3px; }
 .gallery.full { display: flex; flex-direction: column; gap: 8px; }
 .gallery-tiles { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.gallery.full.video-big .gallery-tile { width: 200px; }
 .gallery-tile { width: 120px; flex: none; aspect-ratio: 16 / 10; border-radius: 8px; background: var(--surface-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: var(--text-2); text-align: center; padding: 4px; }
 .hand-tag { font-size: 10px; font-weight: 700; color: var(--accent); }
 
@@ -555,6 +556,10 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
   .chess-stage, .board-stage { padding: 6px; }
   .seats-panel, .seats-panel.compact { order: 2; width: 100%; flex-direction: row; overflow-x: auto; align-items: stretch; }
   .seats-panel .seat-card { min-width: 180px; }
+  /* Phones: video tiles stay small and the board keeps the room. */
+  .seats-panel.video-big { width: 100%; }
+  .seats-panel .seat-card { max-width: 220px; flex: 1 0 180px; }
+  .gallery.full.video-big .gallery-tile { width: 120px; }
   .seats-panel .panel-head { display: none; }
   .side-panel { order: 3; width: 100%; height: 60dvh; }
   .side-panel.rail { flex-direction: row; height: auto; justify-content: center; }
@@ -636,3 +641,20 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .voice-pop .row { display: flex; align-items: center; gap: 8px; } .voice-pop input[type=range] { flex: 1; accent-color: var(--accent); }
 .voice-mode { height: 32px; font-size: 12px; padding: 0 6px; border-radius: 8px; }
 .voice-dock .icon-btn.ptt { touch-action: none; user-select: none; }
+
+/* ---- video: seat cards, gallery tiles ---- */
+.video-tile { position: relative; overflow: hidden; }
+.video-tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
+.video-tile video.mirror { transform: scaleX(-1); }
+.video-tile.speaking { box-shadow: inset 0 0 0 3px #3FB3A2; }
+.video-tile.speaking video { outline: 3px solid #3FB3A2; outline-offset: -3px; }
+.gallery-tile.live { padding: 0; }
+.video-tile.mini { display: inline-flex; border-radius: 50%; }
+.video-tile.mini.live { width: 48px; height: 48px; }
+.video-tile.mini.speaking { box-shadow: 0 0 0 3px #3FB3A2; overflow: visible; }
+.video-tile.mini video { border-radius: 50%; }
+.video-tile.mini .cam-badge { display: none; }
+.cam-badge { position: absolute; top: 6px; left: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(192, 57, 43, .9); color: #fff; font-size: 10px; font-weight: 700; }
+.cam-live { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #E07A6E; }
+.cam-live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #E0453A; }
+.voice-dock .icon-btn.cam.on-air { color: #E0453A; }

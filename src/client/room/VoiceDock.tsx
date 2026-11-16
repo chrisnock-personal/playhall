@@ -23,7 +23,9 @@ export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSn
   if (voice.state !== 'on') {
     return (
       <div className="voice-dock off" role="group" aria-label="Voice">
-        <button className="btn small" disabled={voice.state === 'joining'} onClick={() => voice.join(choices[0])}>
+        <button className="btn small" disabled={voice.state === 'joining'} onClick={() => voice.join(choices[0])}
+          title="Voice and video: you join muted with your camera off, and see the cameras that are on">
+
           <Icon name="headphones" size={16} />{voice.state === 'joining' ? 'Joining…' : compact ? 'Voice' : `Join voice: ${label(choices[0])}`}
         </button>
         {!compact && choices.length > 1 && voice.state !== 'joining' && (
@@ -51,6 +53,14 @@ export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSn
             <Icon name={voice.muted ? 'micOff' : 'mic'} size={18} />
           </button>
         )}
+      {voice.canVideo && (
+        <button className={`icon-btn cam${voice.camera ? ' live on-air' : ''}`} onClick={voice.toggleCamera} disabled={voice.cameraBusy}
+          aria-pressed={voice.camera} aria-label={voice.camera ? 'Turn your camera off' : 'Turn your camera on'}
+          title={voice.camera ? 'Your camera is on: click to turn it off' : 'Turn your camera on'}>
+          <Icon name={voice.camera ? 'camera' : 'cameraOff'} size={18} />
+        </button>
+      )}
+      {voice.camera && !compact && <span className="cam-live" role="status">Camera on</span>}
       {voice.canTalk && !compact && (
         <select className="voice-mode" aria-label="How you talk" value={voice.mode} onChange={(e) => voice.setMode(e.target.value as 'open' | 'ptt')}>
           <option value="open">Open mic</option>
@@ -83,6 +93,7 @@ export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSn
         {voice.people.length > (compact ? 4 : 8) && <span className="muted small">+{voice.people.length - (compact ? 4 : 8)}</span>}
       </div>
       {voice.needsClick && <button className="btn small primary" onClick={voice.startAudio}><Icon name="volume" size={16} />Turn sound on</button>}
+      {voice.error && <span className="voice-error" role="alert">{voice.error}</span>}
       {!compact && others.map((c) => <button key={c} className="btn small ghost" onClick={() => voice.join(c)}>Go to {label(c)}</button>)}
       <button className="btn small" onClick={voice.leave}>Leave</button>
     </div>

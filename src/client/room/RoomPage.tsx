@@ -8,7 +8,7 @@ import { useLayout, NEXT, PRESETS, type PresetId } from './layout';
 import { SeatsPanel } from './SeatsPanel';
 import { GalleryStrip } from './GalleryStrip';
 import { VoiceDock } from './VoiceDock';
-import { useVoice } from './useVoice';
+import { useVoice, viewChannel } from './useVoice';
 import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ResultCard } from './ResultCard';
@@ -49,6 +49,13 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   const [toast, setToast] = useState<string | null>(null);
 
   const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send };
+
+  // While you're in one channel's voice, also show the other channel's video
+  // when you may see it (players' cameras for watchers in the gallery, and
+  // watchers' cameras for players, when the gallery isn't hidden from them).
+  const viewing = voice.state === 'on' ? viewChannel(voice.channel, snap.you.media) : null;
+  const { view } = voice;
+  useEffect(() => { view(viewing); }, [view, viewing]);
 
   // Errors from the server show for a few seconds.
   useEffect(() => {
@@ -125,7 +132,8 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
       )}
 
       <div className="room-body">
-        <SeatsPanel state={layout.seats} onCycle={() => set('seats', NEXT.seats[layout.seats])} stage={stageProps} game={game} />
+        <SeatsPanel state={layout.seats} onCycle={() => set('seats', NEXT.seats[layout.seats])} stage={stageProps} game={game}
+          voice={voice} video={layout.video} onVideo={(v) => set('video', v)} />
         <div className="stage-col">
           <div className="stage">
             {game ? <game.Stage {...stageProps} /> : <p className="empty">This game isn’t available in this version.</p>}
@@ -137,6 +145,8 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
             snap={snap}
             send={conn.send}
             handUp={!!me?.hand}
+            voice={voice}
+            video={layout.video}
           />
         </div>
         <SidePanel
