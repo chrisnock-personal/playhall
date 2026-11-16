@@ -474,7 +474,8 @@ function takeCommand(s: ShipState, captain: SeatId): ShipState {
 
 const isSeat = (s: ShipState, x: unknown): x is SeatId => typeof x === 'string' && s.order.includes(x);
 
-function apply(s: ShipState, seat: SeatId, raw: unknown, random: () => number): ShipState | string {
+/** `auto`: the game is choosing for this seat (a timeout, or a player who resigned). */
+function apply(s: ShipState, seat: SeatId, raw: unknown, random: () => number, auto = false): ShipState | string {
   if (s.result) return 'The voyage is over';
   if (!s.order.includes(seat)) return 'You aren’t aboard';
   const a = (raw ?? {}) as Record<string, unknown>;
@@ -482,7 +483,7 @@ function apply(s: ShipState, seat: SeatId, raw: unknown, random: () => number): 
     if (s.resigned.includes(seat)) return 'You’ve already resigned';
     return log({ ...s, resigned: [...s.resigned, seat] }, { k: 'resign', seat });
   }
-  if (s.resigned.includes(seat)) return 'You’ve resigned from this game';
+  if (s.resigned.includes(seat) && !auto) return 'You’ve resigned from this game';
   if (s.overboard.includes(seat)) return 'You’re in the water: you can only watch now';
 
   switch (a.type) {
@@ -675,7 +676,7 @@ function autoMove(s: ShipState, seat: SeatId, random: () => number): ShipState {
     case 'contraband': a = s.roles[seat] === 'fixer' ? { type: 'contraband', option: 'bridge' } : { type: 'ack' }; break;
   }
   const before = s.log.length;
-  const r = apply(s, seat, a, random);
+  const r = apply(s, seat, a, random, true);
   if (typeof r === 'string') throw new Error(`Automatic move failed: ${r}`);
   return { ...r, log: r.log.map((e, i) => (i >= before && 'seat' in e && e.seat === seat ? { ...e, auto: true } : e)) };
 }
