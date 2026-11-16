@@ -13,9 +13,13 @@ export function SignIn({ onSignedIn, roomCode }: { onSignedIn(s: Session): void;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [allowSignup, setAllowSignup] = useState(true);
+  const [allowGuests, setAllowGuests] = useState(true);
 
   useEffect(() => {
-    api<{ allowSignup: boolean }>('/auth/options').then((o) => setAllowSignup(o.allowSignup)).catch(() => {});
+    api<{ allowSignup: boolean; allowGuests?: boolean }>('/auth/options').then((o) => {
+      setAllowSignup(o.allowSignup);
+      if (o.allowGuests === false) { setAllowGuests(false); setMode((m) => (m === 'guest' ? 'signin' : m)); }
+    }).catch(() => {});
   }, []);
 
   const submit = async (e: FormEvent) => {
@@ -33,7 +37,7 @@ export function SignIn({ onSignedIn, roomCode }: { onSignedIn(s: Session): void;
     }
   };
 
-  const tabs: [Mode, string][] = [['signin', 'Sign in'], ...(allowSignup ? [['register', 'Create account'] as [Mode, string]] : []), ['guest', 'Join as a guest']];
+  const tabs: [Mode, string][] = [['signin', 'Sign in'], ...(allowSignup ? [['register', 'Create account'] as [Mode, string]] : []), ...(allowGuests ? [['guest', 'Join as a guest'] as [Mode, string]] : [])];
 
   return (
     <div className="signin-page">

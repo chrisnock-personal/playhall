@@ -1,0 +1,42 @@
+/* Platform settings (#/admin). Builds on .settings-page and .settings-card. */
+.settings-page.admin-page { width: min(960px, 100% - 32px); }
+.admin-page h3 { margin: 0; font-size: 15px; }
+.admin-page code { font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.admin-page p { margin: 0; }
+
+.admin-check { align-items: flex-start; }
+.admin-check input { margin-top: 2px; }
+.admin-check > span { display: flex; flex-direction: column; gap: 2px; }
+.admin-coming { opacity: 0.6; }
+.admin-saved { color: var(--live); font-size: 13px; }
+.admin-ok { color: var(--text-2); }
+
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.admin-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.admin-cert { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+.admin-cert dt { color: var(--muted); }
+.admin-cert dd { margin: 0; overflow-wrap: anywhere; }
+.admin-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+.admin-pill { margin-left: 8px; }
+
+.admin-upload { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 4px; }
+.admin-upload input[type='file'] { height: auto; padding: 8px 10px; }
+.admin-upload textarea {
+  min-height: 84px; resize: vertical; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  padding: 8px 10px; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.admin-table-wrap { overflow-x: auto; margin: 0 -4px; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-table th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.admin-table td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.admin-table tr:last-child td { border-bottom: 0; }
+.admin-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.admin-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+@media (max-width: 640px) {
+  .admin-cert { grid-template-columns: 1fr; gap: 2px; }
+  .admin-cert dd { margin-bottom: 8px; }
+}

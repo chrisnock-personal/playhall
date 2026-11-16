@@ -12,21 +12,52 @@ import type { Period } from '../shared/protocol';
 import type { Db } from './db';
 import { mediaToken, proxyHttp, type MediaConfig } from './media';
 import type { Channel } from '../shared/protocol';
+import { adminRoutes, type AdminTls } from './admin';
+import { getPlatformSettings } from './platform';
+import type { PublicPlatform } from '../shared/platform';
+import { MAX_WAV_BYTES, SaidLimiter, saidHandler, transcriptsAllowed, whisperTranscribe, whisperUrl } from './transcripts';
 
-export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomSockets; db: Db; staticDir: string; media?: MediaConfig | null }) {
+export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomSockets; db: Db; staticDir: string; media?: MediaConfig | null; tls?: AdminTls | null }) {
   const { auth, rooms, sockets, db } = opts;
   const media = opts.media ?? null;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 'loopback');
+  // A certificate chain and key can be bigger than other requests.
+  app.use('/api/admin/tls', express.json({ limit: '256kb' }));
   app.use(express.json({ limit: '32kb' }));
 
-  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: !!media }); });
+  // Voice and video: set up on this server and allowed by the admin.
+  const mediaOn = () => !!media && getPlatformSettings().voiceVideoAllowed;
+  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: mediaOn(), transcripts: transcriptsAllowed() }); });
+  // Platform settings anyone may know (sign-in page, lobby, rooms).
+  app.get('/api/platform', (_req, res) => {
+    const p = getPlatformSettings();
+    const body: PublicPlatform = {
+      signupsAllowed: p.signupsAllowed, guestsAllowed: p.guestsAllowed, voiceVideo: mediaOn(),
+      transcriptsAllowed: p.transcriptsAllowed, roomDefaults: p.roomDefaults,
+    };
+    res.json(body);
+  });
+  app.use('/api/admin', adminRoutes({ auth, db, rooms, sockets, media, tls: opts.tls ?? null }));
+
+
+  // Transcripts: one utterance of your speech (16 kHz mono WAV), written into
+  // the chat as a said line. The audio is dropped once Whisper has read it.
+  app.post('/api/rooms/:code/said/:channel', auth.requireUser, rateLimit(120, 60_000),
+    express.raw({ type: ['audio/wav', 'audio/x-wav', 'audio/wave'], limit: MAX_WAV_BYTES + 1024 }),
+    saidHandler({
+      getRoom: (code) => rooms.get(code),
+      allowed: transcriptsAllowed,
+      transcribe: (wav) => whisperTranscribe(whisperUrl()!, wav),
+      limiter: new SaidLimiter(),
+    }));
 
   // Voice and video: a LiveKit token for one channel of a room you're in.
   // The browser connects to LiveKit through this same address (/rtc).
   app.post('/api/rooms/:code/media/:channel', auth.requireUser, rateLimit(30, 60_000), async (req, res) => {
     if (!media) { res.status(503).json({ error: 'Voice and video aren’t set up on this server' }); return; }
+    if (!getPlatformSettings().voiceVideoAllowed) { res.status(503).json({ error: 'Voice and video are switched off on this server' }); return; }
     const channel = String(req.params.channel) as Channel;
     if (channel !== 'table' && channel !== 'gallery') { res.status(404).json({ error: 'No such channel' }); return; }
     const room = await rooms.get(String(req.params.code));
@@ -52,13 +83,15 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.post('/api/rooms', auth.requireUser, async (req, res) => {
     const b = req.body ?? {};
+    const defaults = getPlatformSettings().roomDefaults;
     const pw = roomPassword(b.password);
     if ('error' in pw) { res.status(400).json({ error: pw.error }); return; }
     const room = await rooms.create(req.user!, {
       passwordHash: pw.password ? await bcrypt.hash(pw.password, 11) : null,
       name: b.name, gameId: b.gameId, listed: typeof b.listed === 'boolean' ? b.listed : undefined,
-      seatPolicy: b.seatPolicy, ranked: typeof b.ranked === 'boolean' ? b.ranked : undefined, guestsCanPlay: typeof b.guestsCanPlay === 'boolean' ? b.guestsCanPlay : undefined,
+      seatPolicy: b.seatPolicy, ranked: typeof b.ranked === 'boolean' ? b.ranked : defaults.ranked, guestsCanPlay: typeof b.guestsCanPlay === 'boolean' ? b.guestsCanPlay : undefined,
       gameConfig: b.gameConfig, hostSeat: typeof b.hostSeat === 'string' ? b.hostSeat : null,
+      moveSeconds: defaults.moveSeconds, watcherDelay: defaults.watcherDelay,
     });
     res.status(201).json({ room: room.summary() });
   });
@@ -147,6 +180,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof RoomError) { res.status(400).json({ error: err.message }); return; }
+    if ((err as { type?: string }).type === 'entity.too.large') { res.status(413).json({ error: 'Too big' }); return; }
     console.error('[http] error:', err);
     res.status(500).json({ error: 'Something went wrong' });
   });

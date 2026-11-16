@@ -9,8 +9,10 @@ import { GAMES } from '../../shared/games';
 import { placingsOf } from '../../shared/scoring';
 import type { GameContext, GameModule, GameResult, SeatId } from '../../shared/game';
 import type {
-  Channel, ChatLine, ClientMessage, GameStatus, LastResult, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
+  Channel, ChatLine, ClientMessage, GameStatus, LastResult, MediaRight, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
 } from '../../shared/protocol';
+
+const NO_MEDIA: MediaRight = { listen: false, talk: false, video: false };
 
 export interface RoomUser {
   id: string;
@@ -72,6 +74,8 @@ export interface RoomHooks {
   changed(): void;
   /** Disconnect someone (the host removed them). */
   kick(userId: string, reason: string): void;
+  /** The server allows transcripts at all (see ../transcripts.ts). */
+  transcriptsAllowed?(): boolean;
 }
 
 /** How long a player who drops out mid-game has to come back. */
@@ -249,17 +253,22 @@ export class Room {
     return table ? ['table', 'gallery'] : ['gallery'];
   }
 
-  /** Voice and video follow the chat: you can hear a channel you can read
-   *  and talk in one you can write. Watchers on a delay don't hear the table
-   *  live (it would give the game away ahead of what they see). Null when
-   *  you're not in the room. */
-  mediaRights(userId: string): Record<Channel, { listen: boolean; talk: boolean }> | null {
+  /** Voice and video follow the chat: you can hear (and see) a channel you
+   *  can read and talk in one you can write. Watchers on a delay neither hear
+   *  nor see the table live (it would give the game away ahead of what they
+   *  see). Cameras: players send theirs to the table (their seat cards);
+   *  watchers send theirs to the gallery, only when the host allows watcher
+   *  video. Null when you're not in the room. */
+  mediaRights(userId: string): Record<Channel, MediaRight> | null {
     if (!this.present.has(userId)) return null;
     const read = this.canRead(userId), write = this.canWrite(userId);
-    const delayed = this.seatOf(userId) === null && this.rec.settings.watcherDelay > 0 && this.status === 'playing';
-    const right = (c: Channel) => {
+    const seated = this.seatOf(userId) !== null;
+    const delayed = !seated && this.rec.settings.watcherDelay > 0 && this.status === 'playing';
+    const right = (c: Channel): MediaRight => {
       const listen = read.includes(c) && !(c === 'table' && delayed);
-      return { listen, talk: listen && write.includes(c) };
+      const talk = listen && write.includes(c);
+      const video = talk && (seated ? c === 'table' : c === 'gallery' && this.rec.settings.watcherVideo);
+      return { listen, talk, video };
     };
     return { table: right('table'), gallery: right('gallery') };
   }
@@ -351,6 +360,27 @@ export class Room {
     if (!body) return;
     if (body.length > CHAT_MAX) throw new RoomError(`Keep messages under ${CHAT_MAX} characters`);
     this.addLine({ channel, kind: 'typed', userId: user.id, name: user.name, text: body });
+    if (channel === 'table' && this.rec.settings.watcherDelay) this.hooks.setTimer(this.rec.settings.watcherDelay * 1000 + 50, () => this.hooks.changed());
+    this.hooks.changed();
+  }
+
+  /** Can this person's speech in this channel be written into the chat now?
+   *  Null if so, else why not. */
+  saidRefusal(userId: string, channel: Channel): string | null {
+    if (!this.rec.settings.transcripts) return 'Transcripts are off in this room';
+    if (!(this.hooks.transcriptsAllowed?.() ?? false)) return 'Transcripts are switched off on this server';
+    if (!this.mediaRights(userId)?.[channel]?.talk) return 'You can’t talk in that channel now';
+    return null;
+  }
+
+  /** A line someone said in voice, transcribed: like a typed line, kind 'said'. */
+  said(userId: string, channel: Channel, text: string): void {
+    const why = this.saidRefusal(userId, channel);
+    if (why) throw new RoomError(why);
+    const user = this.present.get(userId)!.user;
+    const body = text.trim().slice(0, CHAT_MAX);
+    if (!body) return;
+    this.addLine({ channel, kind: 'said', userId, name: user.name, text: body });
     if (channel === 'table' && this.rec.settings.watcherDelay) this.hooks.setTimer(this.rec.settings.watcherDelay * 1000 + 50, () => this.hooks.changed());
     this.hooks.changed();
   }
@@ -611,10 +641,17 @@ export class Room {
   private updateSettings(raw: Partial<RoomSettings>): void {
     const s = { ...this.rec.settings };
     const r = raw ?? {};
-    const bool = (k: 'listed' | 'guestsCanPlay' | 'hideGalleryFromPlayers' | 'watchersWriteTable') => {
+    const bool = (k: 'listed' | 'guestsCanPlay' | 'hideGalleryFromPlayers' | 'watchersWriteTable' | 'watcherVideo') => {
       if (typeof r[k] === 'boolean') s[k] = r[k] as boolean;
     };
-    bool('listed'); bool('guestsCanPlay'); bool('hideGalleryFromPlayers'); bool('watchersWriteTable');
+    bool('listed'); bool('guestsCanPlay'); bool('hideGalleryFromPlayers'); bool('watchersWriteTable'); bool('watcherVideo');
+    if (typeof r.transcripts === 'boolean' && r.transcripts !== s.transcripts) {
+      if (r.transcripts && !(this.hooks.transcriptsAllowed?.() ?? false)) throw new RoomError('Transcripts are switched off on this server');
+      s.transcripts = r.transcripts;
+      this.system(r.transcripts
+        ? 'The host turned transcripts on: what people say in voice is written into the chat'
+        : 'The host turned transcripts off');
+    }
     if (typeof r.ranked === 'boolean' && r.ranked !== s.ranked) {
       if (this.status === 'playing') throw new RoomError('Change whether games count between games');
       s.ranked = r.ranked;
@@ -740,6 +777,7 @@ export class Room {
         locked: !!this.rec.passwordHash,
         moveTimer: !!this.game.turn,
         minPlayers: this.minPlayers,
+        transcriptsAllowed: this.hooks.transcriptsAllowed?.() ?? false,
       },
       seats: this.game.seats.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
@@ -759,6 +797,7 @@ export class Room {
         canRead,
         canWrite: this.canWrite(userId),
         delay: this.delayFor(userId),
+        media: this.mediaRights(userId) ?? { table: NO_MEDIA, gallery: NO_MEDIA },
       },
       serverNow: now,
     };

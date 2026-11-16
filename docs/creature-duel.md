@@ -66,7 +66,7 @@ amber back).
 - **Starters (draft, balance by simulation):** Emberfox (Fire; STR 6 AGI 9
   INT 5 DEF 4 MAG 6, HP 28, Swift: strikes first on a tie), Tidecaller (Water;
   4/6/8/5/8, 30, Undertow: Stun on a magic hit 1 in 3), Stonehorn (Earth;
-  9/3/4/9/2, 40, Shield: half damage on its first round), Galewing (Air;
+  9/3/4/9/2, 34 (was 40: balanced by simulation, 2026-11-16), Shield: half damage on its first round), Galewing (Air;
   5/8/6/3/6, 26, Gust: Stun on a ranged hit 1 in 4), Lumen Stag (Light;
   6/6/7/6/7, 32, Mend: heals 4 after each round), Duskmaw (Shadow;
   7/6/6/5/8, 30, Poison bite: poisons on a melee hit).
@@ -77,3 +77,41 @@ amber back).
   cuts magic.
 - **Effects:** Poisoned (2 a round), Stunned (misses a round), Shielded (half
   damage). Health bar teal > 50%, amber < 50%, red < 25%; knocked out greys.
+
+## Rules as built (2026-11-16, issue #14)
+
+Where the design above left a rule open, the first version
+(`src/shared/games/realmduel.ts`) settled it simply; all of it is open to
+tuning.
+
+- **Deal:** each player draws their own three of the six starters at random
+  (so the opponent's hand is a real secret, and mirror creatures can meet);
+  the host can choose "All six" instead. Unfought cards stay face down to the
+  opponent and to watchers; a creature turns face up once it has fought, and
+  everything is shown when the game ends.
+- **A round:** both lock in a standing creature and a style; a locked choice
+  can't be changed. Then the two creatures fight once each.
+- **First strike:** higher Agility; a tie goes to Swift, otherwise a coin (the
+  server's random). If the first hit knocks the other out, it never strikes.
+  (The early "Agility + Intelligence + a roll" idea was dropped for the
+  Pieces rule.)
+- **Damage:** melee 2 × Strength − Defence; ranged 2 × Agility − Defence;
+  magic (Magic + Intellect) − the defender's Intellect; at least 1. Element
+  advantage then ×1.5 (rounded down); Shielded then halves (rounded up).
+- **Stunned:** the creature loses its next attack, including later in the same
+  round if it hasn't struck yet; resting doesn't clear it.
+- **Shielded:** Stonehorn starts Shielded; the shield lasts for its first fight.
+- **Poisoned:** 2 a round at the end of the round for 3 rounds, even resting;
+  a new bite resets it to 3 rounds (no stacking). Poison can knock out.
+- **Mend:** Lumen Stag heals 4 (to its maximum) at the end of a round it
+  fought in, after poison.
+- **End:** last player with creatures standing wins; both sides out at once is
+  a draw. A safety limit of 50 rounds decides on creatures standing, then
+  total Health (a draw if equal).
+- **Move timer:** the timer is shared, so when it runs out it picks for every
+  player still choosing: their healthiest creature with the style it hits
+  hardest with (no peeking at the opponent's choice).
+- **Balance check:** 20,000 simulated games (random creatures, each one's best
+  average style) last about 11 rounds; hands holding Stonehorn win about 60%,
+  the others 46-50%. Stonehorn is the first candidate for tuning.
+- Not yet: the 30-creature pool, the draft mode, a computer opponent.

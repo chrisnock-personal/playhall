@@ -20,6 +20,7 @@ services:
       DATABASE_URL: postgres://playhall:${POSTGRES_PASSWORD}@postgres:5432/playhall
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
       # HTTPS with a self-signed certificate made on first start (kept in the
       # playhall-certs volume). TLS_HOSTS: extra names/addresses it should cover.
       TLS: ${TLS:-on}
@@ -28,6 +29,9 @@ services:
       LIVEKIT_URL: ${LIVEKIT_URL:-}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      # Transcripts: an existing whisper.cpp server (empty = none); TRANSCRIPTS=off disables them.
+      WHISPER_URL: ${WHISPER_URL:-}
+      TRANSCRIPTS: ${TRANSCRIPTS:-}
     volumes:
       - playhall-certs:/app/certs
     ports:

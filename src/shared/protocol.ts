@@ -24,9 +24,15 @@ export interface RoomSettings {
   /** Watchers see the game (and the table chat) this many seconds late,
    *  so nobody can pass moves to a player. 0 = live (the default). */
   watcherDelay: number;
+  /** Watchers may turn on their cameras; their video shows in the gallery
+   *  strip for everyone who can read the gallery. Off by default. */
+  watcherVideo: boolean;
   /** Finished games here count for the leaderboards (between account
    *  holders). Off makes a casual room. */
   ranked: boolean;
+  /** What people say in voice is written into the chat as *said* lines
+   *  (speech to text on the server's Whisper). Off by default. */
+  transcripts: boolean;
   /** The game's own settings (for chess, the time control). */
   gameConfig: unknown;
 }
@@ -39,9 +45,15 @@ export const DEFAULT_SETTINGS: Omit<RoomSettings, 'gameConfig'> = {
   watchersWriteTable: false,
   afterGame: 'same',
   ranked: true,
+  transcripts: false,
   moveSeconds: 0,
   watcherDelay: 0,
+  watcherVideo: false,
 };
+
+/** What someone may do in one voice and video channel: hear and see it,
+ *  talk in it, and send their camera to it. */
+export interface MediaRight { listen: boolean; talk: boolean; video: boolean }
 
 export interface MemberView {
   userId: string;
@@ -56,7 +68,8 @@ export interface MemberView {
 export interface ChatLine {
   id: number;
   channel: Channel;
-  kind: 'typed' | 'system';
+  /** typed in the chat, said in voice (transcribed), or from the room. */
+  kind: 'typed' | 'said' | 'system';
   userId: string | null;
   name: string;
   text: string;
@@ -88,6 +101,8 @@ export interface RoomSnapshot {
     moveTimer: boolean;
     /** Fewest players needed to start. */
     minPlayers: number;
+    /** This server allows transcripts at all (the room rule needs it). */
+    transcriptsAllowed: boolean;
   };
   seats: SeatView[];
   members: MemberView[];
@@ -114,6 +129,8 @@ export interface RoomSnapshot {
     canWrite: Channel[];
     /** Seconds behind live that this person sees the game (watchers only). */
     delay: number;
+    /** Voice and video rights in each channel (the server enforces them). */
+    media: Record<Channel, MediaRight>;
   };
   serverNow: number;
 }
@@ -157,6 +174,8 @@ export interface SessionUser {
   id: string;
   name: string;
   guest: boolean;
+  /** Can open the platform settings page (#/admin). */
+  admin: boolean;
 }
 
 // ---- results, leaderboards and stats ---------------------------------

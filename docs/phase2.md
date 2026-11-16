@@ -29,7 +29,7 @@ keeping score.
 | Watcher delay and live media | Audio and video can't simply be delayed. When the host sets a watcher delay, watchers don't receive the players' voice or video at all during play (the gallery still works); it comes back between games |
 | Push to talk, mute | In the browser (enabling the mic track), as in Parley: instant, no round trip |
 | Talking ring | LiveKit's active-speaker events |
-| Transcripts | A Playhall **transcriber** joins each LiveKit room as a hidden listener, cuts speech at pauses (Parley's voice-activity code), sends it to Whisper (`:8090`) and posts *said* lines into the chat |
+| Transcripts | Built (phase 2.5) in the **speaker's own browser** instead of a hidden listener (no native WebRTC module on the server, works in Chrome, Firefox and Safari): while the room has transcripts on and your mic is live, an AudioWorklet reads the same mic track voice uses, downsamples to 16 kHz, cuts utterances at pauses (an energy-based detector: 700 ms of quiet, 15 s at most) and posts each as a WAV to `POST /api/rooms/:code/said/:channel`. The server checks you may talk in that channel, sends it to Whisper (`WHISPER_URL`) and posts a *said* line; the audio is dropped. A host rule (off by default); `TRANSCRIPTS=off` or no `WHISPER_URL` turns it off for the whole server. Everyone in voice sees "Transcribing" while it's on |
 | HTTPS | **TLS only, self-signed by default** (decided 2026-11-15, the same way as Alfoir): Playhall generates a certificate on first start and keeps it in a volume, so redeploys don't change it. People accept it once per device (the browser warns the first time). An **admin uploads a real certificate** later (server certificate plus intermediates as one PEM, and the key) under Admin → TLS certificate: Playhall checks the pair matches and hasn't expired, then swaps it in without dropping anyone (Node's `setSecureContext`). LiveKit's signalling is proxied through the same address, so one certificate covers both |
 | Friends outside the home network | Forward one TCP port (443) and LiveKit's UDP range on the router, or use LiveKit's built-in TURN on 443 |
 
@@ -61,11 +61,33 @@ A game type for **any** board game that isn't built in.
    a fake mic.
 2. **Voice**: table and gallery, push to talk, talking ring, mute and volume,
    the watcher-delay rule.
-3. **Video**: seat-card video, gallery video (host rule), the stage's video
+3. **Video** (built, issue #3): seat-card video, gallery video (host rule), the stage's video
    layout with Focus/Social presets (Social gives video more room).
+   - [x] Camera on/off in the voice dock (off by default, the camera chosen
+     in Settings, a red "Camera on" indicator), on the same LiveKit
+     connection as voice.
+   - [x] Players' cameras on their seat cards (your own mirrored), with the
+     talking ring; avatars while a camera is off.
+   - [x] Watchers' cameras in the gallery strip (full), only with the host's
+     **Watchers can turn their cameras on** rule (off by default).
+   - [x] Rights on the server: `mediaRights()` gives each channel `listen`,
+     `talk` and `video`; players send video only to the table, watchers only
+     to the gallery when the rule is on. Tokens and live updates use LiveKit's
+     `canPublishSources` (microphone, or microphone and camera), so the
+     camera is refused by LiveKit itself, not just hidden in the page.
+   - [x] Seeing both: while you're in one channel's voice, a second,
+     video-only connection shows the other channel's cameras when you may
+     see it (watchers see the players; players see the gallery when it isn't
+     hidden). Watcher delay: no table video for watchers during play.
+   - [x] Bandwidth: 640x360 with a 320x180 simulcast layer, adaptive stream
+     and dynacast; a camera is only received while its tile is on screen
+     (compact gallery shows avatars only).
+   - [x] Layouts: Focus shrinks the seats to small round tiles, Social widens
+     the seat tiles and gallery tiles (also a button on the players panel);
+     on a phone tiles stay small under the board.
 4. **The camera table**: the game type, board-camera device, dice, score
    pad, results with confirmation.
-5. **Transcripts**: the transcriber service, *said* lines.
+5. **Transcripts**: *said* lines, from each speaker's browser (built).
 
 ## To decide
 

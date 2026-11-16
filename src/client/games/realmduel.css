@@ -1,0 +1,92 @@
+/* Realm Duel: the table (opponent at the top, the reveal in the middle, your
+   creatures at the bottom), the creature cards and their health bars. The
+   cards are physical objects (cream face, dark ink) in both themes; the table
+   around them uses the theme's tokens. */
+
+.rd-table { width: 100%; height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 6px; box-sizing: border-box; color: var(--text); }
+.rd-table > * { flex-shrink: 0; }
+.rd-side { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+.rd-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.rd-locked { font-size: 12px; font-weight: 600; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+
+/* Card slots: face-down backs and face-up cards share one width. */
+.rd-slot { width: 128px; flex: none; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; border-radius: 10px; }
+.rd-slot.small { width: 82px; }
+.rd-back { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.rd-slot:not(.small) .rd-back { max-width: 128px; }
+button.rd-pick:not(:disabled) { cursor: pointer; }
+button.rd-pick:not(:disabled):hover .rd-card { transform: translateY(-3px); }
+.rd-pick.selected .rd-card { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--accent), 0 4px 10px rgba(0,0,0,.35); }
+.rd-pick.dim .rd-card { opacity: .55; }
+.rd-pick:disabled { opacity: 1; }
+
+/* The creature card, in the kit's frame. */
+.rd-card { background: #FBF8F1; color: #2A2219; border: 1.5px solid #C9C1B2; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,.3); transition: transform .12s, opacity .12s; font-size: 12px; line-height: 1.25; }
+.rd-card-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; border-bottom: 3px solid var(--el); padding-bottom: 3px; }
+.rd-card-head strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-icon { flex: none; display: block; }
+.rd-art { display: block; width: 100%; height: auto; border-radius: 6px; }
+.rd-card-sub { font-size: 11px; color: #5A5045; }
+.rd-hp { position: relative; height: 7px; border-radius: 4px; background: #E3DCCD; overflow: hidden; }
+.rd-hp .fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: #3FB3A2; transition: width .4s; }
+.rd-hp.mid .fill { background: #F0A53C; }
+.rd-hp.low .fill { background: #D2453A; }
+.rd-hp .lost { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(45deg, #D2453A 0 3px, #F0B8B0 3px 6px); opacity: .8; }
+.rd-hp-text { font-size: 11px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; margin-top: -2px; }
+.rd-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; margin: 0; text-align: center; }
+.rd-stats div { background: #EFE8DA; border-radius: 4px; padding: 1px 0; }
+.rd-stats dt { font-size: 9px; color: #6A5F52; letter-spacing: .04em; }
+.rd-stats dd { margin: 0; font-weight: 700; font-size: 12px; }
+.rd-ability { font-size: 10.5px; color: #4A4036; }
+.rd-effects { display: flex; flex-wrap: wrap; gap: 3px; }
+.rd-fx { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 6px; color: #FBF8F1; }
+.rd-fx.poison { background: #4F7A2E; } .rd-fx.stun { background: #B8860B; } .rd-fx.shield { background: #3E6A86; } .rd-fx.ko { background: #6B6B6B; }
+.rd-card.ko { filter: grayscale(1); opacity: .6; }
+.rd-card.compact { padding: 4px; font-size: 11px; }
+.rd-card.compact .rd-card-head strong { font-size: 11px; }
+.rd-card.compact .rd-card-sub { font-size: 10px; }
+
+/* The middle: last round's reveal. */
+.rd-arena { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 120px; }
+.rd-intro { color: var(--muted); text-align: center; max-width: 420px; margin: 0; }
+.rd-status { margin: 0; text-align: center; color: var(--text-2); font-weight: 600; font-size: 13px; }
+.rd-reveal { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.rd-reveal-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.rd-reveal-pair { display: flex; align-items: flex-start; justify-content: center; gap: 10px; width: 100%; }
+.rd-reveal-side { width: 124px; display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.rd-reveal-who { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; min-width: 0; }
+.rd-reveal-who > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-tag { font-size: 10px; border-radius: 999px; padding: 1px 6px; background: var(--accent); color: var(--on-accent); white-space: nowrap; }
+.rd-style { font-size: 12px; font-weight: 700; text-align: center; color: var(--text-2); }
+.rd-dealt { font-size: 12px; text-align: center; color: var(--text); }
+.rd-dealt strong { font-size: 16px; }
+.rd-vs { align-self: center; font-weight: 800; color: var(--muted); font-size: 14px; }
+.rd-lines { list-style: none; margin: 0; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: var(--text-2); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; width: 100%; box-sizing: border-box; }
+
+/* Wide stages: the round's story beside the two cards, to save height. */
+@container (min-width: 760px) {
+  .rd-reveal { max-width: 900px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 14px; }
+  .rd-reveal-title { grid-column: 1 / -1; justify-self: center; }
+}
+
+/* Choosing. */
+.rd-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.rd-styles { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+
+/* The Rounds tab. */
+.rd-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.rd-log ul { margin: 4px 0 0; padding-left: 16px; color: var(--text-2); }
+
+@media (max-width: 900px) {
+  .stage:has(.rd-table) { height: auto; container-type: inline-size; }
+  .rd-table { height: auto; overflow: visible; }
+}
+@media (max-width: 520px) {
+  .rd-slot { width: calc((100% - 16px) / 3); min-width: 0; }
+  .rd-slot.small { width: calc((100% - 24px) / 4); }
+  .rd-card { padding: 4px; }
+  .rd-card-head strong { font-size: 11px; }
+  .rd-ability { display: none; }
+  .rd-stats dt { font-size: 8px; } .rd-stats dd { font-size: 11px; }
+  .rd-reveal-side { width: calc(50% - 22px); }
+}

@@ -25,7 +25,7 @@ export function Replay({ session, onSignOut, id }: { session: Session; onSignOut
     return {
       room: {
         id: 'replay', code: '', name: data.room, gameId: data.gameId, gameName: info.name, configLabel: '', hostId: '',
-        settings: { ...DEFAULT_SETTINGS, gameConfig: info.defaultConfig }, locked: false, moveTimer: false, minPlayers: info.minPlayers,
+        settings: { ...DEFAULT_SETTINGS, gameConfig: info.defaultConfig }, locked: false, moveTimer: false, minPlayers: info.minPlayers, transcriptsAllowed: false,
       },
       seats: info.seats.map((s) => {
         const p = data.players.find((x) => x.seat === s.id);
@@ -35,7 +35,8 @@ export function Replay({ session, onSignOut, id }: { session: Session; onSignOut
       queue: [],
       game: { status: 'playing', view: data.frames[step], result: last ? data.result : null, turnSeats: [], moveDeadline: null, leaving: {} },
       lastResult: null, rematch: null, chat: [],
-      you: { userId: '', host: false, seat: null, canRead: [], canWrite: [], delay: 0 },
+      you: { userId: '', host: false, seat: null, canRead: [], canWrite: [], delay: 0,
+        media: { table: { listen: false, talk: false, video: false }, gallery: { listen: false, talk: false, video: false } } },
       serverNow: Date.now(),
     };
   }, [data, info, step]);

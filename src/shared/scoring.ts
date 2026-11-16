@@ -21,6 +21,8 @@ export function placingsOf(result: GameResult, seats: SeatId[]): SeatId[][] {
 }
 
 export function score(result: GameResult, seats: SeatId[]): Record<SeatId, SeatScore> {
+  // Everyone lost (user, 2026-11-16: an unsolved Manor Mystery scores nothing).
+  if (result.nobodyWins) return Object.fromEntries(seats.map((s) => [s, { outcome: 'loss' as Outcome, points: 0, place: 1 }]));
   const placings = placingsOf(result, seats);
   const out: Record<SeatId, SeatScore> = {};
   placings.forEach((group, i) => {

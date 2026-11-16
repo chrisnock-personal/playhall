@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, type Session } from '../api';
 import type { RoomSummary, SeatView } from '../../shared/protocol';
+import type { PublicPlatform } from '../../shared/platform';
 import { GAME_CLIENTS } from '../games';
 import { Avatar } from '../ui';
 import { AppBar } from '../AppBar';
@@ -116,6 +117,10 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
   const [listed, setListed] = useState(true);
   const [play, setPlay] = useState(true);
   const [ranked, setRanked] = useState(true);
+  // The admin's default for new rooms (platform settings).
+  useEffect(() => {
+    api<PublicPlatform>('/platform').then((p) => setRanked(p.roomDefaults.ranked)).catch(() => {});
+  }, []);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
