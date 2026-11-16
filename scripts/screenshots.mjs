@@ -274,6 +274,84 @@ const SCENES = {
     await other.getByRole('button', { name: 'Pass' }).click(); await sleep(1500);
     await shot(first, '23-letterworks.png');
   },
+
+  // The pages around the games: the lobby (dark and light), a finished game's
+  // result card and its replay, the rules tab, the Room rules dialog, a
+  // private room's prompt, a player's stats, and Settings.
+  async pages() {
+    // The lobby, as Sam sees it (the demo rooms, if loaded, fill it).
+    const lobby = async (scheme, file) => {
+      const u = await account('Sam');
+      const ctx = await browser.newContext({ viewport: VIEW, ignoreHTTPSErrors: true, colorScheme: scheme });
+      await ctx.addInitScript((x) => localStorage.setItem('playhall.session', JSON.stringify(x)), { token: u.token, user: u.user });
+      const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(`lobby: ${e}`));
+      await p.goto(`${base}/#/`); await sleep(1500);
+      await shot(p, file);
+      return p;
+    };
+    await lobby('dark', '02-lobby.png');
+    await lobby('light', '22-light-lobby.png');
+
+    // Priya mates Lee in four (with Kai watching), then the result and the replay.
+    const { code, page: priya } = await room('chess', 'Priya', { seat: 'white', name: 'Quick chess', config: { initialSeconds: 300, incrementSeconds: 3 } });
+    const lee = await open('Lee', code);
+    await lee.getByRole('button', { name: 'Sit here' }).first().click(); await sleep(500);
+    const kai = await open('Kai', code);
+    await start(priya);
+    const move = async (p, from, to, flipped) => {
+      const b = await p.locator('.board cg-board').boundingBox();
+      const sq = b.width / 8;
+      const at = (x) => { let f = x.charCodeAt(0) - 97, r = Number(x[1]) - 1; if (flipped) { f = 7 - f; r = 7 - r; } return { x: b.x + sq * f + sq / 2, y: b.y + b.height - sq * r - sq / 2 }; };
+      const a = at(from), c = at(to);
+      await p.mouse.click(a.x, a.y); await p.mouse.click(c.x, c.y); await sleep(900);
+    };
+    for (const [p, f, t, fl] of [[priya, 'e2', 'e4'], [lee, 'e7', 'e5', true], [priya, 'f1', 'c4'], [lee, 'b8', 'c6', true]]) await move(p, f, t, fl);
+    // Kai, watching, reads the rules.
+    await tap(kai.locator('.rail-btn[title="Rules"]'));
+    await tap(kai.locator('.tabs [role=tab]', { hasText: 'Rules' }));
+    await shot(kai, '12-rules.png');
+    for (const [p, f, t, fl] of [[priya, 'd1', 'h5'], [lee, 'g8', 'f6', true], [priya, 'h5', 'f7']]) await move(p, f, t, fl);
+    await sleep(2500);
+    await shot(priya, '04-result.png');
+    // The Room rules dialog (Priya hosts).
+    await priya.getByRole('button', { name: 'Room rules' }).click(); await sleep(600);
+    await shot(priya, '08-room-rules.png');
+    await priya.keyboard.press('Escape');
+    // The replay, from the result card.
+    await priya.getByText('Review the game', { exact: true }).click(); await priya.waitForSelector('.replay-controls'); await sleep(1200);
+    for (let i = 0; i < 5; i++) { await tap(priya.getByRole('button', { name: 'Next', exact: true })); await sleep(200); }
+    await shot(priya, '21-replay.png');
+
+    // A private room: someone else gets the password prompt.
+    const host = await account('Morgan');
+    const { room: locked } = await api('/rooms', { name: 'Family only', gameId: 'chess', hostSeat: 'white', listed: true, password: 'kittens', gameConfig: { initialSeconds: 600, incrementSeconds: 0 } }, host.token);
+    const u = await account('Jordan');
+    const pctx = await browser.newContext({ viewport: { width: 640, height: 520 }, ignoreHTTPSErrors: true, colorScheme: 'dark' });
+    await pctx.addInitScript((x) => localStorage.setItem('playhall.session', JSON.stringify(x)), { token: u.token, user: u.user });
+    const gate = await pctx.newPage();
+    await gate.goto(`${base}/#/r/${locked.code}`); await sleep(1200);
+    await shot(gate, '09-private.png');
+
+    // The demo players' Sam's stats, if the demo data is loaded (else the run's Sam).
+    const r = await fetch(`${base}/api/leaderboard?game=chess&period=all`, { headers: { Authorization: `Bearer ${(await account('Sam')).token}` } });
+    const board = await r.json();
+    const demoSam = board.ranked?.find((x) => x.name === 'Sam' && x.played > 5);
+    const stats = await open('Sam', code);
+    await stats.goto(`${base}/#/players/${demoSam?.userId ?? (await account('Sam')).user.id}`); await sleep(1500);
+    await shot(stats, '11-stats.png');
+
+    // Settings, with a stand-in microphone and camera.
+    const media = await chromium.launch({ args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
+    const sctx = await media.newContext({ viewport: VIEW, ignoreHTTPSErrors: true, colorScheme: 'dark' });
+    const sam = await account('Sam');
+    await sctx.addInitScript((x) => localStorage.setItem('playhall.session', JSON.stringify(x)), { token: sam.token, user: sam.user });
+    const set = await sctx.newPage();
+    await set.goto(`${base}/#/settings`); await sleep(1500);
+    await tap(set.getByRole('button', { name: /Check|Test|Start/ }));
+    await sleep(2500);
+    await shot(set, '24-settings.png');
+    await media.close();
+  },
 };
 
 browser = await chromium.launch();
