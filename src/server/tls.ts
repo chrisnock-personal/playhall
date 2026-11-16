@@ -4,8 +4,8 @@
 // and people accept it once per device. An admin can swap in a real one
 // (server + intermediates as one PEM, and its key): replaceCert() checks the
 // pair and swaps it in live, with no restart and no dropped connections.
-// Until the admin page exists (#20), put the files in TLS_DIR and send the
-// process SIGHUP. Pure JavaScript (no openssl command), so it works the same
+// The platform settings page uploads them; or put the files in TLS_DIR and
+// send the process SIGHUP. Pure JavaScript (no openssl command), so it works the same
 // on Windows, macOS and Linux.
 
 import crypto from 'node:crypto';
