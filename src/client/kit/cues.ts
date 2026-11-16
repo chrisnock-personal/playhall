@@ -242,7 +242,7 @@ export function shipCues(prev: ShipView | null, next: ShipView): Cue[] {
   const cards = (v: ShipView) => v.you?.hand?.length ?? v.you?.helmCards?.length ?? 0;
   const gotCards = cards(next) > 0 && (cards(prev) === 0 || prev.phase !== next.phase);
   if (gotCards) out.push(...run('draw', cards(next), 0, TIMING.deal));
-  if (next.ship.a !== prev.ship.a || next.ship.b !== prev.ship.b) out.push(cue('move'), cue('splash', 380));
+  if (next.ship.q !== prev.ship.q || next.ship.r !== prev.ship.r) out.push(cue('move'), cue('splash', 380));
   return out;
 }
 

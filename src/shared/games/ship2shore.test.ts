@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ship2shore as g, roleCounts, thresholdFor, chartFor, CHARTS, FULL_DECK, SEATS, aboard, actionAt, portAt,
-  type ShipState, type ShipView, type Order, type Role, type Faction,
+  ship2shore as g, roleCounts, thresholdFor, chartFor, CHARTS, FULL_DECK, SEATS, HEX, aboard, buildChart, portAt, posKey, sailFrom,
+  type Chart, type SeaArea, type ShipState, type ShipView, type Order, type Pos, type Role, type Faction,
 } from './ship2shore';
 import { score } from '../scoring';
 
@@ -85,7 +85,7 @@ test('a round: pick the watch, a vote, plotting, the ship sails; off watch next 
   assert.match(err(g.act(s, 'amber', { type: 'pick', officer: 'amber', helm: 'teal' }, 0, ctx(s))) ?? '', /aboard and not off watch/);
   assert.match(err(g.act(s, 'amber', { type: 'pick', officer: 'teal', helm: 'teal' }, 0, ctx(s))) ?? '', /two different/);
   assert.match(err(g.act(s, 'teal', { type: 'pick', officer: 'rose', helm: 'violet' }, 0, ctx(s))) ?? '', /Only the captain/);
-  s = act({ ...s, deck: ['ne.steady', 'sw.steady', 's.steady', 'sw.steady', ...s.deck] }, 'amber', { type: 'pick', officer: 'teal', helm: 'violet' });
+  s = act({ ...s, deck: ['navy.steady', 'spy.steady', 'bm.steady', 'spy.steady', ...s.deck] }, 'amber', { type: 'pick', officer: 'teal', helm: 'violet' });
   assert.equal(s.phase, 'vote');
   assert.deepEqual(new Set(g.turn!(s)), new Set(['teal', 'violet', 'rose', 'lime']));
   assert.match(err(g.act(s, 'amber', { type: 'vote', rounds: 1 }, 0, ctx(s))) ?? '', /captain doesn’t vote/);
@@ -98,20 +98,20 @@ test('a round: pick the watch, a vote, plotting, the ship sails; off watch next 
   const voteLog = s.log.find((e) => e.k === 'vote');
   assert.ok(voteLog && voteLog.k === 'vote' && !voteLog.mutiny && voteLog.total === 1);
   assert.equal(s.ammo.teal, 3, 'rounds go back after a failed vote');
-  assert.deepEqual(s.hands.amber, ['ne.steady', 'sw.steady']);
-  assert.deepEqual(s.hands.teal, ['s.steady', 'sw.steady']);
-  assert.deepEqual(view(s, 'amber').you!.hand, ['ne.steady', 'sw.steady']);
+  assert.deepEqual(s.hands.amber, ['navy.steady', 'spy.steady']);
+  assert.deepEqual(s.hands.teal, ['bm.steady', 'spy.steady']);
+  assert.deepEqual(view(s, 'amber').you!.hand, ['navy.steady', 'spy.steady']);
   assert.equal(view(s, 'violet').you!.hand, null);
   assert.deepEqual(new Set(g.turn!(s)), new Set(['amber', 'teal']));
   s = act(s, 'amber', { type: 'keep', index: 0 });
   assert.match(err(g.act(s, 'amber', { type: 'keep', index: 1 }, 0, ctx(s))) ?? '', /already chosen/);
   s = act(s, 'teal', { type: 'keep', index: 0 });
   assert.equal(s.phase, 'steer');
-  assert.deepEqual(new Set(view(s, 'violet').you!.helmCards), new Set(['ne.steady', 's.steady']));
+  assert.deepEqual(new Set(view(s, 'violet').you!.helmCards), new Set(['navy.steady', 'bm.steady']));
   assert.equal(view(s, 'amber').you!.helmCards, null);
-  const south = s.helmCards.indexOf('s.steady');
-  s = act(s, 'violet', { type: 'steer', index: south }); // discard the south order: sail north-east
-  assert.deepEqual(s.ship, { a: 1, b: 0 });
+  const bm = s.helmCards.indexOf('bm.steady');
+  s = act(s, 'violet', { type: 'steer', index: bm }); // discard the Lisbon order: sail on the Navy's heading
+  assert.deepEqual(s.ship, sailFrom(CHARTS.short, { q: 0, r: 0 }, 'navy'));
   assert.equal(s.round, 2);
   assert.equal(s.phase, 'pick');
   assert.deepEqual(s.offWatch, ['violet']);
@@ -123,8 +123,8 @@ test('a round: pick the watch, a vote, plotting, the ship sails; off watch next 
 
 test('off watch in games of 8 or more: last round’s helmsman, first officer and captain', () => {
   const roles: Record<string, Role> = { amber: 'navy', teal: 'navy', violet: 'navy', rose: 'navy', lime: 'spy', blue: 'spy', red: 'spy', slate: 'fixer' };
-  let s = table(roles, { chart: 'long', threshold: 4 });
-  s = round(s, 'teal', 'violet', ['ne.steady', 'ne.steady', 'ne.steady', 'ne.steady']);
+  let s = table(roles, { chart: 'long', threshold: 4, ship: startFor('long', 'navy', (to) => !to.action && !to.port) });
+  s = round(s, 'teal', 'violet', ['navy.steady', 'navy.steady', 'navy.steady', 'navy.steady']);
   assert.equal(s.round, 2);
   assert.deepEqual(new Set(s.offWatch), new Set(['violet', 'teal', 'amber']));
 });
@@ -182,16 +182,24 @@ test('abandoning post: overboard, an emergency helmsman, fresh orders; not with 
 
 /** Sail one order from `ship` (no vote), so it lands on the chart area we want. */
 function sail(s: ShipState, order: Order, officer = 'teal', helm = 'violet'): ShipState {
-  return round(s, officer, helm, [order, 'ne.steady', 'ne.steady', 'ne.steady'], 1);
+  return round(s, officer, helm, [order, 'navy.steady', 'navy.steady', 'navy.steady'], 1);
 }
-const findArea = (chart: 'short' | 'long', action: string) => {
-  for (const [k, v] of Object.entries(CHARTS[chart].actions)) if (v === action) { const [a, b] = k.split(',').map(Number); return { a, b }; }
-  throw new Error(action);
-};
+/** A sea area from which `heading` takes the ship to an area that `want` likes. */
+function startFor(chart: 'short' | 'long', heading: Faction, want: (to: SeaArea, from: SeaArea) => boolean): Pos {
+  const c = CHARTS[chart];
+  for (const a of Object.values(c.areas)) {
+    if (a.port) continue;
+    const to = c.areas[posKey(sailFrom(c, a, heading))];
+    if (want(to, a)) return { q: a.q, r: a.r };
+  }
+  throw new Error(`no area on the ${chart} chart`);
+}
+const toAction = (action: string) => startFor('short', 'spy', (to) => to.action === action);
+const quiet = (heading: Faction, chart: 'short' | 'long' = 'short') => startFor(chart, heading, (to) => !to.action && !to.port);
 
 test('kit inspection: the captain alone sees an allegiance; that player can’t be bribed', () => {
-  const at = findArea('short', 'inspect');
-  let s = sail(table(ROLES5, { ship: { a: at.a + 1, b: at.b } }), 'sw.steady');
+  const at = toAction('inspect');
+  let s = sail(table(ROLES5, { ship: at }), 'spy.steady');
   assert.equal(s.phase, 'target');
   assert.equal(s.target, 'inspect');
   assert.deepEqual(g.turn!(s), ['amber']);
@@ -204,35 +212,35 @@ test('kit inspection: the captain alone sees an allegiance; that player can’t 
 });
 
 test('interrogation shows everyone a faction the player is not; radio silence; sharks', () => {
-  const q = findArea('short', 'interrogate');
+  const q = toAction('interrogate');
   for (let k = 0; k < 10; k++) {
-    let s = sail(table(ROLES5, { ship: { a: q.a + 1, b: q.b } }), 'sw.steady');
+    let s = sail(table(ROLES5, { ship: q }), 'spy.steady');
     s = act(s, 'amber', { type: 'target', target: 'lime' }, seeded(k + 1));
     const e = s.log.find((x) => x.k === 'action' && x.action === 'interrogate');
     assert.ok(e && e.k === 'action' && e.not && e.not !== 'bm');
     assert.ok(s.checked.includes('lime'));
   }
-  const r = findArea('short', 'silence');
-  let s = sail(table(ROLES5, { ship: { a: r.a + 1, b: r.b } }), 'sw.steady');
+  const r = toAction('silence');
+  let s = sail(table(ROLES5, { ship: r }), 'spy.steady');
   s = act(s, 'amber', { type: 'target', target: 'rose' });
   assert.deepEqual(s.silenced, ['rose']);
   assert.ok(view(s, null).silenced.includes('rose'));
 
-  const x = findArea('short', 'sharks');
-  s = sail(table(ROLES5, { ship: { a: x.a + 1, b: x.b } }), 'sw.steady');
+  const x = toAction('sharks');
+  s = sail(table(ROLES5, { ship: x }), 'spy.steady');
   assert.equal(s.target, 'sharks');
   s = act(s, 'amber', { type: 'target', target: 'rose' });
   assert.deepEqual(s.overboard, ['rose']);
   assert.equal(s.result, null);
   // Only three aboard: nobody goes to the sharks.
-  s = sail(table(ROLES5, { ship: { a: x.a + 1, b: x.b }, overboard: ['rose', 'lime'] }), 'sw.steady');
+  s = sail(table(ROLES5, { ship: x, overboard: ['rose', 'lime'] }), 'spy.steady');
   assert.equal(s.phase, 'pick');
   assert.ok(s.log.some((e) => e.k === 'action' && e.action === 'sharks' && e.target === null));
 });
 
 test('the Fixer thrown to the sharks: the Black Market wins at once, bribed players with it', () => {
-  const x = findArea('short', 'sharks');
-  let s = sail(table(ROLES5, { ship: { a: x.a + 1, b: x.b } }), 'sw.steady');
+  const x = toAction('sharks');
+  let s = sail(table(ROLES5, { ship: x }), 'spy.steady');
   s = { ...s, faction: { ...s.faction, teal: 'bm' } };
   s = act(s, 'amber', { type: 'target', target: 'lime' });
   assert.ok(s.result);
@@ -247,12 +255,13 @@ test('the Fixer thrown to the sharks: the Black Market wins at once, bribed play
 });
 
 test('each port wins for its faction, the players in the water included', () => {
-  const cases: [Order, { a: number; b: number }, Faction, string[]][] = [
-    ['ne.steady', { a: 3, b: 1 }, 'navy', ['amber', 'teal', 'violet']],
-    ['sw.steady', { a: -3, b: 1 }, 'spy', ['rose']],
-    ['s.steady', { a: 1, b: 4 }, 'bm', ['lime']],
+  const cases: [Order, Faction, string[]][] = [
+    ['navy.steady', 'navy', ['amber', 'teal', 'violet']],
+    ['spy.steady', 'spy', ['rose']],
+    ['bm.steady', 'bm', ['lime']],
   ];
-  for (const [order, ship, f, winners] of cases) {
+  for (const [order, f, winners] of cases) {
+    const ship = startFor('short', f, (to) => to.port === f);
     const s = sail(table(ROLES5, { ship, overboard: ['violet'] }), order, 'teal', 'rose');
     assert.ok(s.result, f);
     assert.deepEqual(s.result!.placings![0], winners);
@@ -265,22 +274,20 @@ test('each port wins for its faction, the players in the water included', () => 
 });
 
 test('orders: shore leave, arms locker, confiscated', () => {
-  const quiet = { a: 0, b: 0 };
-  assert.equal(actionAt(CHARTS.short, { a: 1, b: 0 }), null);
-  let s = sail(table(ROLES5, { ship: quiet, carried: { amber: 2, teal: 1, violet: 1, rose: 0, lime: 0 } }), 'ne.shoreleave');
+  const calm = quiet('navy');
+  let s = sail(table(ROLES5, { ship: calm, carried: { amber: 2, teal: 1, violet: 1, rose: 0, lime: 0 } }), 'navy.shoreleave');
   assert.equal(s.captain, 'rose', 'the fewest orders carried out, round the table from the captain');
-  s = sail(table(ROLES5, { ship: quiet, silenced: ['rose'], carried: { amber: 2, teal: 1, violet: 1, rose: 0, lime: 0 } }), 'ne.shoreleave');
+  s = sail(table(ROLES5, { ship: calm, silenced: ['rose'], carried: { amber: 2, teal: 1, violet: 1, rose: 0, lime: 0 } }), 'navy.shoreleave');
   assert.equal(s.captain, 'lime', 'silenced players are passed over');
-  s = sail(table(ROLES5, { ship: quiet }), 'ne.armslocker');
+  s = sail(table(ROLES5, { ship: calm }), 'navy.armslocker');
   assert.equal(s.ammo.violet, 4);
-  s = sail(table(ROLES5, { ship: quiet }), 'ne.confiscated');
+  s = sail(table(ROLES5, { ship: calm }), 'navy.confiscated');
   assert.equal(s.ammo.violet, 2);
 });
 
 test('radio intercept and the spotter', () => {
-  // A start whose south-west neighbour has no chart action.
-  const free = (() => { for (let b = 0; b < 5; b++) for (let a = -2; a <= 3; a++) if (!actionAt(CHARTS.short, { a: a - 1, b })) return { a, b }; throw new Error(); })();
-  let s = sail(table(ROLES5, { ship: free, discard: ['s.steady', 'ne.steady', 'sw.spotter', 'ne.confiscated'] }), 'sw.intercept');
+  const free = quiet('spy');
+  let s = sail(table(ROLES5, { ship: free, discard: ['bm.steady', 'navy.steady', 'spy.spotter', 'navy.confiscated'] }), 'spy.intercept');
   assert.equal(s.target, 'intercept');
   s = act(s, 'amber', { type: 'target', target: 'rose' });
   const seen = s.secrets.rose.at(-1)!;
@@ -288,7 +295,7 @@ test('radio intercept and the spotter', () => {
   assert.equal(seen.k === 'intercept' && seen.cards.length, 3);
   assert.ok(s.log.some((e) => e.k === 'intercept' && e.target === 'rose'));
 
-  s = sail(table(ROLES5, { ship: free }), 'sw.spotter');
+  s = sail(table(ROLES5, { ship: free }), 'spy.spotter');
   s = act(s, 'amber', { type: 'target', target: 'teal' });
   assert.equal(s.phase, 'spot');
   assert.deepEqual(g.turn!(s), ['teal']);
@@ -302,8 +309,8 @@ test('radio intercept and the spotter', () => {
 });
 
 test('contraband: everyone answers; the Fixer bribes, stashes cash or looks at the bridge', () => {
-  const free = (() => { for (let b = 0; b < 4; b++) for (let a = -3; a <= 3; a++) if (!actionAt(CHARTS.short, { a, b: b + 1 })) return { a, b }; throw new Error(); })();
-  const base = sail(table(ROLES5, { ship: free }), 's.contraband');
+  const free = quiet('bm');
+  const base = sail(table(ROLES5, { ship: free }), 'bm.contraband');
   assert.equal(base.phase, 'contraband');
   assert.deepEqual(new Set(g.turn!(base)), new Set(base.order), 'everyone is asked, so the Fixer isn’t singled out');
   assert.equal(view(base, 'lime').you!.fixerMove, true);
@@ -336,8 +343,8 @@ test('contraband: everyone answers; the Fixer bribes, stashes cash or looks at t
 test('the resupply line tops everyone up to three rounds', () => {
   const roles: Record<string, Role> = { amber: 'navy', teal: 'navy', violet: 'navy', rose: 'navy', lime: 'spy', blue: 'spy', red: 'spy', slate: 'fixer' };
   const row = CHARTS.long.resupplyRow!;
-  const a = (() => { for (let x = -4; x <= 4; x++) if (!actionAt(CHARTS.long, { a: x, b: row })) return x; throw new Error(); })();
-  const s = sail(table(roles, { chart: 'long', ship: { a, b: row - 1 }, ammo: { amber: 0, teal: 1, violet: 5, rose: 3, lime: 0, blue: 0, red: 0, slate: 2 } }), 's.steady');
+  const ship = startFor('long', 'bm', (to, from) => from.step < row && to.step >= row && !to.action);
+  const s = sail(table(roles, { chart: 'long', ship, ammo: { amber: 0, teal: 1, violet: 5, rose: 3, lime: 0, blue: 0, red: 0, slate: 2 } }), 'bm.steady');
   assert.equal(s.ammo.amber, 3);
   assert.equal(s.ammo.violet, 5);
   assert.ok(s.log.some((e) => e.k === 'resupply'));
@@ -357,8 +364,8 @@ test('timeouts make a sensible choice in every phase', () => {
   s = g.timeout!(s, s.helm!, 0, ctx(s));
   assert.equal(s.round, 2);
 
-  const free = (() => { for (let b = 0; b < 4; b++) for (let a = -3; a <= 3; a++) if (!actionAt(CHARTS.short, { a, b: b + 1 })) return { a, b }; throw new Error(); })();
-  let c = sail(table(ROLES5, { ship: free }), 's.contraband');
+  const free = quiet('bm');
+  let c = sail(table(ROLES5, { ship: free }), 'bm.contraband');
   for (const p of g.turn!(c)) c = g.timeout!(c, p, 0, ctx(c));
   assert.equal(c.phase, 'pick');
   assert.equal(c.secrets.lime.at(-1)!.k, 'bridge', 'the Fixer looks at the bridge');
@@ -369,7 +376,7 @@ test('resigning: played automatically, never a winner; everyone aboard resigning
   assert.ok(s.resigned.includes('amber'));
   assert.notEqual(s.phase, 'pick', 'the resigned captain’s pick was made for them');
   assert.match(err(g.act(s, 'amber', { type: 'vote', rounds: 0 }, 0, ctx(s))) ?? '', /resigned/);
-  let t = sail(table(ROLES5, { ship: { a: 3, b: 1 }, resigned: ['teal'] }), 'ne.steady', 'violet', 'rose');
+  let t = sail(table(ROLES5, { ship: startFor('short', 'navy', (to) => to.port === 'navy'), resigned: ['teal'] }), 'navy.steady', 'violet', 'rose');
   assert.deepEqual(t.result!.placings, [['amber', 'violet'], ['rose', 'lime'], ['teal']]);
   t = table();
   for (const p of t.order) t = act(t, p, { type: 'resign' });
@@ -482,4 +489,39 @@ test('replays: one frame per step, watcher views only, roles hidden until the en
     assert.deepEqual(last.reveal!.roles, s.roles);
     assert.deepEqual(last.ship, s.ship);
   }
+});
+
+/** Each port's odds when every order's heading comes in proportion to the deck
+ *  (random play; scripts/ship2shore-chart.ts also plays the real deck). */
+function odds(c: Chart): Record<Faction, number> {
+  const share = (f: Faction) => FULL_DECK.filter((o) => o.startsWith(`${f}.`)).length / FULL_DECK.length;
+  const memo = new Map<string, Record<Faction, number>>();
+  const at = (k: string): Record<Faction, number> => {
+    if (memo.has(k)) return memo.get(k)!;
+    const a = c.areas[k];
+    const out = { spy: 0, navy: 0, bm: 0 };
+    if (a.port) out[a.port] = 1;
+    else for (const f of ['spy', 'navy', 'bm'] as Faction[]) { const n = at(posKey(sailFrom(c, a, f))); for (const x in out) out[x as Faction] += share(f) * n[x as Faction]; }
+    memo.set(k, out);
+    return out;
+  };
+  return at('0,0');
+}
+
+test('the charts: every heading leads to a neighbouring area; the ports along the top; about 40/40/20 in random play', () => {
+  for (const c of Object.values(CHARTS)) {
+    const areas = Object.values(c.areas);
+    assert.ok(areas.some((a) => a.port === 'spy') && areas.some((a) => a.port === 'navy') && areas.some((a) => a.port === 'bm'));
+    for (const a of areas) {
+      assert.equal(!!a.port, a.step === c.length, `${c.id} ${posKey(a)}: the ports' waters are the top row`);
+      if (!a.to) continue;
+      for (const d of Object.values(a.to)) assert.ok(c.areas[posKey({ q: a.q + HEX[d].q, r: a.r + HEX[d].r })], `${c.id} ${posKey(a)} ${d}`);
+    }
+    const o = odds(c);
+    assert.ok(Math.abs(o.spy - 0.4) < 0.03 && Math.abs(o.navy - 0.4) < 0.03 && Math.abs(o.bm - 0.2) < 0.03, `${c.id}: ${JSON.stringify(o)}`);
+  }
+  const spec = { id: 'short' as const, name: 'x', length: 4, width: 2, resupplyRow: null, ports: [-1, 1] as [number, number], actions: [] };
+  assert.throws(() => buildChart({ ...spec, twists: ['0,-1 navy:s'] }), /loop/);
+  assert.throws(() => buildChart({ ...spec, twists: ['0,0 navy:s'] }), /bad twist/);
+  assert.throws(() => buildChart({ ...spec, twists: [], actions: ['0,0:x'] }), /bad action/);
 });
