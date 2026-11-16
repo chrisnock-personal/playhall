@@ -199,6 +199,11 @@ export const chess: GameModule<ChessState, ChessConfig> = {
     return state.turnStartedAt + state.clocks[side];
   },
 
+  pause(state, ms) {
+    if (state.result || state.turnStartedAt === null || ms <= 0) return state;
+    return { ...state, turnStartedAt: state.turnStartedAt + ms };
+  },
+
   result: (state) => state.result,
 
   replay(state) {

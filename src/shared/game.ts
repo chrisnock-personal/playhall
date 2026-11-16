@@ -73,6 +73,10 @@ export interface GameModule<S = unknown, C = unknown> {
   tick(state: S, now: number): S | null;
   /** When tick() next needs calling, as a timestamp; null = no deadline. */
   nextDeadline(state: S): number | null;
+  /** The game was on hold for `ms` (the server was down, or the room was
+   *  unloaded): move any running clock on so that time isn't charged to
+   *  anyone. Games without clocks leave it out. */
+  pause?(state: S, ms: number): S;
   result(state: S): GameResult | null;
   /** For replays: what a watcher saw after each move, from the start to the
    *  end. Games that keep their whole move history provide it. */

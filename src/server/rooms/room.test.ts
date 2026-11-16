@@ -288,6 +288,56 @@ test('a game loaded with players who never connected (no record of who joined) i
   assert.equal(t.rec.game.status, 'playing');
 });
 
+test('a restart doesn\u2019t charge the downtime to the player whose clock was running', () => {
+  const t = setup({ moveSeconds: 0 });
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  t.room.handle(host, move('e2', 'e4'));
+  t.room.handle(alex, move('e7', 'e5'));
+  t.advance(10_000); // White thinks for 10 s...
+  t.room.markAlive(); // (the manager's heartbeat)
+  const saved = JSON.parse(JSON.stringify(t.rec)) as RoomRecord;
+  t.room.dispose();
+  // ...then the server is down for five minutes.
+  const later = 1_000_000 + 10_000 + 5 * 60_000;
+  const timers: (() => void)[] = [];
+  const hooks: RoomHooks = {
+    now: () => later, random: Math.random, setTimer: (_ms, fn) => { timers.push(fn); return () => {}; },
+    save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {}, kick: () => {},
+  };
+  const back = new Room(saved, hooks);
+  const view = back.snapshotFor(host.id).game.view as { clocks: { white: number; black: number } };
+  assert.equal(view.clocks.white, 50_000, 'White still has the 50 s left at the restart');
+  assert.equal(view.clocks.black, 60_000);
+  assert.equal(saved.game.status, 'playing');
+});
+
+test('a restart moves the move timer on by the downtime', () => {
+  let now = 5_000_000;
+  const hooks: RoomHooks = {
+    now: () => now, random: Math.random, setTimer: () => () => {},
+    save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {}, kick: () => {},
+  };
+  const rec: RoomRecord = {
+    id: 'r2', code: 'DEF456', name: 'Test', gameId: 'fourinarow', hostId: host.id, hostName: host.name,
+    settings: { ...DEFAULT_SETTINGS, moveSeconds: 30, gameConfig: {} },
+    seats: {}, game: { status: 'idle', state: null, startedAt: null, players: null }, passwordHash: null, banned: [],
+  };
+  const room = new Room(rec, hooks);
+  room.join(host); room.join(alex);
+  room.handle(host, { t: 'sit', seat: room.game.seats[0].id });
+  room.handle(alex, { t: 'sit', seat: room.game.seats[1].id });
+  room.handle(host, { t: 'start' });
+  const deadline = rec.game.moveDeadline!;
+  now += 10_000;
+  room.markAlive();
+  const saved = JSON.parse(JSON.stringify(rec)) as RoomRecord;
+  now += 3_600_000;
+  new Room(saved, hooks);
+  assert.equal(saved.game.moveDeadline, deadline + 3_600_000);
+});
+
 test('the host can remove someone; they can\u2019t come back', () => {
   const t = setup();
   t.room.handle(host, { t: 'sit', seat: 'white' });

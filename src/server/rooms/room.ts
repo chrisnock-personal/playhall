@@ -48,6 +48,10 @@ export interface RoomRecord {
      *  forfeit when it runs out); a seat filled for someone who never came
      *  (the demo's games) doesn't. Missing in older saves = none yet. */
     joined?: SeatId[];
+    /** When the server last had this game loaded and running (kept fresh by
+     *  the room manager), so time it spent down or unloaded isn't charged
+     *  to anyone's clock or move timer when it's loaded again. */
+    aliveAt?: number;
   };
 }
 
@@ -112,7 +116,30 @@ export class Room {
     for (const s of game.seats) if (!(s.id in rec.seats)) rec.seats[s.id] = null;
     this.chatLines = history.slice(-CHAT_KEEP);
     this.nextChatId = (this.chatLines.at(-1)?.id ?? 0) + 1;
+    this.resume();
     this.armTimer();
+  }
+
+  /** A game loaded mid-play: the time since it was last alive was spent with
+   *  the server down or the room unloaded, so hold the clocks for it. */
+  private resume(): void {
+    const g = this.rec.game;
+    if (g.status !== 'playing' || typeof g.aliveAt !== 'number') return;
+    const now = this.hooks.now();
+    const away = now - g.aliveAt;
+    g.aliveAt = now;
+    if (away <= 0) return;
+    if (this.game.pause && g.state) g.state = this.game.pause(g.state, away);
+    if (g.moveDeadline) g.moveDeadline += away;
+  }
+
+  /** Note that the game is running now (the manager calls this every few
+   *  seconds and before unloading or shutting down). False when there's no
+   *  game on, so nothing needs saving. */
+  markAlive(): boolean {
+    if (this.status !== 'playing') return false;
+    this.rec.game.aliveAt = this.hooks.now();
+    return true;
   }
 
   // ---- presence -------------------------------------------------------
@@ -460,7 +487,7 @@ export class Room {
     for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
     const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random(), isWord: this.hooks.isWord };
     const joined = seated.map((s) => s.id).filter((id) => this.present.has(players[id].userId));
-    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined };
+    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, aliveAt: now };
     this.lastResult = null;
     this.rematch.clear();
     this.history = [{ at: now, state: this.rec.game.state }];
@@ -626,6 +653,7 @@ export class Room {
   }
 
   private touch(): void {
+    this.markAlive();
     this.hooks.save(this.rec);
     this.hooks.changed();
   }
