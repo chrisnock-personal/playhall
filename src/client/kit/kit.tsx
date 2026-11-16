@@ -19,6 +19,12 @@ export const COLOURS: Record<string, { fill: string; rim: string; label: string 
   // Seats 5 and 6 (user, 2026-11-16): told apart from the four above by hue and lightness.
   lime: { fill: '#9CC83F', rim: '#5E8418', label: 'Lime' },
   blue: { fill: '#4F86E8', rim: '#2A55A8', label: 'Blue' },
+  // Seats 7-11, for Ship2Shore's bigger tables.
+  coral: { fill: '#F07A52', rim: '#A8431F', label: 'Coral' },
+  slate: { fill: '#7D8A9C', rim: '#4A5566', label: 'Slate' },
+  gold: { fill: '#F2D64B', rim: '#9C8410', label: 'Gold' },
+  mint: { fill: '#A8EBD0', rim: '#3F8F72', label: 'Mint' },
+  plum: { fill: '#9E3F7C', rim: '#5E1E49', label: 'Plum' },
   white: { fill: '#F4EFE4', rim: '#9C9488', label: 'White' },
   black: { fill: '#2A2A2E', rim: '#0E0E10', label: 'Black' },
 };
