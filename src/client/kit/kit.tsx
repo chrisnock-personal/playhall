@@ -24,6 +24,10 @@ export const COLOURS: Record<string, { fill: string; rim: string; label: string 
   // without much hue (coral was too close to amber and rose).
   red: { fill: '#D2433F', rim: '#8C1F1C', label: 'Red' },
   slate: { fill: '#8C97A8', rim: '#525C6B', label: 'Slate' },
+  // Seats 9-11, for Ship2Shore's bigger tables.
+  gold: { fill: '#F2D64B', rim: '#9C8410', label: 'Gold' },
+  mint: { fill: '#A8EBD0', rim: '#3F8F72', label: 'Mint' },
+  plum: { fill: '#9E3F7C', rim: '#5E1E49', label: 'Plum' },
   white: { fill: '#F4EFE4', rim: '#9C9488', label: 'White' },
   black: { fill: '#2A2A2E', rim: '#0E0E10', label: 'Black' },
 };
@@ -220,7 +224,7 @@ export function GameActions({ snap, send, minPlayers, resign = true, children }:
   return (
     <div className="stage-actions">
       {result && !playing && (
-        <span className="result-pill">{result.aborted ? `Stopped: ${result.reason}` : `${winnerLabel ? `${winnerLabel} wins` : 'Draw'} by ${result.reason}`}</span>
+        <span className="result-pill">{result.aborted ? `Stopped: ${result.reason}` : result.teamWin ? `Team win: ${result.reason}` : `${winnerLabel ? `${winnerLabel} wins` : 'Draw'} by ${result.reason}`}</span>
       )}
       {children}
       {playing && snap.you.seat && resign && (confirm

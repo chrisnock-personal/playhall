@@ -25,6 +25,9 @@ export interface GameResult {
   /** Everyone lost (e.g. nobody solved the case): it counts, with no points
    *  for anyone, rather than as a draw. */
   nobodyWins?: boolean;
+  /** A team won (Ship2Shore's factions): everyone in the first placing
+   *  scores as a winner (3 points each), not as a shared first. */
+  teamWin?: boolean;
 }
 
 /** How to play, shown in every room's How to play tab and from the lobby. */

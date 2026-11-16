@@ -139,6 +139,11 @@ is in.
 [backlog.md](backlog.md).
 **Manor Mystery** is in (3-6 players, the murder at Blackthorn Hall; rules as
 built in [manor-mystery.md](manor-mystery.md)).
+**Ship2Shore** is in (5-11 players, a WW2 hidden-role game aboard the SS
+Marigold; rules as built in [ship2shore.md](ship2shore.md), pieces in
+[mockups/ship2shore-pieces.html](mockups/ship2shore-pieces.html)). It brings
+seat colours 7-11 (red, slate, gold, mint, plum) and team wins: every member
+of the winning faction scores 3.
 
 ## The camera table (phase 2.4)
 

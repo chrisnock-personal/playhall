@@ -12,8 +12,8 @@ export function ResultCard({ snap, send }: { snap: RoomSnapshot; send(m: ClientM
   if (!r || closed || snap.game.status !== 'over') return null;
 
   const result = snap.game.result;
-  const winner = r.players.find((p) => p.outcome === 'win');
-  const title = winner ? `${winner.name} wins${result ? ` by ${result.reason}` : ''}`
+  const winners = r.players.filter((p) => p.outcome === 'win');
+  const title = winners.length ? `${winners.map((p) => p.name).join(', ')} ${winners.length === 1 ? 'wins' : 'win'}${result ? ` by ${result.reason}` : ''}`
     : result?.nobodyWins ? `Nobody wins: ${result.reason}` : `Draw${result ? ` by ${result.reason}` : ''}`;
   const [a, b] = r.players;
   const canStart = snap.you.host && snap.seats.filter((s) => s.userId).length >= snap.room.minPlayers;

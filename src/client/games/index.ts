@@ -12,6 +12,7 @@ import { letterworksClient } from './letterworks';
 import { realmDuelClient } from './realmduel';
 import { manorMysteryClient } from './manormystery';
 import { cameraTableClient } from './cameratable';
+import { ship2shoreClient } from './ship2shore';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -27,4 +28,5 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [realmDuelClient.id]: realmDuelClient,
   [manorMysteryClient.id]: manorMysteryClient,
   [cameraTableClient.id]: cameraTableClient,
+  [ship2shoreClient.id]: ship2shoreClient,
 };
