@@ -9,6 +9,11 @@
 // while you're in one channel's voice the hook also opens a second, video-only
 // connection to the other channel when you may see it. Video is only fetched
 // for tiles actually on screen (watch()), at a modest size, with simulcast.
+//
+// The camera table: its board camera is a device in the table channel (an
+// identity starting "camera:"). So that everyone who may see the table sees
+// the board without joining voice, view('table') also works while you're
+// not in voice: a video-only connection, nothing sent.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Participant, RemoteTrack, RemoteTrackPublication, Room, Track as LkTrack } from 'livekit-client';
@@ -31,6 +36,8 @@ const other = (c: Channel): Channel => (c === 'table' ? 'gallery' : 'table');
 const key = (c: Channel, id: string) => `${c}|${id}`;
 /** LiveKit's protocol number for the camera in a permission's source list. */
 const CAMERA_SOURCE = 1;
+/** The camera table's board camera (see src/server/media.ts). */
+export const isTableCamera = (id: string) => id.startsWith('camera:');
 
 export interface Voice {
   state: 'off' | 'joining' | 'on' | 'error';
@@ -115,20 +122,25 @@ export function useVoice(code: string, sessionToken: string): Voice {
 
   const refresh = useCallback(() => {
     const r = room.current;
-    if (!r || !lk) { setPeople([]); setFeeds([]); setSpeaking({ table: [], gallery: [] }); return; }
+    if (!lk || (!r && !viewRoom.current)) { setPeople([]); setFeeds([]); setSpeaking({ table: [], gallery: [] }); return; }
     const { Track } = lk;
-    const all: Participant[] = [r.localParticipant, ...r.remoteParticipants.values()];
-    setPeople(all.map((p) => ({
-      id: p.identity, name: p.name || p.identity, speaking: p.isSpeaking, you: p === r.localParticipant,
-      muted: !p.getTrackPublication(Track.Source.Microphone) || !!p.getTrackPublication(Track.Source.Microphone)?.isMuted,
-      volume: volumes.current.get(p.identity) ?? 1,
-    })));
-    const perm = r.localParticipant.permissions;
-    const sources = (perm?.canPublishSources ?? []) as number[];
-    setCanTalk(!!perm?.canPublish);
-    setCanVideo(!!perm?.canPublish && (sources.length === 0 || sources.includes(CAMERA_SOURCE)));
-    setMuted(!r.localParticipant.isMicrophoneEnabled);
-    setCamera(r.localParticipant.isCameraEnabled);
+    if (r) {
+      // The table camera is a device, not someone to talk to: not in the list.
+      const all = ([r.localParticipant, ...r.remoteParticipants.values()] as Participant[]).filter((p) => !isTableCamera(p.identity));
+      setPeople(all.map((p) => ({
+        id: p.identity, name: p.name || p.identity, speaking: p.isSpeaking, you: p === r.localParticipant,
+        muted: !p.getTrackPublication(Track.Source.Microphone) || !!p.getTrackPublication(Track.Source.Microphone)?.isMuted,
+        volume: volumes.current.get(p.identity) ?? 1,
+      })));
+      const perm = r.localParticipant.permissions;
+      const sources = (perm?.canPublishSources ?? []) as number[];
+      setCanTalk(!!perm?.canPublish);
+      setCanVideo(!!perm?.canPublish && (sources.length === 0 || sources.includes(CAMERA_SOURCE)));
+      setMuted(!r.localParticipant.isMicrophoneEnabled);
+      setCamera(r.localParticipant.isCameraEnabled);
+    } else {
+      setPeople([]);
+    }
     const out: VideoFeed[] = [];
     const talk: Record<Channel, string[]> = { table: [], gallery: [] };
     for (const [conn, ch] of [[r, channelRef.current], [viewRoom.current, viewing.current]] as [Room | null, Channel | null][]) {
@@ -143,7 +155,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     }
     setFeeds(out);
     setSpeaking(talk);
-    setMicTrack(r.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack ?? null);
+    setMicTrack(r?.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack ?? null);
   }, []);
 
   /** Events that change who's there, what they send, or what we receive. */
@@ -173,14 +185,16 @@ export function useVoice(code: string, sessionToken: string): Voice {
     void v?.disconnect();
   }, []);
 
+  // Without voice (room.current null) this is the only connection: the
+  // camera table's board for someone not in voice.
   const openView = useCallback(async (ch: Channel) => {
-    if (viewing.current === ch || !room.current) return;
+    if (viewing.current === ch || channelRef.current === ch) return;
     closeView();
     viewing.current = ch;
     try {
       const token = await tokenFor(ch);
       const { Room, RoomEvent } = await loadLiveKit();
-      if (viewing.current !== ch || !room.current) return;
+      if (viewing.current !== ch || channelRef.current === ch) { if (viewing.current === ch) viewing.current = null; return; }
       const v = new Room({ adaptiveStream: true, dynacast: true });
       viewRoom.current = v;
       listen(v);
@@ -188,7 +202,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
         if (viewRoom.current !== v) return;
         viewRoom.current = null; viewing.current = null; refresh();
         // Dropped by the network (not by the rules): try again shortly.
-        setTimeout(() => { const w = viewWanted.current; if (w && room.current && !viewing.current) void openView(w); }, 3000);
+        setTimeout(() => { const w = viewWanted.current; if (w && !viewing.current && channelRef.current !== w) void openView(w); }, 3000);
       });
       await v.connect(url(), token, { autoSubscribe: false });
       if (viewRoom.current !== v) { void v.disconnect(); return; }
@@ -206,7 +220,9 @@ export function useVoice(code: string, sessionToken: string): Voice {
     if (viewing.current !== ch) void openView(ch);
   }, [closeView, openView, refresh]);
 
-  const leave = useCallback(() => {
+  /** Leave voice. `reopen`: then show the video you'd asked to see (the
+   *  camera table's board) on its own; not when joining another channel. */
+  const drop = useCallback((reopen: boolean) => {
     const r = room.current;
     room.current = null;
     channelRef.current = null;
@@ -216,10 +232,13 @@ export function useVoice(code: string, sessionToken: string): Voice {
     audio.current.clear();
     setState('off'); setChannel(null); setPeople([]); setFeeds([]); setSpeaking({ table: [], gallery: [] });
     setMuted(true); setCamera(false); setNeedsClick(false); setMicTrack(null);
-  }, [closeView]);
+    const w = viewWanted.current;
+    if (reopen && w) void openView(w);
+  }, [closeView, openView]);
+  const leave = useCallback(() => drop(true), [drop]);
 
   const join = useCallback(async (ch: Channel) => {
-    leave();
+    drop(false);
     setState('joining'); setError(null); setChannel(ch);
     try {
       const token = await tokenFor(ch);
@@ -274,7 +293,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
       setState('error');
       setError((e as Error).name === 'NotAllowedError' ? 'The browser didn’t allow the microphone' : (e as Error).message);
     }
-  }, [leave, tokenFor, listen, reconcile, refresh, openView]);
+  }, [drop, leave, tokenFor, listen, reconcile, refresh, openView]);
 
   const toggleMute = useCallback(async () => {
     const r = room.current;
@@ -360,7 +379,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
   }, [mode, state, pushToTalk]);
 
-  useEffect(() => leave, [leave]);
+  useEffect(() => () => { viewWanted.current = null; drop(false); }, [drop]);
 
   return {
     state, channel, canTalk, muted, needsClick, people, error, join, leave, toggleMute, startAudio, mode, setMode, talking, pushToTalk, setVolume,
