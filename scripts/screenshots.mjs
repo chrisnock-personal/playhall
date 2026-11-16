@@ -101,6 +101,73 @@ const SCENES = {
     });
     await shot(p, '19-colour-clash.png');
   },
+
+  // Four in a Row: Sam against a bot, a few discs in, Sam's next disc shown where it would land.
+  async fourinarow() {
+    const { page: p } = await room('fourinarow', 'Sam', { name: 'Four in a Row' });
+    await bots(p, 1); await start(p);
+    for (const col of [3, 2, 4, 3]) {
+      await until(p, async () => (await p.locator('.four-column.playable').count()) > 0, async () => false, 15000);
+      await p.locator('.four-column').nth(col).click(); await sleep(2600);
+    }
+    await until(p, async () => (await p.locator('.four-column.playable').count()) > 0, async () => false, 15000);
+    await p.locator('.four-column').nth(5).hover();
+    await shot(p, '05-four-in-a-row.png');
+  },
+  // Checkers: Sam (Black) against a bot, a few moves in, a piece picked up with its moves marked.
+  async checkers() {
+    const { page: p } = await room('checkers', 'Sam', { seat: 'black', name: 'Checkers' });
+    await bots(p, 1); await start(p);
+    for (let k = 0; k < 5; k++) {
+      await until(p, async () => (await p.locator('.square-board .movable').count()) > 0, async () => false, 20000);
+      await p.locator('.square-board .movable').last().click(); await sleep(300);
+      await p.locator('.square-board .target').first().click(); await sleep(2600);
+    }
+    await until(p, async () => (await p.locator('.square-board .movable').count()) > 0, async () => false, 20000);
+    await p.locator('.square-board .movable').last().click();
+    await shot(p, '13-checkers.png');
+  },
+  // Snakes and Ladders: Sam and two bots, a few rolls in.
+  async snakes() {
+    const { page: p } = await room('snakes', 'Sam', { name: 'Snakes and Ladders' });
+    await bots(p, 2); await start(p);
+    for (let k = 0; k < 5; k++) {
+      await until(p, async () => (await p.getByRole('button', { name: 'Roll', exact: true }).count()) > 0, async () => false, 20000);
+      if (k < 4) { await p.getByRole('button', { name: 'Roll', exact: true }).click(); await sleep(2500); }
+    }
+    await shot(p, '14-snakes.png');
+  },
+  // Ludo: Sam and three bots, tokens out on the track.
+  async ludo() {
+    const { page: p } = await room('ludo', 'Sam', { name: 'Ludo' });
+    await bots(p, 3); await start(p);
+    let turns = 0;
+    await until(p, async () => turns >= 10 && (await p.getByRole('button', { name: 'Roll', exact: true }).count()) > 0, async () => {
+      if (await tap(p.locator('.ludo-token-btn'))) return true;
+      if (await tap(p.getByRole('button', { name: 'Roll', exact: true }))) { turns++; return true; }
+      return false;
+    }, 240000);
+    await shot(p, '15-ludo.png');
+  },
+  // Sea Battle: placing the fleet (a ship picked up, its shadow clashing), then firing.
+  async seabattle() {
+    const { page: p } = await room('seabattle', 'Sam', { name: 'Sea Battle' });
+    await bots(p, 1); await start(p);
+    await p.getByRole('button', { name: /^Battleship/ }).click(); await sleep(300);
+    const squares = p.locator('.waters-board.placing .square-board button');
+    // Hover a few squares until the shadow clashes with another ship.
+    for (let i = 0; i < 100; i += 7) { await squares.nth(i).hover(); await sleep(60); if (await p.locator('.square-board .clash').count()) break; }
+    await shot(p, '17-sea-battle-placing.png');
+    await p.getByRole('button', { name: /^Battleship/ }).click();
+    await p.getByRole('button', { name: 'Ready', exact: true }).click(); await sleep(1500);
+    const enemy = p.locator('.waters').last().locator('.square-board button');
+    for (let k = 0; k < 14; k++) {
+      await until(p, async () => (await p.locator('.sea-layout').innerText()).includes('Your turn') || (await enemy.count()) > 0, async () => false, 8000);
+      const n = await enemy.count(); if (!n) break;
+      await enemy.nth(Math.floor(Math.random() * n)).click().catch(() => {}); await sleep(2200);
+    }
+    await shot(p, '16-sea-battle.png');
+  },
 };
 
 browser = await chromium.launch();
