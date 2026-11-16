@@ -5,6 +5,14 @@ from this list. The phases themselves are in [design.md](design.md#phases).
 
 ## Still open
 
+### Hearts, Spades and Gin Rummy (2026-11-16, #38, #39, #40)
+
+Three more classic card games on the card kit: **Hearts** for four (pass
+three, avoid hearts and the queen of spades, shoot the moon, lowest to 100
+wins); **Spades** for two pairs (bid tricks or nil, spades trump, bags, first
+pair to 500); **Gin Rummy** for two (draw and discard, melds and deadwood,
+knock or gin, game to 100). Bots for each.
+
 ### Bridge (2026-11-16, #37)
 
 Contract bridge for four in two partnerships: the deal, the auction (to a
