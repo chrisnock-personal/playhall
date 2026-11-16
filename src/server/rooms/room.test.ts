@@ -267,3 +267,26 @@ test('the host can remove someone; they can\u2019t come back', () => {
   assert.ok(t.room.isBanned('a'));
   assert.ok(t.rec.banned.includes('a'));
 });
+
+test('voice and video follow the chat rules', () => {
+  const { room } = setup();
+  assert.equal(room.mediaRights('nobody'), null, 'not in the room');
+  const W = priya.id, P = alex.id;
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  assert.deepEqual(room.mediaRights(W), { table: { listen: true, talk: true }, gallery: { listen: true, talk: true } }, 'before the game, watchers can talk at the table');
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(host, { t: 'start' });
+  assert.deepEqual(room.mediaRights(P)?.table, { listen: true, talk: true });
+  assert.equal(room.mediaRights(P)?.gallery.talk, false, 'players don’t talk in the gallery');
+  assert.deepEqual(room.mediaRights(W)?.table, { listen: true, talk: false }, 'watchers listen at the table during play');
+  assert.deepEqual(room.mediaRights(W)?.gallery, { listen: true, talk: true });
+});
+
+test('watchers on a delay don’t hear the table live', () => {
+  const { room } = setup({ watcherDelay: 30 });
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.handle(host, { t: 'start' });
+  assert.deepEqual(room.mediaRights(priya.id)?.table, { listen: false, talk: false });
+  assert.equal(room.mediaRights(priya.id)?.gallery.listen, true);
+});

@@ -10,15 +10,39 @@ import { gameList } from '../shared/games';
 import { isGameFilter, leaderboard, PERIODS, playerStats, replay } from './stats';
 import type { Period } from '../shared/protocol';
 import type { Db } from './db';
+import { mediaToken, proxyHttp, type MediaConfig } from './media';
+import type { Channel } from '../shared/protocol';
 
-export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomSockets; db: Db; staticDir: string }) {
+export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomSockets; db: Db; staticDir: string; media?: MediaConfig | null }) {
   const { auth, rooms, sockets, db } = opts;
+  const media = opts.media ?? null;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 'loopback');
   app.use(express.json({ limit: '32kb' }));
 
-  app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
+  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: !!media }); });
+
+  // Voice and video: a LiveKit token for one channel of a room you're in.
+  // The browser connects to LiveKit through this same address (/rtc).
+  app.post('/api/rooms/:code/media/:channel', auth.requireUser, rateLimit(30, 60_000), async (req, res) => {
+    if (!media) { res.status(503).json({ error: 'Voice and video aren’t set up on this server' }); return; }
+    const channel = String(req.params.channel) as Channel;
+    if (channel !== 'table' && channel !== 'gallery') { res.status(404).json({ error: 'No such channel' }); return; }
+    const room = await rooms.get(String(req.params.code));
+    if (!room) { res.status(404).json({ error: 'No such room' }); return; }
+    const rights = room.mediaRights(req.user!.id);
+    if (!rights) { res.status(403).json({ error: 'Join the room first' }); return; }
+    const r = rights[channel];
+    if (!r.listen) { res.status(403).json({ error: channel === 'gallery' ? 'The gallery is hidden from players during the game' : 'Watchers on a delay can’t hear the table live' }); return; }
+    const token = await mediaToken(media, { code: room.rec.code, channel, userId: req.user!.id, name: req.user!.name, ...r });
+    res.json({ token, channel, ...r });
+  });
+  app.get(/^\/rtc(\/.*)?$/, async (req, res) => {
+    if (!media) { res.status(404).end(); return; }
+    try { const r = await proxyHttp(media, req.originalUrl); res.status(r.status).type(r.type).send(r.body); }
+    catch { res.status(502).json({ error: 'The voice server isn’t answering' }); }
+  });
   app.use('/api/auth', auth.routes());
   app.get('/api/games', (_req, res) => { res.json({ games: gameList() }); });
 
@@ -118,7 +142,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
         else if (file.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       },
     }));
-    app.get(/^\/(?!api|ws).*/, (_req, res) => { noCache(res); res.sendFile(path.join(opts.staticDir, 'index.html')); });
+    app.get(/^\/(?!api|ws|rtc).*/, (_req, res) => { noCache(res); res.sendFile(path.join(opts.staticDir, 'index.html')); });
   }
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

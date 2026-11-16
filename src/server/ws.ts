@@ -6,6 +6,7 @@
 import type { IncomingMessage, Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Auth } from './auth';
+import { proxyUpgrade, type MediaConfig } from './media';
 import type { RoomManager } from './rooms/manager';
 import { RoomError, type Room } from './rooms/room';
 import type { ClientMessage, ServerMessage, SessionUser } from '../shared/protocol';
@@ -21,11 +22,12 @@ export class RoomSockets {
   private pending = new Set<Room>();
   private wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
-  constructor(private auth: Auth, private getManager: () => RoomManager) {}
+  constructor(private auth: Auth, private getManager: () => RoomManager, private media: MediaConfig | null = null) {}
 
   attach(server: Server): void {
     server.on('upgrade', (req, socket, head) => {
       const url = new URL(req.url ?? '/', 'http://x');
+      if (this.media && (url.pathname === '/rtc' || url.pathname.startsWith('/rtc/'))) { proxyUpgrade(this.media, req, socket, head); return; }
       if (url.pathname !== '/ws') { socket.destroy(); return; }
       this.wss.handleUpgrade(req, socket, head, (ws) => { void this.accept(ws, req); });
     });

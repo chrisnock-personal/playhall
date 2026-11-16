@@ -114,6 +114,19 @@ assert.equal(await new Promise((resolve) => {
   ws.on('close', (c) => resolve(c));
 }), 4401, 'a token in the URL is not accepted');
 
+// Voice and video (only when the server has LiveKit): a token for a channel
+// you may use, refused for one you may not, and LiveKit reached through /rtc.
+const health = await (await fetch(`${base}/api/health`)).json();
+if (health.media) {
+  const t = await api(`/rooms/${room.code}/media/gallery`, { method: 'POST', token: priya.token });
+  assert.equal(t.talk, true, 'a watcher talks in the gallery');
+  const v = await fetch(`${base}/rtc/validate?access_token=${encodeURIComponent(t.token)}`);
+  assert.equal(v.status, 200, `LiveKit accepts the token through /rtc (${v.status} ${await v.text()})`);
+  const outsider = await api('/auth/guest', { body: { displayName: 'Robin' } });
+  await assert.rejects(api(`/rooms/${room.code}/media/table`, { method: 'POST', token: outsider.token }), /403/, 'not in the room, no token');
+  console.log('media: token and /rtc proxy OK');
+}
+
 // Letterworks: racks are private, a word off the list is refused with nothing
 // changed, a real two-letter word from the rack scores.
 const TWO = new Set('AA AB AD AE AG AH AI AL AM AN AR AS AT AW AX AY BA BE BI BO BY DE DO ED EF EH EL EM EN ER ES ET EX FA GO HA HE HI HM HO ID IF IN IS IT JO KA LA LI LO MA ME MI MM MO MU MY NA NE NO NU OD OE OF OH OM ON OP OR OS OW OX OY PA PE PI RE SH SI SO TA TI TO UH UM UN UP US UT WE WO XI XU YA YE YO'.split(' '));

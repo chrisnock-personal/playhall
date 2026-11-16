@@ -214,6 +214,21 @@ export class Room {
     return table ? ['table', 'gallery'] : ['gallery'];
   }
 
+  /** Voice and video follow the chat: you can hear a channel you can read
+   *  and talk in one you can write. Watchers on a delay don't hear the table
+   *  live (it would give the game away ahead of what they see). Null when
+   *  you're not in the room. */
+  mediaRights(userId: string): Record<Channel, { listen: boolean; talk: boolean }> | null {
+    if (!this.present.has(userId)) return null;
+    const read = this.canRead(userId), write = this.canWrite(userId);
+    const delayed = this.seatOf(userId) === null && this.rec.settings.watcherDelay > 0 && this.status === 'playing';
+    const right = (c: Channel) => {
+      const listen = read.includes(c) && !(c === 'table' && delayed);
+      return { listen, talk: listen && write.includes(c) };
+    };
+    return { table: right('table'), gallery: right('gallery') };
+  }
+
   // ---- messages -------------------------------------------------------
 
   handle(user: RoomUser, msg: ClientMessage): void {

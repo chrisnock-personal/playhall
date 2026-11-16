@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
+import { mediaConfigFromEnv } from './media';
 import { certFiles, describeCert, ensureCert, replaceCert } from './tls';
 import { loadConfig } from './config';
 import { createPool, migrate } from './db';
@@ -27,10 +28,12 @@ async function main(): Promise<void> {
   // The sockets need the manager and the manager reports changes to the
   // sockets, so one is handed to the other through a getter.
   let rooms!: RoomManager;
-  const sockets = new RoomSockets(auth, () => rooms);
+  const media = mediaConfigFromEnv();
+  console.log(`[playhall] voice and video: ${media ? `LiveKit at ${media.url}` : 'off (LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET not set)'}`);
+  const sockets = new RoomSockets(auth, () => rooms, media);
   rooms = new RoomManager(db, (room) => sockets.changed(room), (room, userId, reason) => sockets.kick(room, userId, reason));
 
-  const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir });
+  const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir, media });
   let server: http.Server;
   if (config.tls) {
     const pair = await ensureCert(config.tlsDir, config.tlsHosts);
