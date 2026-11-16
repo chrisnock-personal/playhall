@@ -75,6 +75,10 @@ with remote players using controllers, OpenBOR rooms run on the server
 - **A room layout that gets out of the way.** The top bar, players, watchers
   and side panel each expand, shrink or hide; Default, Focus and Social
   layouts; your layout is remembered per game. Works on a phone.
+- **Computer players** (Ship2Shore so far). The host can put a bot in any
+  free seat between games, so a small group can fill a bigger table. A bot
+  plays from its own seat's view, exactly what a person there would see.
+  Games with a bot don't count for the leaderboards.
 - **Points, leaderboards and stats.** 3 points for a win, 1 for a draw, 0
   for a loss. Leaderboards for this week, this month and all time (ranked from
   5 games); each player's record, results as White and Black, points per

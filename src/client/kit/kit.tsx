@@ -5,7 +5,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ClientMessage, RoomSnapshot } from '../../shared/protocol';
-import { Avatar } from '../ui';
+import { Avatar, Icon } from '../ui';
+import { useGames } from '../useGames';
 import { reducedMotion } from './motion';
 import { TIMING } from './cues';
 
@@ -185,6 +186,8 @@ export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {
   const member = snap.members.find((m) => m.userId === seat.userId);
   const canSit = !seat.userId && snap.game.status !== 'playing' && !snap.you.seat
     && (snap.room.settings.seatPolicy === 'open' || snap.you.host);
+  const bots = !!useGames().find((g) => g.id === snap.room.gameId)?.bots;
+  const canAddBot = bots && !seat.userId && snap.game.status !== 'playing' && snap.you.host;
   return (
     <div className={`player-strip${toMove ? ' to-move' : ''}`}>
       {COLOURS[seatId] && <Disc colour={seatId} size={22} />}
@@ -200,6 +203,7 @@ export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {
         <div className="who"><strong className="muted">Free seat</strong><span>{seat.label}</span></div>
       )}
       {canSit && <button className="btn small primary" onClick={() => send({ t: 'sit', seat: seatId })}>Sit here</button>}
+      {canAddBot && <button className="btn small" onClick={() => send({ t: 'addBot', seat: seatId })}><Icon name="bot" size={16} />Add a bot</button>}
       {extra}
       {receivedAt !== undefined && <MoveTimer snap={snap} seatId={seatId} receivedAt={receivedAt} />}
     </div>

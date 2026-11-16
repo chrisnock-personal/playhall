@@ -58,8 +58,11 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
     gameRowId = rows[0].id;
     if (!g.result.aborted) {
       for (const [seat, holder] of seats) {
+        // Bots (#18) have no account: no results row, and no opponent id.
+        if (holder.bot) continue;
         const { outcome, points } = scores[seat];
-        const opponent = seats.length === 2 ? seats.find(([s]) => s !== seat)![1].userId : null;
+        const other = seats.length === 2 ? seats.find(([s]) => s !== seat)![1] : null;
+        const opponent = other && !other.bot ? other.userId : null;
         await client.query(
           `INSERT INTO game_results (game_row_id, room_id, game_id, user_id, seat, outcome, points, reason, opponent_id, counted, ended_at, game_name, game_key)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,

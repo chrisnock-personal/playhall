@@ -6,6 +6,7 @@
 // seat. A person in a seat is a player; everyone else present is watching.
 
 import { GAMES } from '../../shared/games';
+import { BOTS, BOT_ID_PREFIX, botName, isBotId } from '../../shared/bots';
 import { placingsOf } from '../../shared/scoring';
 import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId } from '../../shared/game';
 import type {
@@ -24,6 +25,8 @@ export interface SeatHolder {
   userId: string;
   name: string;
   guest: boolean;
+  /** A computer player (#18): its userId is a made-up 'bot:' id. */
+  bot?: boolean;
 }
 
 export interface RoomRecord {
@@ -98,6 +101,9 @@ export interface FinishedGame {
   note: string | null;
 }
 
+/** How long a bot waits before it moves (up to twice this). */
+const BOT_PAUSE_MS = 900;
+
 export class RoomError extends Error {}
 
 const CHAT_KEEP = 300;
@@ -110,6 +116,8 @@ export class Room {
   private chatLines: ChatLine[];
   private nextChatId: number;
   private cancelTimer: (() => void) | null = null;
+  /** A bot's move waiting to be made (#18). */
+  private cancelBot: (() => void) | null = null;
   private lastResult: LastResult | null = null;
   /** The game's states over time, for watchers who see it late. */
   private history: { at: number; state: unknown }[] = [];
@@ -128,6 +136,7 @@ export class Room {
     this.nextChatId = (this.chatLines.at(-1)?.id ?? 0) + 1;
     this.resume();
     this.armTimer();
+    this.scheduleBots();
   }
 
   /** A game loaded mid-play: the time since it was last alive was spent with
@@ -219,6 +228,8 @@ export class Room {
     this.clearLeaving();
     this.cancelTimer?.();
     this.cancelTimer = null;
+    this.cancelBot?.();
+    this.cancelBot = null;
   }
 
   /** Who can come in without the room password: the host and anyone seated. */
@@ -326,6 +337,7 @@ export class Room {
       case 'start': this.hostOnly(user); return this.start();
       case 'seat': this.hostOnly(user); return this.seatSomeone(msg.userId, msg.seat);
       case 'unseat': this.hostOnly(user); return this.unseat(msg.userId);
+      case 'addBot': this.hostOnly(user); return this.addBot(msg.seat);
       case 'makeHost': this.hostOnly(user); return this.makeHost(msg.userId);
       case 'kick': this.hostOnly(user); return this.kick(user, msg.userId);
       case 'settings': this.hostOnly(user); return this.updateSettings(msg.settings);
@@ -473,6 +485,7 @@ export class Room {
     this.record();
     this.resetMoveDeadline();
     this.armTimer();
+    this.scheduleBots();
     this.touch();
     return false;
   }
@@ -533,7 +546,7 @@ export class Room {
   /** Who has to agree to a rematch: everyone seated for the next game (the
    *  room's after-game rule has already moved people when the game ended). */
   private rematchNeeded(): string[] {
-    return this.seatDefs.map((s) => this.rec.seats[s.id]?.userId).filter((id): id is string => !!id);
+    return this.seatDefs.map((s) => this.rec.seats[s.id]?.userId).filter((id): id is string => !!id && !isBotId(id));
   }
 
   /** The seated players who agreed to a rematch, in seat order. */
@@ -595,12 +608,15 @@ export class Room {
     const who = seated.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
     this.armTimer();
+    this.scheduleBots();
     this.touch();
   }
 
   private finish(result: GameResult): void {
     this.cancelTimer?.();
     this.cancelTimer = null;
+    this.cancelBot?.();
+    this.cancelBot = null;
     const players = this.rec.game.players ?? {};
     this.rec.game.status = 'over';
     this.clearLeaving();
@@ -616,8 +632,10 @@ export class Room {
     }
     this.system(result.aborted ? `Game stopped: ${result.reason}` : `${line} by ${result.reason}`);
     const guests = Object.values(players).some((p) => p.guest);
+    const bots = Object.values(players).some((p) => p.bot);
     const note = result.aborted ? 'The game was stopped, so it doesn\u2019t count.'
       : !this.rec.settings.ranked ? 'This room is casual: games here don\u2019t count for the leaderboards.'
+        : bots ? 'A computer player played, so this game doesn\u2019t count for the leaderboards.'
         : guests ? 'A guest played, so this game doesn\u2019t count for the leaderboards.'
           : Object.keys(players).length < 2 ? 'A game with one player is practice: it doesn\u2019t count for the leaderboards.' : null;
     this.hooks.gameOver({ rec: this.rec, result, state: this.rec.game.state, players, counted: note === null, note });
@@ -664,6 +682,50 @@ export class Room {
     this.touch();
   }
 
+  /** The host puts a computer player in a free seat (games with bots). */
+  private addBot(seat: SeatId): void {
+    if (!BOTS[this.rec.gameId]) throw new RoomError(`${this.game.name} has no computer players yet`);
+    this.checkSeat(seat);
+    if (this.status === 'playing') throw new RoomError('End the game first');
+    if (this.rec.seats[seat]) throw new RoomError('That seat is taken');
+    const name = botName(Object.values(this.rec.seats).map((h) => h?.name ?? ''));
+    const id = `${BOT_ID_PREFIX}${Math.floor(this.hooks.random() * 1e12).toString(36)}`;
+    this.place({ userId: id, name, guest: false, bot: true }, seat);
+    this.system(`The host added ${name} as ${this.seatLabel(seat)}`);
+    this.touch();
+  }
+
+  /** If the game is waiting for a bot, have it move after a short pause, so
+   *  people can follow what it did. One move at a time; each move schedules
+   *  the next. */
+  private scheduleBots(): void {
+    if (this.cancelBot || this.status !== 'playing' || !BOTS[this.rec.gameId]) return;
+    const players = this.rec.game.players ?? {};
+    const due = (this.game.turn?.(this.rec.game.state) ?? []).filter((seat) => players[seat]?.bot);
+    if (!due.length) return;
+    this.cancelBot = this.hooks.setTimer(BOT_PAUSE_MS + Math.floor(this.hooks.random() * BOT_PAUSE_MS), () => {
+      this.cancelBot = null;
+      this.botMove();
+    });
+  }
+
+  /** A bot's move: what it decides from its own view, or the game's
+   *  out-of-time move if it has no answer or its answer is refused. */
+  private botMove(): void {
+    if (this.status !== 'playing') return;
+    const players = this.rec.game.players ?? {};
+    const seat = (this.game.turn?.(this.rec.game.state) ?? []).find((s) => players[s]?.bot);
+    if (!seat) return;
+    const now = this.hooks.now();
+    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), () => this.hooks.random());
+    const r = action === null ? null : this.game.act(this.rec.game.state, seat, action, now, this.context());
+    if (r && !('error' in r)) { this.accept(r, seat); return; }
+    if (this.game.timeout) {
+      this.rec.game.state = this.game.timeout(this.rec.game.state, seat, now, this.context());
+      this.afterChange();
+    }
+  }
+
   private unseat(userId: string): void {
     const seat = this.seatOf(userId);
     if (!seat) return;
@@ -672,7 +734,7 @@ export class Room {
     // finish() may have reseated people; look the seat up again.
     const now = this.seatOf(userId);
     if (now) this.rec.seats[now] = null;
-    this.system(`The host moved ${name} to watching`);
+    this.system(isBotId(userId) ? `The host removed ${name}` : `The host moved ${name} to watching`);
     this.touch();
   }
 
@@ -795,7 +857,8 @@ export class Room {
       if (out.has(userId)) return;
       out.set(userId, {
         userId, name, guest,
-        online: this.present.has(userId),
+        online: this.present.has(userId) || isBotId(userId),
+        ...(isBotId(userId) ? { bot: true } : {}),
         host: this.isHost(userId),
         seat: this.seatOf(userId),
         hand: this.queue.includes(userId),
@@ -858,6 +921,7 @@ export class Room {
       },
       seats: this.seatDefs.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
+        ...(this.rec.seats[s.id]?.bot ? { bot: true } : {}),
       })),
       members: this.members(),
       queue: [...this.queue],
@@ -892,6 +956,7 @@ export class Room {
       status: this.rec.game.status,
       seats: this.seatDefs.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
+        ...(this.rec.seats[s.id]?.bot ? { bot: true } : {}),
       })),
       watching: [...this.present.keys()].filter((id) => !seated.has(id)).length,
       listed: this.rec.settings.listed,

@@ -3,6 +3,7 @@ import type { Panel3, VideoSize } from './layout';
 import type { Voice } from './useVoice';
 import { VideoTile } from './VideoTile';
 import { Avatar, Icon } from '../ui';
+import { useGames } from '../useGames';
 
 export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video, onVideo }: {
   /** Set when the panel is compact only for the game: opens it out again. */
@@ -15,6 +16,9 @@ export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video
     && (snap.room.settings.seatPolicy === 'open' || snap.you.host);
   // Players' cameras are in the table channel; anyone who may see it gets them.
   const anyVideo = voice.feeds.some((f) => f.channel === 'table');
+  // The host can put a computer player in a free seat, between games (#18).
+  const bots = !!useGames().find((g) => g.id === snap.room.gameId)?.bots;
+  const canAddBot = (seatFree: boolean) => bots && seatFree && snap.you.host && snap.game.status !== 'playing';
 
   if (state === 'hidden') {
     return <button className="edge-tab vertical" onClick={onCycle} aria-label="Show players">Players {filled}/{snap.seats.length}</button>;
@@ -71,6 +75,10 @@ export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video
               {game?.seatExtra?.(stage, s.id)}
             </div>
             {canSit(!s.userId) && <button className="btn small primary wide" onClick={() => send({ t: 'sit', seat: s.id })}>Sit here</button>}
+            {canAddBot(!s.userId) && <button className="btn small wide" onClick={() => send({ t: 'addBot', seat: s.id })}><Icon name="bot" size={16} />Add a bot</button>}
+            {s.bot && snap.you.host && snap.game.status !== 'playing' && (
+              <button className="btn small wide" onClick={() => send({ t: 'unseat', userId: s.userId! })}>Remove the bot</button>
+            )}
             {s.userId === snap.you.userId && snap.game.status !== 'playing' && (
               <button className="btn small wide" onClick={() => send({ t: 'stand' })}>Leave the seat</button>
             )}

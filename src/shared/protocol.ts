@@ -63,6 +63,8 @@ export interface MemberView {
   host: boolean;
   seat: SeatId | null;
   hand: boolean;
+  /** A computer player (#18). */
+  bot?: boolean;
 }
 
 export interface ChatLine {
@@ -81,6 +83,8 @@ export interface SeatView {
   label: string;
   userId: string | null;
   name: string | null;
+  /** A computer player sits here (#18). */
+  bot?: boolean;
 }
 
 export type GameStatus = 'idle' | 'playing' | 'over';
@@ -150,6 +154,7 @@ export type ClientMessage =
   | { t: 'start' }
   | { t: 'seat'; userId: string; seat: SeatId }
   | { t: 'unseat'; userId: string }
+  | { t: 'addBot'; seat: SeatId }
   | { t: 'makeHost'; userId: string }
   | { t: 'kick'; userId: string }
   | { t: 'settings'; settings: Partial<RoomSettings> }

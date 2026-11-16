@@ -187,6 +187,28 @@ export function sailFrom(chart: Chart, p: Pos, heading: Faction): Pos {
   return to ? step(p, to[heading]) : p;
 }
 
+/** Each sea area's odds of the voyage ending in each port if every order
+ *  from there on were drawn in proportion to the deck: what random play
+ *  gives, and a fair guess at where an area leads (bots weigh orders by it). */
+export function portOdds(chart: Chart): Record<string, Record<Faction, number>> {
+  const cached = oddsCache.get(chart);
+  if (cached) return cached;
+  const share = (f: Faction) => FULL_DECK.filter((o) => orderHeading(o) === f).length / FULL_DECK.length;
+  const out: Record<string, Record<Faction, number>> = {};
+  const at = (k: string): Record<Faction, number> => {
+    if (out[k]) return out[k];
+    const a = chart.areas[k];
+    const o = { navy: 0, spy: 0, bm: 0 };
+    if (a.port) o[a.port] = 1;
+    else for (const f of ['navy', 'spy', 'bm'] as Faction[]) { const n = at(posKey(sailFrom(chart, a, f))); for (const g of ['navy', 'spy', 'bm'] as Faction[]) o[g] += share(f) * n[g]; }
+    return (out[k] = o);
+  };
+  for (const k of Object.keys(chart.areas)) at(k);
+  oddsCache.set(chart, out);
+  return out;
+}
+const oddsCache = new Map<Chart, Record<string, Record<Faction, number>>>();
+
 // ---- Who's who ----
 
 /** How many of each role for `n` players (docs/ship2shore.md). */
