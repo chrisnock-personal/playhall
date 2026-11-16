@@ -1,7 +1,7 @@
 import { LADDERS, SNAKES, type SnakesView } from '../../shared/games/snakes';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Die, GameActions, Pawn, PlayerStrip } from '../kit/kit';
-import { Mover, type Point } from '../kit/motion';
+import { Mover, useLive, type Point } from '../kit/motion';
 import { snakesWalk, TIMING } from '../kit/cues';
 
 /** Centre of square n (1-100) in a 100×100 drawing: 1 is bottom left and the
@@ -61,6 +61,7 @@ function SnakesStage(props: StageProps) {
   }
   const last = v?.last;
   const rollKey = last ? JSON.stringify(last) : undefined;
+  const live = useLive();
 
   return (
     <div className="board-stage">
@@ -89,7 +90,7 @@ function SnakesStage(props: StageProps) {
             const walk = last && last.seat === seat ? snakesWalk(last.from, last.value).map(centre) : null;
             const path: Point[] | null = walk && last ? (last.via ? [...walk, at] : [...walk.slice(0, -1), at]) : null;
             return (
-              <Mover key={seat} className="track-token" x={at[0]} y={at[1]} path={path} play={last?.seat === seat ? rollKey : undefined} delay={TIMING.pathStart} hop={walk ? walk.length - 1 : false}>
+              <Mover key={seat} className="track-token" x={at[0]} y={at[1]} path={path} play={last?.seat === seat ? rollKey : undefined} live={live} delay={TIMING.pathStart} hop={walk ? walk.length - 1 : false}>
                 <Pawn colour={seat} size="100%" />
               </Mover>
             );

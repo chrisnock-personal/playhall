@@ -124,6 +124,9 @@ export function armSound() {
   for (const e of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) window.addEventListener(e, go, { capture: true, passive: true });
 }
 
+/** Whether the audio is open (the person has interacted and the browser allowed it). */
+export const soundReady = () => ctx?.state === 'running';
+
 /** Quieter while voice chat is on (0.6) and more so while someone talks (0.35). */
 export function setDuck(level: number) {
   duck = Math.min(1, Math.max(0, level));

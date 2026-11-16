@@ -94,8 +94,10 @@ export type Point = [number, number];
  *  same units, start to end) each time `play` changes. `hop` lifts it at
  *  each step, for a token stepping square by square (a number: only the
  *  first that many steps, so it can glide up a ladder after its walk). */
-export function Mover({ x, y, path, play, delay = 0, duration = TIMING.path, hop, base = 'translate(-50%, -62%)', className, children }: {
+export function Mover({ x, y, path, play, live, delay = 0, duration = TIMING.path, hop, base = 'translate(-50%, -62%)', className, children }: {
   x: number; y: number; path?: Point[] | null; play?: unknown; delay?: number; duration?: number; hop?: boolean | number;
+  /** The stage's useLive(): a token that appears while live walks on too. */
+  live?: boolean;
   base?: string; className?: string; children: ReactNode;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -103,7 +105,7 @@ export function Mover({ x, y, path, play, delay = 0, duration = TIMING.path, hop
   const pathRef = useRef(path);
   pathRef.current = path;
   useLayoutEffect(() => {
-    if (first.current) { first.current = false; return; }
+    if (first.current) { first.current = false; if (!live) return; }
     const p = pathRef.current;
     if (!p || p.length < 2) return;
     animate(ref.current, pathFrames(p, base, hop), { duration: pathTime(p.length - 1, duration), delay, easing: 'linear', fill: 'backwards' });
