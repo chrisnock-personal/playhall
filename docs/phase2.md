@@ -61,8 +61,30 @@ A game type for **any** board game that isn't built in.
    a fake mic.
 2. **Voice**: table and gallery, push to talk, talking ring, mute and volume,
    the watcher-delay rule.
-3. **Video**: seat-card video, gallery video (host rule), the stage's video
+3. **Video** (built, issue #3): seat-card video, gallery video (host rule), the stage's video
    layout with Focus/Social presets (Social gives video more room).
+   - [x] Camera on/off in the voice dock (off by default, the camera chosen
+     in Settings, a red "Camera on" indicator), on the same LiveKit
+     connection as voice.
+   - [x] Players' cameras on their seat cards (your own mirrored), with the
+     talking ring; avatars while a camera is off.
+   - [x] Watchers' cameras in the gallery strip (full), only with the host's
+     **Watchers can turn their cameras on** rule (off by default).
+   - [x] Rights on the server: `mediaRights()` gives each channel `listen`,
+     `talk` and `video`; players send video only to the table, watchers only
+     to the gallery when the rule is on. Tokens and live updates use LiveKit's
+     `canPublishSources` (microphone, or microphone and camera), so the
+     camera is refused by LiveKit itself, not just hidden in the page.
+   - [x] Seeing both: while you're in one channel's voice, a second,
+     video-only connection shows the other channel's cameras when you may
+     see it (watchers see the players; players see the gallery when it isn't
+     hidden). Watcher delay: no table video for watchers during play.
+   - [x] Bandwidth: 640x360 with a 320x180 simulcast layer, adaptive stream
+     and dynacast; a camera is only received while its tile is on screen
+     (compact gallery shows avatars only).
+   - [x] Layouts: Focus shrinks the seats to small round tiles, Social widens
+     the seat tiles and gallery tiles (also a button on the players panel);
+     on a phone tiles stay small under the board.
 4. **The camera table**: the game type, board-camera device, dice, score
    pad, results with confirmation.
 5. **Transcripts**: the transcriber service, *said* lines.
