@@ -85,3 +85,7 @@ svg.die.tumble.b { animation-name: die-tumble-b; }
   .shot-fx, .shuffle, .fade-out { display: none; }
   .ludo-token-btn { filter: drop-shadow(0 0 3px #fff); }
 }
+
+/* Card tables: the deck sits beside the dealer's cards. */
+.dealer-row { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.dealer-row .deck { margin-left: 4px; }

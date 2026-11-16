@@ -34,11 +34,25 @@ export function useReducedMotion(): boolean {
   );
 }
 
-/** The value from the previous render (undefined on the first). */
+/** The value before the last change. Views are compared by content, so a
+ *  snapshot that only brings a chat line doesn't count as a change. */
 export function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<{ cur: T | undefined; prev: T | undefined }>({ cur: undefined, prev: undefined });
-  if (ref.current.cur !== value) ref.current = { prev: ref.current.cur, cur: value };
+  const key = typeof value === 'object' && value !== null ? JSON.stringify(value) : value;
+  const ref = useRef<{ key: unknown; cur: T | undefined; prev: T | undefined }>({ key: undefined, cur: undefined, prev: undefined });
+  if (ref.current.key !== key) ref.current = { key, prev: ref.current.cur, cur: value };
   return ref.current.prev;
+}
+
+/** Counts the times `value` has gone up (or appeared) since the stage
+ *  mounted: a key for "a fresh deck", "a new hand". */
+export function useRises(value: number | null | undefined): number {
+  const ref = useRef<{ v: number | null | undefined; n: number }>({ v: value, n: 0 });
+  if (value !== ref.current.v) {
+    const was = ref.current.v;
+    if (value != null && (was == null || value > was)) ref.current.n++;
+    ref.current.v = value;
+  }
+  return ref.current.n;
 }
 
 /** False while a stage first renders (the state it arrived to), true
@@ -56,16 +70,18 @@ export function animate(el: Element | null, frames: Keyframe[], opts: KeyframeAn
   try { return (el as HTMLElement).animate(frames, opts); } catch { return null; }
 }
 
-/** True for `ms` after `play` changes (never for the first render). */
+/** True for `ms` after `play` changes to a value (never for the first render). */
 export function useTransient(play: unknown, ms: number): boolean {
   const [on, setOn] = useState(false);
   const first = useRef(true);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
     if (play === undefined || play === null || reducedMotion()) return;
     setOn(true);
-    const t = setTimeout(() => setOn(false), ms);
-    return () => { clearTimeout(t); setOn(false); };
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOn(false), ms);
   }, [play, ms]);
   return on;
 }

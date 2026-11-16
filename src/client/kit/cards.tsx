@@ -3,6 +3,9 @@
 // Used by Blackjack and Texas Hold'em; Colour Clash's own deck uses the same
 // card frame.
 
+import { useTransient } from './motion';
+import { TIMING } from './cues';
+
 const SUIT: Record<string, { glyph: string; red: boolean; name: string }> = {
   S: { glyph: '♠', red: false, name: 'spades' }, H: { glyph: '♥', red: true, name: 'hearts' },
   D: { glyph: '♦', red: true, name: 'diamonds' }, C: { glyph: '♣', red: false, name: 'clubs' },
@@ -93,5 +96,18 @@ export function ClashCardArt({ colour, value, width = 62, raised, dim }: {
         <text key={turn} x="12" y="14" transform={turn ? 'rotate(180 35 50)' : undefined} textAnchor="middle" dominantBaseline="central" fontSize="12" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill="#FBF8F1">{mark || 'W'}</text>
       ))}
     </svg>
+  );
+}
+
+/** A small face-down deck that cards are dealt from (#28): cards fly in
+ *  from it (data-fly `name`), and it riffles when `shuffle` changes. */
+export function Deck({ width = 40, shuffle, name = 'deck' }: { width?: number; shuffle?: unknown; name?: string }) {
+  const on = useTransient(shuffle, TIMING.shuffle + 60);
+  return (
+    <span className="deck" data-fly={name}>
+      <Card code={null} width={width} />
+      <Card code={null} width={width} />
+      {on && <span className="shuffle" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i}><Card code={null} width={width} /></span>)}</span>}
+    </span>
   );
 }
