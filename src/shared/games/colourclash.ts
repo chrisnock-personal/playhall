@@ -4,7 +4,8 @@
 // everyone else is placed by how few cards they have left. The generic
 // matching game: "Uno" is Mattel's name for its own version.
 
-import type { GameModule, GameResult, SeatId } from '../game';
+import type { GameResult, SeatId } from '../game';
+import { randInt, withHistory, type GameHistory } from './history';
 
 export const COLOURS = ['amber', 'teal', 'violet', 'rose'] as const;
 export type Colour = (typeof COLOURS)[number];
@@ -24,6 +25,8 @@ export interface ClashState {
   drawn: number | null;
   log: { seat: SeatId; text: string }[];
   result: GameResult | null;
+  /** For replays (see history.ts); missing in games saved before it. */
+  history?: GameHistory;
 }
 
 export interface ClashView {
@@ -51,7 +54,7 @@ export function newDeck(random: () => number): ClashCard[] {
     }
   }
   for (let i = 0; i < 4; i++) cards.push({ id: id++, colour: 'wild', value: 'wild' }, { id: id++, colour: 'wild', value: 'wild4' });
-  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+  for (let i = cards.length - 1; i > 0; i--) { const j = randInt(random, i + 1); [cards[i], cards[j]] = [cards[j], cards[i]]; }
   return cards;
 }
 
@@ -69,7 +72,7 @@ function take(s: ClashState, n: number, random: () => number): [ClashCard[], Cla
   for (let i = 0; i < n; i++) {
     if (!draw.length) {
       const rest = discard.slice(0, -1);
-      for (let k = rest.length - 1; k > 0; k--) { const j = Math.floor(random() * (k + 1)); [rest[k], rest[j]] = [rest[j], rest[k]]; }
+      for (let k = rest.length - 1; k > 0; k--) { const j = randInt(random, k + 1); [rest[k], rest[j]] = [rest[j], rest[k]]; }
       draw = rest; discard = discard.slice(-1);
       if (!draw.length) break;
     }
@@ -109,7 +112,7 @@ function play(s: ClashState, seat: SeatId, card: ClashCard, colour: Colour | und
   return { ...next, turn: step(next) };
 }
 
-export const colourClash: GameModule<ClashState, Record<string, never>> = {
+export const colourClash = withHistory<ClashState, Record<string, never>>({
   id: 'colourclash',
   name: 'Colour Clash',
   description: '2-4 players. Match the top card by colour or symbol; first to empty their hand wins.',
@@ -209,4 +212,4 @@ export const colourClash: GameModule<ClashState, Record<string, never>> = {
       drawLeft: s.draw.length, log: s.log.slice(-12), result: s.result,
     };
   },
-};
+}, { keys: ['card', 'colour'] });

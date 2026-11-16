@@ -196,6 +196,28 @@ export const seaBattle: GameModule<SeaState, Record<string, never>> = {
   nextDeadline: () => null,
   result: (state) => state.result,
 
+  /** Replays: shot by shot. Turns alternate from Amber, so the order is
+   *  rebuilt from each side's shots. The fleets are shown throughout: the
+   *  game reveals them when it ends, and a replay is of a finished game. */
+  replay(state) {
+    const final = this.view(state, 0, null) as SeaView;
+    if (state.phase !== 'firing') return [final];
+    const fired: [SeatId, Shot][] = [];
+    for (let i = 0; i < Math.max(state.shots.amber.length, state.shots.teal.length); i++) {
+      if (state.shots.amber[i]) fired.push(['amber', state.shots.amber[i]]);
+      if (state.shots.teal[i]) fired.push(['teal', state.shots.teal[i]]);
+    }
+    let shots: Record<SeatId, Shot[]> = { amber: [], teal: [] };
+    const frame = (turn: SeatId): SeaView => ({ ...(this.view({ ...state, shots, turn, result: null }, 0, null) as SeaView), fleets: state.fleets });
+    const frames = [frame('amber')];
+    for (const [seat, shot] of fired) {
+      shots = { ...shots, [seat]: [...shots[seat], shot] };
+      frames.push(frame(other(seat)));
+    }
+    frames[frames.length - 1] = final;
+    return frames;
+  },
+
   view(state, _now, viewer): SeaView {
     const fleets: SeaView['fleets'] = {};
     if (state.result) { fleets.amber = state.fleets.amber; fleets.teal = state.fleets.teal; }

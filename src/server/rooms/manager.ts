@@ -13,6 +13,9 @@ import { transcriptsAllowed } from '../transcripts';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
 const SAVE_DELAY_MS = 150;
+/** How often a running game notes that the server is up, so a restart
+ *  charges nobody's clock for the downtime (at most this much is lost). */
+const ALIVE_EVERY_MS = 15_000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 interface RoomRow {
@@ -41,8 +44,24 @@ export class RoomManager {
   private loading = new Map<string, Promise<Room | null>>();
   private saveTimers = new Map<string, NodeJS.Timeout>();
   private idleTimers = new Map<string, NodeJS.Timeout>();
+  private aliveTimer: NodeJS.Timeout;
 
-  constructor(private db: Db, private onChanged: (room: Room) => void, private onKick: (room: Room, userId: string, reason: string) => void = () => {}) {}
+  constructor(private db: Db, private onChanged: (room: Room) => void, private onKick: (room: Room, userId: string, reason: string) => void = () => {}) {
+    this.aliveTimer = setInterval(() => {
+      for (const room of this.rooms.values()) if (room.markAlive()) this.scheduleSave(room.rec);
+    }, ALIVE_EVERY_MS);
+    this.aliveTimer.unref();
+  }
+
+  /** Shutting down: note every running game as alive now and save it, so the
+   *  clocks pick up from here when the server is back. */
+  async flush(): Promise<void> {
+    clearInterval(this.aliveTimer);
+    await Promise.all([...this.rooms.values()].map((room) => {
+      room.markAlive();
+      return this.saveNow(room.rec);
+    }));
+  }
 
   async get(code: string): Promise<Room | null> {
     code = code.toUpperCase();
@@ -113,13 +132,16 @@ export class RoomManager {
 
   private scheduleSave(rec: RoomRecord): void {
     if (this.saveTimers.has(rec.id)) return;
-    this.saveTimers.set(rec.id, setTimeout(() => {
-      this.saveTimers.delete(rec.id);
-      this.db.query(
-        `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, banned = $8, updated_at = now() WHERE id = $1`,
-        [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash, JSON.stringify(rec.banned ?? [])],
-      ).catch((err) => console.error('[rooms] save failed:', err.message));
-    }, SAVE_DELAY_MS));
+    this.saveTimers.set(rec.id, setTimeout(() => { void this.saveNow(rec); }, SAVE_DELAY_MS));
+  }
+
+  private async saveNow(rec: RoomRecord): Promise<void> {
+    const pending = this.saveTimers.get(rec.id);
+    if (pending) { clearTimeout(pending); this.saveTimers.delete(rec.id); }
+    await this.db.query(
+      `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, banned = $8, updated_at = now() WHERE id = $1`,
+      [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash, JSON.stringify(rec.banned ?? [])],
+    ).catch((err) => console.error('[rooms] save failed:', err.message));
   }
 
   /** Unload a room nobody has been in for a while (it reloads on demand). */
@@ -132,7 +154,9 @@ export class RoomManager {
     if (t) return;
     this.idleTimers.set(room.rec.code, setTimeout(() => {
       this.idleTimers.delete(room.rec.code);
-      if (room.presentCount > 0 || this.saveTimers.has(room.rec.id)) return this.checkIdle(room);
+      if (room.presentCount > 0) return this.checkIdle(room);
+      // Its clocks stop while it's unloaded: note when, and save it now.
+      if (room.markAlive() || this.saveTimers.has(room.rec.id)) void this.saveNow(room.rec);
       room.dispose();
       this.rooms.delete(room.rec.code);
     }, IDLE_UNLOAD_MS));

@@ -4,7 +4,8 @@
 // others are placed by when they went out. Standard rules: two private cards,
 // five shared, four betting rounds, side pots for short stacks.
 
-import type { GameModule, GameResult, SeatId } from '../game';
+import type { GameResult, SeatId } from '../game';
+import { randInt, withHistory, type GameHistory } from './history';
 import type { Card } from './blackjack';
 
 export const SEATS = ['amber', 'teal', 'violet', 'rose'];
@@ -61,7 +62,7 @@ export function bestHand(cards: Card[]): { rank: number[]; name: string } {
 export function newDeck(random: () => number): Card[] {
   const cards: Card[] = [];
   for (const suit of 'SHDC') for (const r of RANKS) cards.push(r + suit);
-  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+  for (let i = cards.length - 1; i > 0; i--) { const j = randInt(random, i + 1); [cards[i], cards[j]] = [cards[j], cards[i]]; }
   return cards;
 }
 
@@ -94,6 +95,8 @@ export interface PokerState {
   last: { winners: { seat: SeatId; amount: number; hand: string | null }[]; shown: Record<SeatId, Card[]>; board: Card[] } | null;
   log: { seat: SeatId; text: string }[];
   result: GameResult | null;
+  /** For replays (see history.ts); missing in games saved before it. */
+  history?: GameHistory;
 }
 
 export interface PokerView {
@@ -293,7 +296,7 @@ function act(s: PokerState, seat: SeatId, kind: string, to: number | undefined, 
   return advance({ ...next, pending, acted: raised ? next.acted : acted, log: logIt(next, seat, text) }, random);
 }
 
-export const poker: GameModule<PokerState, PokerConfig> = {
+export const poker = withHistory<PokerState, PokerConfig>({
   id: 'poker',
   name: 'Texas Hold’em',
   description: '2-4 players, a sit-and-go with play chips. Rising blinds; the last player with chips wins.',
@@ -337,7 +340,7 @@ export const poker: GameModule<PokerState, PokerConfig> = {
       deck: [], hole: {}, board: [], street: 'preflop', bet: {}, total: {}, folded: {}, pending: [], toAct: null,
       currentBet: 0, minRaise: 20, blinds: [10, 20], out: [], last: null, log: [], result: null,
     };
-    return startHand({ ...base, dealer: Math.floor(ctx.random() * ctx.seats.length) - 1 }, ctx.random);
+    return startHand({ ...base, dealer: randInt(ctx.random, ctx.seats.length) - 1 }, ctx.random);
   },
 
   act(s, seat, raw, _now, ctx) {
@@ -382,4 +385,4 @@ export const poker: GameModule<PokerState, PokerConfig> = {
       out: s.out.flat(), last: s.last, log: s.log.slice(-12), result: s.result,
     };
   },
-};
+}, { keys: ['to'] });

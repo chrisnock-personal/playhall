@@ -5,7 +5,8 @@
 // each player hits, stands or doubles; the dealer draws to 17 (standing on
 // soft 17). A blackjack pays 3 to 2. Six decks, shuffled on the server.
 
-import type { GameModule, GameResult, SeatId } from '../game';
+import type { GameResult, SeatId } from '../game';
+import { randInt, withHistory, type GameHistory } from './history';
 
 export const SEATS = ['amber', 'teal', 'violet', 'rose'];
 export const START_CHIPS = 1000;
@@ -32,6 +33,8 @@ export interface BlackjackState {
   /** What happened to each player in the last hand. */
   last: { dealer: Card[]; deltas: Record<SeatId, number> } | null;
   result: GameResult | null;
+  /** For replays (see history.ts); missing in games saved before it. */
+  history?: GameHistory;
 }
 
 export interface BlackjackView {
@@ -54,7 +57,7 @@ export interface BlackjackView {
 export function newShoe(random: () => number): Card[] {
   const cards: Card[] = [];
   for (let d = 0; d < DECKS; d++) for (const s of 'SHDC') for (const r of 'A23456789TJQK') cards.push(r + s);
-  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+  for (let i = cards.length - 1; i > 0; i--) { const j = randInt(random, i + 1); [cards[i], cards[j]] = [cards[j], cards[i]]; }
   return cards;
 }
 
@@ -146,7 +149,7 @@ function finish(s: BlackjackState): BlackjackState {
   return { ...s, result: { winner: placings[0].length === 1 ? placings[0][0] : null, reason: 'the most chips', placings } };
 }
 
-export const blackjack: GameModule<BlackjackState, BlackjackConfig> = {
+export const blackjack = withHistory<BlackjackState, BlackjackConfig>({
   id: 'blackjack',
   name: 'Blackjack',
   description: '1-4 players against the house, with play chips only. Most chips after the last hand wins.',
@@ -256,4 +259,4 @@ export const blackjack: GameModule<BlackjackState, BlackjackConfig> = {
       last: s.last, shoeLeft: s.shoe.length, result: s.result,
     };
   },
-};
+}, { keys: ['amount'] });

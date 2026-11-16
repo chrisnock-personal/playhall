@@ -254,6 +254,90 @@ test('a player who drops out has a minute to come back, then forfeits', () => {
   assert.deepEqual(t.over, [{ winner: 'white', reason: 'Alex leaving the game' }]);
 });
 
+test('no reconnect grace for a seat whose player never took part (the demo\u2019s live game)', () => {
+  const t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.leave(alex.id);
+  t.room.handle(host, { t: 'start' });
+  // Alex wasn't there at the start: opening the room and leaving again
+  // doesn't put the game at risk.
+  t.room.join(alex);
+  t.room.leave(alex.id);
+  assert.deepEqual(t.room.snapshotFor(host.id).game.leaving, {});
+  t.advance(61_000);
+  assert.deepEqual(t.over, []);
+  // Once they play, they're in it: leaving starts the grace.
+  t.room.join(alex);
+  t.room.handle(host, move('e2', 'e4'));
+  t.room.handle(alex, move('e7', 'e5'));
+  t.room.leave(alex.id);
+  assert.ok(t.room.snapshotFor(host.id).game.leaving.black);
+});
+
+test('a game loaded with players who never connected (no record of who joined) isn\u2019t forfeited', () => {
+  const t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  delete t.rec.game.joined; // as the demo seeds it, or an older save
+  t.room.leave(host.id);
+  t.room.leave(alex.id);
+  t.advance(120_000);
+  assert.deepEqual(t.over, []);
+  assert.equal(t.rec.game.status, 'playing');
+});
+
+test('a restart doesn\u2019t charge the downtime to the player whose clock was running', () => {
+  const t = setup({ moveSeconds: 0 });
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  t.room.handle(host, move('e2', 'e4'));
+  t.room.handle(alex, move('e7', 'e5'));
+  t.advance(10_000); // White thinks for 10 s...
+  t.room.markAlive(); // (the manager's heartbeat)
+  const saved = JSON.parse(JSON.stringify(t.rec)) as RoomRecord;
+  t.room.dispose();
+  // ...then the server is down for five minutes.
+  const later = 1_000_000 + 10_000 + 5 * 60_000;
+  const timers: (() => void)[] = [];
+  const hooks: RoomHooks = {
+    now: () => later, random: Math.random, setTimer: (_ms, fn) => { timers.push(fn); return () => {}; },
+    save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {}, kick: () => {},
+  };
+  const back = new Room(saved, hooks);
+  const view = back.snapshotFor(host.id).game.view as { clocks: { white: number; black: number } };
+  assert.equal(view.clocks.white, 50_000, 'White still has the 50 s left at the restart');
+  assert.equal(view.clocks.black, 60_000);
+  assert.equal(saved.game.status, 'playing');
+});
+
+test('a restart moves the move timer on by the downtime', () => {
+  let now = 5_000_000;
+  const hooks: RoomHooks = {
+    now: () => now, random: Math.random, setTimer: () => () => {},
+    save: () => {}, chat: () => {}, gameOver: () => {}, changed: () => {}, kick: () => {},
+  };
+  const rec: RoomRecord = {
+    id: 'r2', code: 'DEF456', name: 'Test', gameId: 'fourinarow', hostId: host.id, hostName: host.name,
+    settings: { ...DEFAULT_SETTINGS, moveSeconds: 30, gameConfig: {} },
+    seats: {}, game: { status: 'idle', state: null, startedAt: null, players: null }, passwordHash: null, banned: [],
+  };
+  const room = new Room(rec, hooks);
+  room.join(host); room.join(alex);
+  room.handle(host, { t: 'sit', seat: room.game.seats[0].id });
+  room.handle(alex, { t: 'sit', seat: room.game.seats[1].id });
+  room.handle(host, { t: 'start' });
+  const deadline = rec.game.moveDeadline!;
+  now += 10_000;
+  room.markAlive();
+  const saved = JSON.parse(JSON.stringify(rec)) as RoomRecord;
+  now += 3_600_000;
+  new Room(saved, hooks);
+  assert.equal(saved.game.moveDeadline, deadline + 3_600_000);
+});
+
 test('the host can remove someone; they can\u2019t come back', () => {
   const t = setup();
   t.room.handle(host, { t: 'sit', seat: 'white' });
@@ -289,6 +373,58 @@ test('watchers on a delay don’t hear the table live', () => {
   room.handle(host, { t: 'start' });
   assert.deepEqual(room.mediaRights(priya.id)?.table, { listen: false, talk: false, video: false });
   assert.equal(room.mediaRights(priya.id)?.gallery.listen, true);
+});
+
+test('rematch: when every player agrees, the next game starts with the same seats', () => {
+  const { room } = setup();
+  room.handle(alex, { t: 'sit', seat: 'white' });
+  room.handle(priya, { t: 'sit', seat: 'black' });
+  assert.throws(() => room.handle(alex, { t: 'rematch', want: true }), /after a game/);
+  room.handle(host, { t: 'start' });
+  room.handle(priya, { t: 'act', action: { type: 'resign' } });
+  assert.deepEqual(room.snapshotFor(alex.id).rematch, { allowed: true, agreed: [] });
+  assert.throws(() => room.handle(guest, { t: 'rematch', want: true }), /Only players/);
+  room.handle(alex, { t: 'rematch', want: true });
+  assert.deepEqual(room.snapshotFor(host.id).rematch?.agreed, ['a'], 'shows who agreed');
+  room.handle(alex, { t: 'rematch', want: false });
+  assert.deepEqual(room.snapshotFor(host.id).rematch?.agreed, [], 'taken back');
+  room.handle(alex, { t: 'rematch', want: true });
+  room.handle(priya, { t: 'rematch', want: true });
+  const snap = room.snapshotFor(host.id);
+  assert.equal(snap.game.status, 'playing');
+  assert.equal(snap.rematch, null);
+  assert.equal(room.seatOf('a'), 'white');
+  assert.equal(room.seatOf('p'), 'black');
+});
+
+test('rematch: follows the after-game rule, and the host can still start', () => {
+  const { room } = setup({ afterGame: 'winnerStays' });
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.handle(priya, { t: 'hand', up: true });
+  room.handle(host, { t: 'start' });
+  room.handle(alex, { t: 'act', action: { type: 'resign' } });
+  // Priya took Alex's seat: Alex can't ask, and the two now seated must agree.
+  assert.throws(() => room.handle(alex, { t: 'rematch', want: true }), /Only players/);
+  room.handle(host, { t: 'rematch', want: true });
+  assert.equal(room.snapshotFor(host.id).game.status, 'over', 'Priya hasn’t agreed yet');
+  room.handle(priya, { t: 'rematch', want: true });
+  assert.equal(room.snapshotFor(host.id).game.status, 'playing');
+  assert.equal(room.seatOf('p'), 'black');
+  room.handle(priya, { t: 'act', action: { type: 'resign' } });
+  room.handle(priya, { t: 'rematch', want: true });
+  room.handle(host, { t: 'start' });
+  assert.equal(room.snapshotFor(host.id).game.status, 'playing', 'the host starts without waiting');
+});
+
+test('rematch: not for players in rooms where the host seats people', () => {
+  const { room } = setup({ seatPolicy: 'host' });
+  room.handle(host, { t: 'seat', userId: 'a', seat: 'white' });
+  room.handle(host, { t: 'seat', userId: 'p', seat: 'black' });
+  room.handle(host, { t: 'start' });
+  room.handle(priya, { t: 'act', action: { type: 'resign' } });
+  assert.equal(room.snapshotFor(alex.id).rematch?.allowed, false);
+  assert.throws(() => room.handle(alex, { t: 'rematch', want: true }), /host starts/);
 });
 
 test('cameras: players at the table, watchers in the gallery only when the host allows it', () => {

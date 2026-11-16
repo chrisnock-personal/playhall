@@ -23,7 +23,8 @@ web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
 - **Rooms and roles.** Create a room, play in it yourself or just host. Free
   seats are open to anyone, or only to people the host seats; watchers ask for
   a seat and wait in a queue. After each game: same players, winner stays, or
-  both rotate out.
+  both rotate out; the players can start a rematch when they all agree (in
+  rooms where anyone can sit).
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
@@ -113,6 +114,7 @@ npm run dev:client       # Vite on :5173, proxying /api and /ws
 node scripts/smoke.mjs http://localhost:8450   # end-to-end check against a running server
 # (start the server with ADMIN_USERNAMES=smoke_admin and it tests the platform settings too)
 node tests/browser.mjs http://localhost:8450   # the same in a real browser (Playwright)
+node tests/browser.mjs http://localhost:8450 firefox   # or webkit (npx playwright install firefox webkit)
 NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/voice.mjs https://localhost:8450   # voice, fake mics (needs LiveKit)
 NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/video.mjs https://localhost:8450   # video, fake cameras (needs LiveKit)
 NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/transcripts.mjs https://localhost:8450   # speech to said lines (needs LiveKit and WHISPER_URL)

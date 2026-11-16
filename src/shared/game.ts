@@ -76,10 +76,17 @@ export interface GameModule<S = unknown, C = unknown> {
   tick(state: S, now: number): S | null;
   /** When tick() next needs calling, as a timestamp; null = no deadline. */
   nextDeadline(state: S): number | null;
+  /** The game was on hold for `ms` (the server was down, or the room was
+   *  unloaded): move any running clock on so that time isn't charged to
+   *  anyone. Games without clocks leave it out. */
+  pause?(state: S, ms: number): S;
   result(state: S): GameResult | null;
   /** For replays: what a watcher saw after each move, from the start to the
    *  end. Games that keep their whole move history provide it. */
   replay?(state: S): unknown[];
+  /** Replays are built from `state.history` (see games/history.ts): a game
+   *  saved before the game kept one can't be replayed. */
+  keepsHistory?: boolean;
   /** What one person sees: `viewer` is their seat, or null for a watcher.
    *  Hands, fleets and hole cards appear only in their owner's view. */
   view(state: S, now: number, viewer: SeatId | null): unknown;

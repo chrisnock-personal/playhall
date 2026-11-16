@@ -1,15 +1,21 @@
 // Browser test against a running server:
-//   node tests/browser.mjs http://localhost:8450
-// (CHROMIUM=/path/to/chrome to use a browser other than Playwright's own.)
+//   node tests/browser.mjs http://localhost:8450 [chromium|firefox|webkit]
+// The engine can also come from BROWSER=firefox (default chromium; WebKit is
+// Safari's engine). CHROMIUM=/path/to/chrome uses a browser other than
+// Playwright's own Chromium. The device-settings check needs fake devices,
+// which only Chromium and Firefox can give; WebKit skips it.
 //
 // A host (account) and a guest (from the invite link) play a few moves on
 // the real board, chat at the table, a watcher opens the room on a phone,
 // the layout presets and room rules work, and the leaderboard and stats
 // pages render. Fails on any page error.
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import assert from 'node:assert/strict';
 
 const base = (process.argv[2] ?? 'http://localhost:8450').replace(/\/$/, '');
+const engine = (process.argv[3] ?? process.env.BROWSER ?? 'chromium').toLowerCase();
+const ENGINES = { chromium, firefox, webkit };
+if (!ENGINES[engine]) throw new Error(`Unknown browser ${engine}: use chromium, firefox or webkit`);
 const out = process.env.SHOTS_DIR;
 
 async function api(path, body, token) {
@@ -27,11 +33,25 @@ const id = Math.random().toString(36).slice(2, 7);
 const host = await api('/auth/register', { username: `br_${id}`, password: 'browser-test-pw', displayName: 'Sam' });
 const { room } = await api('/rooms', { name: 'Browser test', gameId: 'chess', hostSeat: 'white', listed: false, gameConfig: { initialSeconds: 300, incrementSeconds: 3 } }, host.token);
 
-// Fake microphone and camera (a beep and a test pattern), allowed without asking.
-const browser = await chromium.launch({
-  ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}),
-  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
-});
+// Fake microphone and camera (a beep and a test pattern), allowed without
+// asking: Chromium by flags, Firefox by preferences. WebKit has no fake
+// devices, so its run leaves media alone.
+const LAUNCH = {
+  chromium: {
+    ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}),
+    args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+  },
+  firefox: {
+    firefoxUserPrefs: {
+      'media.navigator.streams.fake': true,
+      'media.navigator.permission.disabled': true,
+    },
+  },
+  webkit: {},
+};
+const fakeDevices = engine !== 'webkit';
+const browser = await ENGINES[engine].launch(LAUNCH[engine]);
+console.log(`browser: ${engine} ${browser.version()}`);
 const errors = [];
 async function open(session, viewport = { width: 1280, height: 900 }) {
   const ctx = await browser.newContext({ viewport, ignoreHTTPSErrors: true });
@@ -41,7 +61,7 @@ async function open(session, viewport = { width: 1280, height: 900 }) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   return page;
 }
-const shot = (page, name) => (out ? page.screenshot({ path: `${out}/${name}.png` }) : null);
+const shot = (page, name) => (out ? page.screenshot({ path: `${out}/${name}-${engine}.png` }) : null);
 
 // Click-to-move on chessground: squares from the board's bounding box.
 async function move(page, from, to, flipped) {
@@ -136,7 +156,9 @@ try {
   assert.deepEqual(errors, [], 'no errors in the browser');
   // Settings: choose a microphone and camera, see the level move and the
   // camera preview, and the choice is remembered.
-  if (base.startsWith('https:') || /localhost|127\.0\.0\.1/.test(base)) {
+  const secure = base.startsWith('https:') || /localhost|127\.0\.0\.1/.test(base);
+  if (!fakeDevices) console.log(`skipped: device settings (${engine} can't fake a microphone and camera)`);
+  if (secure && fakeDevices) {
     const sp = await open({ token: host.token, user: host.user });
     await sp.goto(`${base}/#/settings`);
     // With the fake-UI flag permission is already granted, so the list fills
@@ -146,21 +168,31 @@ try {
     await listed().catch(async () => { await sp.getByRole('button', { name: 'Allow microphone and camera' }).click(); await listed(); });
     await sp.waitForFunction(() => document.querySelectorAll('#dev-audioinput option').length > 1);
     const mics = await sp.locator('#dev-audioinput option').allInnerTexts();
-    assert.ok(mics.some((m) => /fake/i.test(m)), `fake microphones listed: ${mics}`);
+    // Chromium names its fake devices "Fake ..."; Firefox's have other names.
+    if (engine === 'chromium') assert.ok(mics.some((m) => /fake/i.test(m)), `fake microphones listed: ${mics}`);
     await sp.waitForFunction(() => Number(document.querySelector('.mic-meter')?.getAttribute('aria-valuenow')) > 0, null, { timeout: 8000 });
-    const secondOpt = sp.locator('#dev-audioinput option').nth(2);
-    const [second, secondName] = [await secondOpt.getAttribute('value'), await secondOpt.innerText()];
-    await sp.selectOption('#dev-audioinput', second);
+    // Chromium fakes several microphones; Firefox may fake only one, and
+    // then there's no other to choose and remember.
+    const several = (await sp.locator('#dev-audioinput option').count()) > 2;
+    let secondName = null;
+    if (several) {
+      const secondOpt = sp.locator('#dev-audioinput option').nth(2);
+      const second = await secondOpt.getAttribute('value');
+      secondName = await secondOpt.innerText();
+      await sp.selectOption('#dev-audioinput', second);
+    }
     await sp.getByRole('button', { name: 'Preview' }).click();
     await sp.waitForFunction(() => (document.querySelector('.cam-preview')?.videoWidth ?? 0) > 0);
     await shot(sp, 'settings-devices');
-    await sp.reload();
-    await sp.waitForFunction(() => document.querySelectorAll('#dev-audioinput option').length > 1);
-    // The browser may give the device a new id after a reload: it's found again by name.
-    assert.equal(await sp.locator('#dev-audioinput option:checked').innerText(), secondName, 'the chosen microphone is remembered');
+    if (several) {
+      await sp.reload();
+      await sp.waitForFunction(() => document.querySelectorAll('#dev-audioinput option').length > 1);
+      // The browser may give the device a new id after a reload: it's found again by name.
+      assert.equal(await sp.locator('#dev-audioinput option:checked').innerText(), secondName, 'the chosen microphone is remembered');
+    } else console.log(`skipped: remembering a second microphone (${engine} fakes only one)`);
   }
 
-  console.log('PASS: a game on the real board, chat, layouts, room rules, a phone watcher, the result card, a private room, leaderboards and stats, and device settings');
+  console.log(`PASS (${engine}): a game on the real board, chat, layouts, room rules, a phone watcher, the result card, a private room, leaderboards and stats${fakeDevices ? ', and device settings' : ''}`);
 } finally {
   await browser.close();
 }

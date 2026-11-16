@@ -5,7 +5,8 @@
 // track, then up their own home column; reaching home needs an exact roll.
 // The first with all four home wins; the others are placed by progress.
 
-import type { GameModule, GameResult, SeatId } from '../game';
+import type { GameResult, SeatId } from '../game';
+import { randInt, withHistory, type GameHistory } from './history';
 
 export const SEATS = ['amber', 'teal', 'violet', 'rose'];
 /** Where each colour joins the track. */
@@ -25,6 +26,8 @@ export interface LudoState {
   sixes: number;
   log: { seat: SeatId; roll: number; token: number | null; captured: SeatId[]; note?: string }[];
   result: GameResult | null;
+  /** For replays (see history.ts); missing in games saved before it. */
+  history?: GameHistory;
 }
 
 export interface LudoView {
@@ -95,9 +98,9 @@ function doMove(state: LudoState, seat: SeatId, token: number): LudoState {
   return next({ ...state, tokens, log }, roll === 6);
 }
 
-const d6 = (random: () => number) => 1 + Math.floor(random() * 6);
+const d6 = (random: () => number) => 1 + randInt(random, 6);
 
-export const ludo: GameModule<LudoState, Record<string, never>> = {
+export const ludo = withHistory<LudoState, Record<string, never>>({
   id: 'ludo',
   name: 'Ludo',
   description: '2-4 players, four tokens each. Roll a 6 to come out, send rivals back to their yard, get all four home.',
@@ -176,4 +179,4 @@ export const ludo: GameModule<LudoState, Record<string, never>> = {
       last: state.log[state.log.length - 1] ?? null, log: state.log.slice(-12), result: state.result,
     };
   },
-};
+}, { keys: ['token'] });

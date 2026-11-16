@@ -44,7 +44,11 @@ need five things, all added once for every game:
 3. **Luck on the server**: the room engine passes a random source into
    `create` and `act`; shuffles and dice happen on the server, never in the
    browser. A seeded source makes the rules testable and a finished game
-   replayable.
+   replayable: games with dice or shuffles draw every number through
+   `randInt` and wrap their module in `withHistory` (`games/history.ts`),
+   which keeps the accepted actions and the numbers that came up in
+   `state.history` and replays them to rebuild what a watcher saw. Sea
+   Battle's replay is rebuilt from the shots alone.
 4. **Actions out of turn**: Sea Battle's placement is simultaneous and a
    poker hand has folds and timeouts. `act` already takes any seat; games
    decide who may act when.

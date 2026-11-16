@@ -117,6 +117,9 @@ export interface RoomSnapshot {
   };
   /** Points and standings from the game that just ended, until the next starts. */
   lastResult: LastResult | null;
+  /** After a game: whether players can start a rematch by all agreeing
+   *  (not in rooms where the host seats people), and who has (userIds). */
+  rematch: { allowed: boolean; agreed: string[] } | null;
   chat: ChatLine[];
   you: {
     userId: string;
@@ -138,6 +141,8 @@ export type ClientMessage =
   | { t: 'hand'; up: boolean }
   | { t: 'chat'; channel: Channel; text: string }
   | { t: 'act'; action: unknown }
+  /** After a game, a seated player asks for (or takes back) a rematch. */
+  | { t: 'rematch'; want: boolean }
   // Host only:
   | { t: 'start' }
   | { t: 'seat'; userId: string; seat: SeatId }

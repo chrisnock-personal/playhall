@@ -101,7 +101,8 @@ async function main(): Promise<void> {
   const stop = () => {
     console.log('[playhall] shutting down');
     if (front !== server) front.close();
-    server.close(() => db.end().then(() => process.exit(0)));
+    // Save running games first, so their clocks resume from now on restart.
+    rooms.flush().catch(() => {}).finally(() => server.close(() => db.end().then(() => process.exit(0))));
     setTimeout(() => process.exit(0), 5000).unref();
   };
   process.on('SIGTERM', stop);

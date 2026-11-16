@@ -45,6 +45,15 @@ export interface RoomRecord {
     moveDeadline?: number | null;
     /** A result the room decided (the move timer), not the game. */
     result?: GameResult | null;
+    /** Seats whose player has taken part: was in the room when the game
+     *  started, or has acted since. Only they get the reconnect grace (and
+     *  forfeit when it runs out); a seat filled for someone who never came
+     *  (the demo's games) doesn't. Missing in older saves = none yet. */
+    joined?: SeatId[];
+    /** When the server last had this game loaded and running (kept fresh by
+     *  the room manager), so time it spent down or unloaded isn't charged
+     *  to anyone's clock or move timer when it's loaded again. */
+    aliveAt?: number;
   };
 }
 
@@ -101,6 +110,8 @@ export class Room {
   /** Seats whose player dropped out mid-game: when they forfeit, and the timer. */
   private leaving = new Map<SeatId, { deadline: number; cancel: () => void }>();
   private endedAt: number | null = null;
+  /** After a game: the seated players who asked for a rematch (userIds). */
+  private rematch = new Set<string>();
 
   constructor(readonly rec: RoomRecord, private hooks: RoomHooks, history: ChatLine[] = []) {
     const game = GAMES[rec.gameId];
@@ -109,7 +120,30 @@ export class Room {
     for (const s of game.seats) if (!(s.id in rec.seats)) rec.seats[s.id] = null;
     this.chatLines = history.slice(-CHAT_KEEP);
     this.nextChatId = (this.chatLines.at(-1)?.id ?? 0) + 1;
+    this.resume();
     this.armTimer();
+  }
+
+  /** A game loaded mid-play: the time since it was last alive was spent with
+   *  the server down or the room unloaded, so hold the clocks for it. */
+  private resume(): void {
+    const g = this.rec.game;
+    if (g.status !== 'playing' || typeof g.aliveAt !== 'number') return;
+    const now = this.hooks.now();
+    const away = now - g.aliveAt;
+    g.aliveAt = now;
+    if (away <= 0) return;
+    if (this.game.pause && g.state) g.state = this.game.pause(g.state, away);
+    if (g.moveDeadline) g.moveDeadline += away;
+  }
+
+  /** Note that the game is running now (the manager calls this every few
+   *  seconds and before unloading or shutting down). False when there's no
+   *  game on, so nothing needs saving. */
+  markAlive(): boolean {
+    if (this.status !== 'playing') return false;
+    this.rec.game.aliveAt = this.hooks.now();
+    return true;
   }
 
   // ---- presence -------------------------------------------------------
@@ -134,7 +168,8 @@ export class Room {
     this.present.delete(userId);
     this.queue = this.queue.filter((id) => id !== userId);
     const seat = this.seatOf(userId);
-    if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)) {
+    if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)
+      && this.rec.game.joined?.includes(seat)) {
       const deadline = this.hooks.now() + GRACE_MS;
       const cancel = this.hooks.setTimer(GRACE_MS, () => { this.leaving.delete(seat); this.forfeit(seat); });
       this.leaving.set(seat, { deadline, cancel });
@@ -248,6 +283,7 @@ export class Room {
       case 'hand': return this.hand(user, !!msg.up);
       case 'chat': return this.chat(user, msg.channel, msg.text);
       case 'act': return this.act(user, msg.action);
+      case 'rematch': return this.askRematch(user, msg.want !== false);
       case 'start': this.hostOnly(user); return this.start();
       case 'seat': this.hostOnly(user); return this.seatSomeone(msg.userId, msg.seat);
       case 'unseat': this.hostOnly(user); return this.unseat(msg.userId);
@@ -278,6 +314,7 @@ export class Room {
     const old = this.seatOf(holder.userId);
     if (old) this.rec.seats[old] = null;
     this.rec.seats[seat] = holder;
+    this.rematch.delete(holder.userId);
     this.queue = this.queue.filter((id) => id !== holder.userId);
   }
 
@@ -299,6 +336,7 @@ export class Room {
     if (!seat) return;
     if (this.status === 'playing') throw new RoomError('Resign or finish the game first');
     this.rec.seats[seat] = null;
+    this.rematch.delete(user.id);
     this.system(`${user.name} left the ${this.seatLabel(seat)} seat`);
     this.touch();
   }
@@ -361,6 +399,7 @@ export class Room {
     const r = this.game.act(this.rec.game.state, seat, action, now, this.context());
     if ('error' in r) throw new RoomError(r.error);
     this.rec.game.state = r.state;
+    if (!this.rec.game.joined?.includes(seat)) this.rec.game.joined = [...(this.rec.game.joined ?? []), seat];
     this.afterChange();
   }
 
@@ -421,6 +460,44 @@ export class Room {
     return { seats, random: () => this.hooks.random(), isWord: this.hooks.isWord };
   }
 
+  /** Players can start the next game themselves when they all agree,
+   *  except in rooms where the host seats people (the host decides there). */
+  get playersCanRematch(): boolean {
+    return this.rec.settings.seatPolicy !== 'host';
+  }
+
+  /** Who has to agree to a rematch: everyone seated for the next game (the
+   *  room's after-game rule has already moved people when the game ended). */
+  private rematchNeeded(): string[] {
+    return this.game.seats.map((s) => this.rec.seats[s.id]?.userId).filter((id): id is string => !!id);
+  }
+
+  /** The seated players who agreed to a rematch, in seat order. */
+  rematchAgreed(): string[] {
+    return this.rematchNeeded().filter((id) => this.rematch.has(id));
+  }
+
+  private askRematch(user: RoomUser, want: boolean): void {
+    if (this.status !== 'over') throw new RoomError('A rematch is for after a game');
+    if (!this.seatOf(user.id)) throw new RoomError('Only players can ask for a rematch');
+    if (!this.playersCanRematch) throw new RoomError('The host starts the next game in this room');
+    if (!want) {
+      if (this.rematch.delete(user.id)) this.system(`${user.name} took back the rematch request`);
+      this.hooks.changed();
+      return;
+    }
+    if (this.rematch.has(user.id)) return;
+    this.rematch.add(user.id);
+    const needed = this.rematchNeeded();
+    if (needed.length >= this.minPlayers && needed.every((id) => this.rematch.has(id))) {
+      this.system('Everyone agreed to a rematch');
+      this.start();
+      return;
+    }
+    this.system(`${user.name} wants a rematch`);
+    this.hooks.changed();
+  }
+
   /** Fewest players to start this game. */
   get minPlayers(): number {
     return this.game.minPlayers ?? this.game.seats.length;
@@ -439,8 +516,10 @@ export class Room {
     const players: Record<SeatId, SeatHolder> = {};
     for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
     const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random(), isWord: this.hooks.isWord };
-    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null };
+    const joined = seated.map((s) => s.id).filter((id) => this.present.has(players[id].userId));
+    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, aliveAt: now };
     this.lastResult = null;
+    this.rematch.clear();
     this.history = [{ at: now, state: this.rec.game.state }];
     this.endedAt = null;
     this.resetMoveDeadline();
@@ -611,6 +690,7 @@ export class Room {
   }
 
   private touch(): void {
+    this.markAlive();
     this.hooks.save(this.rec);
     this.hooks.changed();
   }
@@ -705,6 +785,7 @@ export class Room {
       members: this.members(),
       queue: [...this.queue],
       lastResult: this.lastResult,
+      rematch: this.status === 'over' ? { allowed: this.playersCanRematch, agreed: this.rematchAgreed() } : null,
       game: this.gameFor(userId, now),
       // Delayed watchers get the table (the players' talk) late too; the gallery stays live.
       chat: this.chatLines.filter((l) => canRead.includes(l.channel)

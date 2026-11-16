@@ -173,6 +173,32 @@ export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {
   );
 }
 
+/** After a game: a seated player's rematch button, and who has agreed.
+ *  The next game starts when every seated player has (or the host starts it). */
+export function Rematch({ snap, send }: { snap: RoomSnapshot; send(m: ClientMessage): void }) {
+  const r = snap.rematch;
+  if (!r || !r.allowed || snap.game.status !== 'over') return null;
+  const seated = snap.seats.filter((s) => s.userId);
+  if (seated.length < snap.room.minPlayers) return null;
+  const mine = !!snap.you.seat && r.agreed.includes(snap.you.userId);
+  const agreed = seated.filter((s) => r.agreed.includes(s.userId!)).map((s) => s.name);
+  return (
+    <>
+      {snap.you.seat && (
+        <button className={`btn small${mine ? '' : ' primary'}`} aria-pressed={mine}
+          onClick={() => send({ t: 'rematch', want: !mine })}>
+          {mine ? 'Take back rematch' : 'Rematch'}
+        </button>
+      )}
+      {agreed.length > 0 && (
+        <span className="note" aria-live="polite">
+          Rematch: {agreed.join(', ')} {agreed.length === 1 ? 'wants' : 'want'} one ({agreed.length} of {seated.length})
+        </span>
+      )}
+    </>
+  );
+}
+
 /** Under the stage: the result, resigning (with a second click to confirm),
  *  and the host's start button. Each game adds its own buttons as children. */
 export function GameActions({ snap, send, minPlayers, resign = true, children }: {
@@ -204,7 +230,8 @@ export function GameActions({ snap, send, minPlayers, resign = true, children }:
           {snap.game.status === 'over' ? 'Start the next game' : 'Start the game'}
         </button>
       )}
-      {!playing && !snap.you.host && ready && <span className="note">Waiting for the host to start</span>}
+      {!playing && <Rematch snap={snap} send={send} />}
+      {!playing && !snap.you.host && ready && !(snap.rematch?.allowed && snap.you.seat) && <span className="note">{snap.rematch?.allowed ? 'Waiting for a rematch or the host' : 'Waiting for the host to start'}</span>}
       {!playing && !ready && <span className="note">Waiting for players ({seated} of {need})</span>}
     </div>
   );
