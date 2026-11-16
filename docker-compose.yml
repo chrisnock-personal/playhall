@@ -20,6 +20,12 @@ services:
       DATABASE_URL: postgres://playhall:${POSTGRES_PASSWORD}@postgres:5432/playhall
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      # HTTPS with a self-signed certificate made on first start (kept in the
+      # playhall-certs volume). TLS_HOSTS: extra names/addresses it should cover.
+      TLS: ${TLS:-on}
+      TLS_HOSTS: ${TLS_HOSTS:-}
+    volumes:
+      - playhall-certs:/app/certs
     ports:
       - "${PLAYHALL_PORT:-8450}:8450"
     depends_on:
@@ -28,3 +34,4 @@ services:
 
 volumes:
   playhall-db:
+  playhall-certs:

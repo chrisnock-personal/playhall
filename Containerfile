@@ -14,6 +14,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY data ./data
+# The certificate lives here (a volume), made on first start.
+RUN mkdir -p /app/certs && chown node:node /app/certs
 USER node
 EXPOSE 8450
 CMD ["node", "dist/server/index.js"]

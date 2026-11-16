@@ -24,6 +24,8 @@ jobs:
     env:
       DATABASE_URL: postgres://playhall:ci-only@localhost:5432/playhall
       JWT_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
+      # Plain HTTP here; the container job below checks the default HTTPS.
+      TLS: 'off'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -80,11 +82,21 @@ jobs:
           printf 'POSTGRES_PASSWORD=ci-only-compose\nJWT_SECRET=ci-only-not-a-secret-0123456789abcdef0123456789\n' > .env
           docker compose build -q
           docker compose up -d
-          for _ in $(seq 1 60); do curl -sf http://localhost:8450/api/health && break; sleep 2; done
+          for _ in $(seq 1 60); do curl -skf https://localhost:8450/api/health && break; sleep 2; done
       - name: Demo data inside the container
         run: docker compose exec -T app node dist/server/demo.js
-      - name: End-to-end against the container
-        run: node scripts/smoke.mjs http://localhost:8450
+      - name: End-to-end against the container (HTTPS, self-signed)
+        run: node scripts/smoke.mjs https://localhost:8450
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+      - name: The certificate survives recreating the container
+        run: |
+          before=$(docker compose exec -T app cat /app/certs/server.crt | sha256sum)
+          docker compose up -d --force-recreate app
+          for _ in $(seq 1 60); do curl -skf https://localhost:8450/api/health && break; sleep 2; done
+          after=$(docker compose exec -T app cat /app/certs/server.crt | sha256sum)
+          test "$before" = "$after"
+          curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:8450/ | grep -q 200
       - name: Logs, if it failed
         if: failure()
         run: docker compose logs --tail 50

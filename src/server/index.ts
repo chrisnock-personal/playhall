@@ -1,4 +1,8 @@
+import fs from 'node:fs';
 import http from 'node:http';
+import https from 'node:https';
+import net from 'node:net';
+import { certFiles, describeCert, ensureCert, replaceCert } from './tls';
 import { loadConfig } from './config';
 import { createPool, migrate } from './db';
 import { Auth } from './auth';
@@ -27,12 +31,46 @@ async function main(): Promise<void> {
   rooms = new RoomManager(db, (room) => sockets.changed(room), (room, userId, reason) => sockets.kick(room, userId, reason));
 
   const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir });
-  const server = http.createServer(app);
+  let server: http.Server;
+  if (config.tls) {
+    const pair = await ensureCert(config.tlsDir, config.tlsHosts);
+    const info = describeCert(pair.cert);
+    console.log(`[playhall] ${pair.generated ? 'made a self-signed certificate' : 'certificate'}: ${info.subject.replace(/\n/g, ', ')}, ${info.selfSigned ? 'self-signed' : `issued by ${info.issuer.replace(/\n/g, ', ')}`}, until ${info.validTo}, SHA-256 ${info.fingerprint256}`);
+    if (info.expired) console.warn('[playhall] the certificate has EXPIRED: browsers will refuse it');
+    const secure = https.createServer({ cert: pair.cert, key: pair.key }, app);
+    // SIGHUP: reload the certificate files in TLS_DIR (e.g. after copying in a real one).
+    process.on('SIGHUP', () => {
+      try {
+        const f = certFiles(config.tlsDir);
+        const next = replaceCert(secure, config.tlsDir, fs.readFileSync(f.cert, 'utf8'), fs.readFileSync(f.key, 'utf8'));
+        console.log(`[playhall] certificate reloaded: ${next.subject.replace(/\n/g, ', ')}, until ${next.validTo}`);
+      } catch (err) { console.error(`[playhall] certificate NOT reloaded, still serving the old one: ${(err as Error).message}`); }
+    });
+    server = secure;
+  } else {
+    server = http.createServer(app);
+  }
   sockets.attach(server);
-  server.listen(config.port, () => console.log(`[playhall] listening on :${config.port}`));
+  // With HTTPS, one port answers both: a TLS handshake goes to the HTTPS
+  // server, anything else (an old http:// link) gets a redirect to https://.
+  const front: net.Server = config.tls ? net.createServer((socket) => {
+    socket.once('data', (first) => {
+      socket.pause();
+      socket.unshift(first);
+      (first[0] === 0x16 ? server : redirect).emit('connection', socket);
+      process.nextTick(() => socket.resume());
+    });
+    socket.on('error', () => socket.destroy());
+  }) : server;
+  const redirect = http.createServer((req, res) => {
+    const host = (req.headers.host ?? `localhost:${config.port}`).replace(/[^\w.:\-\[\]]/g, '');
+    res.writeHead(308, { location: `https://${host}${req.url ?? '/'}` }).end();
+  });
+  front.listen(config.port, () => console.log(`[playhall] listening on ${config.tls ? 'https' : 'http'}://:${config.port}${config.tls ? ' (http:// redirects)' : ''}`));
 
   const stop = () => {
     console.log('[playhall] shutting down');
+    if (front !== server) front.close();
     server.close(() => db.end().then(() => process.exit(0)));
     setTimeout(() => process.exit(0), 5000).unref();
   };

@@ -8,6 +8,11 @@ function required(name: string): string {
 
 export interface Config {
   port: number;
+  /** Serve HTTPS (the default; TLS=off for plain HTTP behind your own proxy or in development). */
+  tls: boolean;
+  tlsDir: string;
+  /** Extra names and addresses for the self-signed certificate. */
+  tlsHosts: string[];
   databaseUrl: string;
   jwtSecret: string;
   allowSignup: boolean;
@@ -23,6 +28,9 @@ export function loadConfig(): Config {
   }
   return {
     port: Number(process.env.PORT ?? 8450),
+    tls: (process.env.TLS ?? 'on') !== 'off',
+    tlsDir: path.resolve(process.env.TLS_DIR ?? 'certs'),
+    tlsHosts: (process.env.TLS_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean),
     databaseUrl: required('DATABASE_URL'),
     jwtSecret,
     allowSignup: (process.env.ALLOW_SIGNUP ?? 'true') !== 'false',

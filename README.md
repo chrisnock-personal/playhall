@@ -53,16 +53,26 @@ podman build -t localhost/playhall:latest .
 podman-compose up -d --force-recreate
 ```
 
-Then open http://localhost:8450. To try it with data (eight players, five
-rooms and two months of games; prints the demo players' password):
+Then open https://localhost:8450 (an old `http://` link redirects there).
+Playhall serves HTTPS by default, because browsers only allow microphones and
+cameras over HTTPS: on first start it makes a self-signed certificate, kept in
+the `playhall-certs` volume so redeploys don't change it. Each device accepts it
+once (the browser's warning, then "proceed"). To use a real certificate, put
+`server.crt` (the certificate and any intermediates, PEM) and `server.key` in
+that volume and send the app `SIGHUP` (`podman-compose kill -s HUP app`): it
+checks the pair and swaps it in with no restart. An admin page for this comes
+with phase 2.
+
+To try it with data (eight players, six rooms and two months of games; prints
+the demo players' password):
 
 ```bash
 podman-compose exec app node dist/server/demo.js            # load
 podman-compose exec app node dist/server/demo.js --remove   # remove
 ```
- (Build with `podman build` before
-`podman-compose up`: `up --build` on its own has left the old container
-running.)
+
+Build with `podman build` before `podman-compose up`: `up --build` on its own
+has left the old container running.
 
 | Setting | Meaning |
 |---|---|
@@ -70,6 +80,8 @@ running.)
 | `JWT_SECRET` | Signs sessions; at least 32 random characters or the server won't start |
 | `ALLOW_SIGNUP` | `false` stops new accounts (guests still work) |
 | `PLAYHALL_PORT` | Port on the host (default 8450) |
+| `TLS` | `on` (default): HTTPS; `off`: plain HTTP, e.g. behind your own proxy that does HTTPS |
+| `TLS_HOSTS` | Extra names or addresses for the self-signed certificate, comma-separated (e.g. `playhall.home,192.168.1.50`); localhost is always in it |
 
 ## Develop
 
@@ -77,7 +89,7 @@ running.)
 npm install
 npm test                 # game rules and room engine
 npm run typecheck
-DATABASE_URL=postgres://... JWT_SECRET=... npm run dev:server   # :8450
+DATABASE_URL=postgres://... JWT_SECRET=... TLS=off npm run dev:server   # :8450
 npm run dev:client       # Vite on :5173, proxying /api and /ws
 node scripts/smoke.mjs http://localhost:8450   # end-to-end check against a running server
 node tests/browser.mjs http://localhost:8450   # the same in a real browser (Playwright)
