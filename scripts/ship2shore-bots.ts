@@ -18,7 +18,7 @@ for (const players of [5, 6, 7, 8, 9, 10, 11]) {
     let s = ship2shore.create({}, 0, ctx) as ShipState;
     for (let i = 0; i < 5000 && !s.result; i++) {
       const seat = ship2shore.turn!(s)[0];
-      const action = BOTS.ship2shore(ship2shore.view(s, 0, seat), random);
+      const action = BOTS.ship2shore(ship2shore.view(s, 0, seat), seat, random);
       const r = ship2shore.act(s, seat, action, 0, ctx);
       s = 'error' in r ? ship2shore.timeout!(s, seat, 0, ctx) : (r.state as ShipState);
     }
