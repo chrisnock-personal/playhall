@@ -168,6 +168,51 @@ const SCENES = {
     }
     await shot(p, '16-sea-battle.png');
   },
+
+  // The room itself: chess between two people, three watching (Kai asking for
+  // a seat), with the players panel and the chat opened out; Priya's view from
+  // the gallery; the Focus layout; and the room on a phone.
+  async room() {
+    const { code, page: sam } = await room('chess', 'Sam', { seat: 'white', name: 'Thursday chess', config: { initialSeconds: 0, incrementSeconds: 0 } });
+    const alex = await open('Alex', code);
+    await alex.getByRole('button', { name: 'Sit here' }).first().click(); await sleep(500);
+    const priya = await open('Priya', code), kai = await open('Kai', code), lee = await open('Lee', code);
+    await start(sam);
+    const move = async (p, from, to, flipped) => {
+      const b = await p.locator('.board cg-board').boundingBox();
+      const sq = b.width / 8;
+      const at = (x) => { let f = x.charCodeAt(0) - 97, r = Number(x[1]) - 1; if (flipped) { f = 7 - f; r = 7 - r; } return { x: b.x + sq * f + sq / 2, y: b.y + b.height - sq * r - sq / 2 }; };
+      const a = at(from), c = at(to);
+      await p.mouse.click(a.x, a.y); await p.mouse.click(c.x, c.y); await sleep(900);
+    };
+    for (const [p, f, t, fl] of [[sam, 'e2', 'e4'], [alex, 'e7', 'e5', true], [sam, 'g1', 'f3'], [alex, 'b8', 'c6', true], [sam, 'f1', 'b5'], [alex, 'a7', 'a6', true]]) await move(p, f, t, fl);
+    const say = async (p, text, channel = 'table') => {
+      const label = channel === 'table' ? 'Table' : 'Gallery';
+      if (!(await p.locator(`#msg-${channel}`).count())) await tap(p.locator(`.rail-btn[title="${label}"]`));
+      if (!(await p.locator(`#msg-${channel}`).count())) await tap(p.locator('.tabs [role=tab]', { hasText: label }));
+      await p.locator(`#msg-${channel}`).fill(text); await p.locator(`#msg-${channel}`).press('Enter'); await sleep(400);
+    };
+    await say(alex, 'Ruy Lopez? Bold.');
+    await say(sam, 'Only opening I know properly');
+    await kai.getByRole('button', { name: 'Ask for a seat' }).click(); await sleep(400);
+    await priya.locator('.rail-btn[title="Gallery"]').click().catch(() => {});
+    await say(priya, 'He always plays this', 'gallery');
+    await say(lee, 'Alex will take the bishop, watch', 'gallery');
+    // Sam's view, panels open: the players in full and the table chat.
+    await sam.getByRole('button', { name: 'Show the players panel in full' }).click().catch(() => {});
+    await sam.locator('.rail-btn[title="Table"]').click().catch(() => {});
+    await shot(sam, '01-hero.png');
+    // Priya, watching, in the Social layout with the gallery chat.
+    await priya.locator('.segmented.small button', { hasText: 'Social' }).click(); await sleep(400);
+    await priya.locator('.tabs [role=tab]', { hasText: 'Gallery' }).click().catch(() => {});
+    await shot(priya, '03-watching.png');
+    // Alex in the Focus layout.
+    await alex.locator('.segmented.small button', { hasText: 'Focus' }).click(); await sleep(400);
+    await shot(alex, '06-focus.png');
+    // Kai on a phone.
+    const phone = await open('Kai', code, { width: 390, height: 844 });
+    await sleep(800); await phone.screenshot({ path: `${out}/07-phone.png`, fullPage: true }); console.log('saved 07-phone.png');
+  },
 };
 
 browser = await chromium.launch();
