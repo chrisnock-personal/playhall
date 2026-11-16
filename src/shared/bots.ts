@@ -7,7 +7,7 @@
 // move if the bot's answer is refused.
 
 import { ship2shoreBot } from './games/ship2shore.bot';
-import { checkersBot, fourBot, ludoBot, snakesBot } from './games/board.bots';
+import { checkersBot, fourBot, ludoBot, snakesBot, whoDatBot } from './games/board.bots';
 import { blackjackBot, clashBot, pokerBot, realmBot, seaBot } from './games/card.bots';
 import { ship2shoreTalk } from './games/ship2shore.talk';
 
@@ -26,6 +26,7 @@ export const BOTS: Record<string, Bot> = {
   colourclash: clashBot,
   seabattle: seaBot,
   realmduel: realmBot,
+  whodat: whoDatBot,
 };
 
 /** Answering at the table: games where players ask each other things
