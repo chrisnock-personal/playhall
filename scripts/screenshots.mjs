@@ -7,6 +7,7 @@
 // With no scenes named, every scene runs. Needs Playwright (npm i, then
 // npx playwright install chromium).
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
 
 const [base = 'https://localhost:8450', out = 'shots', ...only] = process.argv.slice(2);
 const VIEW = { width: 1280, height: 950 };
@@ -239,6 +240,39 @@ const SCENES = {
     await kai.getByRole('button', { name: 'Sit here' }).first().click(); await sleep(400);
     await start(sam); await sleep(1500);
     await shot(priya, '26-manor-mystery.png');
+  },
+
+  // Letterworks: Sam and Priya; Sam lays the longest word in his rack across
+  // the centre (found in the game's own word list), Priya passes.
+  async letterworks() {
+    const { code, page: sam } = await room('letterworks', 'Sam', { name: 'Word night' });
+    const priya = await open('Priya', code);
+    await priya.getByRole('button', { name: 'Sit here' }).first().click(); await sleep(400);
+    await start(sam); await sleep(800);
+    const words = readFileSync(new URL('../data/enable1.txt', import.meta.url), 'utf8').split(/\r?\n/).map((w) => w.trim().toUpperCase()).filter((w) => w.length >= 2 && w.length <= 7);
+    const turnOf = async () => ((await sam.locator('.lw-rack button').count()) && (await sam.getByRole('button', { name: 'Pass' }).count()) ? sam : priya);
+    const lay = async (p) => {
+      const labels = await p.locator('.lw-rack button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label') ?? ''));
+      const rack = labels.map((l) => (l.startsWith('Blank') ? '?' : l[0]));
+      const fits = (w) => { const left = [...rack]; for (const ch of w) { const i = left.indexOf(ch); if (i < 0) return false; left.splice(i, 1); } return true; };
+      const word = words.filter(fits).sort((x, y) => y.length - x.length)[0];
+      if (!word) return false;
+      const start = 8 - Math.floor(word.length / 2);
+      for (let k = 0; k < word.length; k++) {
+        // Laid tiles leave the rack, so look the letter up in the rack as it is now.
+        await p.locator('.lw-rack button', { has: p.locator(':scope') }).filter({ hasText: new RegExp(`^${word[k]}`) }).first().click()
+          .catch(() => p.locator(`.lw-rack button[aria-label^="${word[k]},"]`).first().click());
+        await p.getByRole('button', { name: new RegExp(`^Row 8, column ${start + k}(:|$)`) }).click(); await sleep(150);
+      }
+      await p.getByRole('button', { name: /^Play/ }).click(); await sleep(1500);
+      return word;
+    };
+    const first = await turnOf();
+    const word = await lay(first);
+    console.log('laid', word);
+    const other = first === sam ? priya : sam;
+    await other.getByRole('button', { name: 'Pass' }).click(); await sleep(1500);
+    await shot(first, '23-letterworks.png');
   },
 };
 

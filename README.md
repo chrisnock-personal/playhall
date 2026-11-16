@@ -24,11 +24,11 @@ with remote players using controllers, OpenBOR rooms run on the server
 
 **More: the [project overview](https://github.com/chrisnock-personal/project-overviews/tree/main/playhall)**, with the whole tour in pictures.
 
-![A chess room during a game: the host playing White against Alex, three people watching, and the players' chat on the right](docs/screenshots/chess-room.png)
+![A chess room during a game, with the side panels opened out: the players on the left, the board, the players' chat on the right, and three people watching along the bottom](docs/screenshots/chess-room.png)
 
 <p>
 <img src="docs/screenshots/lobby.png" width="49%" alt="The lobby: rooms playing several games, and the form for a new room">
-<img src="docs/screenshots/letterworks.png" width="49%" alt="Letterworks with three players: HALL, PAWN and QUEEN on the board and a rack of seven tiles">
+<img src="docs/screenshots/letterworks.png" width="49%" alt="Letterworks: INERTIA across the centre, all seven tiles for 54 points, and the next rack">
 </p>
 <p>
 <img src="docs/screenshots/realm-duel.png" width="49%" alt="Realm Duel: the opponent's face-down cards and your three creatures with their stats, the attack styles and Lock in">
