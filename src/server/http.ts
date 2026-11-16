@@ -124,7 +124,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     const id = String(req.params.id);
     if (!/^\d+$/.test(id)) { res.status(400).json({ error: 'No such game' }); return; }
     const r = await replay(db, id);
-    if (!r) { res.status(404).json({ error: 'That game can\u2019t be replayed' }); return; }
+    if (!r) { res.status(404).json({ error: 'Only this game\u2019s result was kept, not its moves, so there\u2019s nothing to replay (the demo data\u2019s older games are like this)' }); return; }
     res.json(r);
   });
 

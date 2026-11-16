@@ -106,6 +106,8 @@ export async function leaderboard(db: Db, game: string, period: Period): Promise
 
 interface ResultRow {
   game_row_id: string;
+  /** The game's moves were kept (not demo data with only a result). */
+  has_moves: boolean;
   game_id: string; seat: string; outcome: Outcome; points: number; reason: string;
   opponent_id: string | null; opponent: string | null; room: string; ended_at: Date;
 }
@@ -117,10 +119,11 @@ export async function playerStats(db: Db, userId: string, game: string, period: 
   if (!user) return null;
 
   const { rows } = await db.query<ResultRow>(
-    `SELECT r.game_row_id, r.game_id, r.seat, r.outcome, r.points, r.reason, r.opponent_id, ou.display_name AS opponent,
+    `SELECT r.game_row_id, NOT COALESCE((g.state->>'demo')::boolean, false) AS has_moves, r.game_id, r.seat, r.outcome, r.points, r.reason, r.opponent_id, ou.display_name AS opponent,
             rm.name AS room, r.ended_at
        FROM game_results r
        JOIN rooms rm ON rm.id = r.room_id
+       LEFT JOIN games g ON g.id = r.game_row_id
        LEFT JOIN users ou ON ou.id = r.opponent_id
       WHERE r.user_id = $1 AND r.counted AND ($2 = 'all' OR r.game_id = $2) AND r.ended_at >= ${SINCE[period]}
       ORDER BY r.ended_at DESC`,
@@ -181,7 +184,7 @@ export async function playerStats(db: Db, userId: string, game: string, period: 
     weekly,
     endings: [...endings].map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n),
     recent: rows.slice(0, 10).map((r) => ({
-      gameRowId: String(r.game_row_id), replayable: !!GAMES[r.game_id]?.replay,
+      gameRowId: String(r.game_row_id), replayable: !!GAMES[r.game_id]?.replay && r.has_moves,
       opponent: r.opponent, opponentId: r.opponent_id, outcome: r.outcome, reason: r.reason,
       seat: r.seat, seatLabel: seatLabel(r.game_id, r.seat), room: r.room, endedAt: r.ended_at.toISOString(), points: r.points,
     })),
