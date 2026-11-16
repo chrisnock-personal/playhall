@@ -60,7 +60,7 @@ test('the host fills seats with bots; a whole Ship2Shore game plays out; it does
     const v = room.snapshotFor(host.id).game.view as ShipView;
     if (v.you?.toAct) {
       // The host plays too, here with the same strategy as the bots.
-      room.handle(host, { t: 'act', action: BOTS.ship2shore(v, Math.random) });
+      room.handle(host, { t: 'act', action: BOTS.ship2shore(v, 'amber', Math.random) });
     } else {
       advance(2000);
       moves++;

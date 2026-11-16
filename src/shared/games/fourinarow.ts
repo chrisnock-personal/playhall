@@ -140,6 +140,9 @@ export const fourInARow: GameModule<FourState, Record<string, never>> = {
     return frames;
   },
 
+  // No turn(): the clocks time the game. For computer players (#18):
+  waitingFor: (s) => (s.result ? [] : [turnOf(s)]),
+
   view(state): FourView {
     return {
       grid: state.grid, cols: COLS, rows: ROWS, turn: turnOf(state), moves: state.moves,

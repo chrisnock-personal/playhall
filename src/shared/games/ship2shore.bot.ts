@@ -56,7 +56,7 @@ function suspect(choices: SeatId[], friends: Set<SeatId>, enemies: Set<SeatId>, 
 }
 
 /** The action this seat takes now, or null when it has nothing to do. */
-export function ship2shoreBot(view: unknown, random: () => number): unknown | null {
+export function ship2shoreBot(view: unknown, _seat: SeatId, random: () => number): unknown | null {
   const v = view as ShipView;
   const y = v.you;
   if (!v || !y || v.result || !y.toAct) return null;

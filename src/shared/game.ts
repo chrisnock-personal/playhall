@@ -96,6 +96,9 @@ export interface GameModule<S = unknown, C = unknown> {
   /** Who has to act now. Games that give it get the room's move timer
    *  (games with their own clocks, like chess, leave it out). */
   turn?(state: S): SeatId[];
+  /** Who the game is waiting on, for computer players (#18): games with their
+   *  own clocks, which leave turn() out, give it here. Default: turn(). */
+  waitingFor?(state: S): SeatId[];
   /** The move timer ran out for `seat`. Without this, in a two-player game
    *  that seat loses; a game for more players should say what happens
    *  (skip the turn, play automatically). */
