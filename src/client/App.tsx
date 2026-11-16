@@ -9,11 +9,13 @@ import { Leaderboard } from './pages/Leaderboard';
 import { PlayerStats } from './pages/PlayerStats';
 import { Replay } from './pages/Replay';
 import { Admin } from './pages/Admin';
+import { CameraPage } from './camera/CameraPage';
 import { api } from './api';
 
 // Routes live in the #hash: #/ is the lobby, #/r/CODE a room, #/leaderboard,
 // #/stats (your own), #/players/ID, #/settings (yours) and #/admin (the
-// platform settings, admins only).
+// platform settings, admins only). #/camera/CODE?k=KEY is a camera table's
+// board camera, opened from the host's link: no account needed.
 function useHash(): string {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
@@ -46,6 +48,12 @@ export function App() {
     }).catch(() => {});
   }, [token]);
 
+  const camera = /^#\/camera\/([A-Za-z0-9]+)\?k=([^&]+)/.exec(hash);
+  if (camera) {
+    let key = '';
+    try { key = decodeURIComponent(camera[2]); } catch { /* a broken link: the page says so */ }
+    return <CameraPage key={key} code={camera[1].toUpperCase()} keyParam={key} />;
+  }
   if (!session) return <SignIn onSignedIn={signIn} roomCode={roomCode} />;
   if (session.user.mustChangePassword) {
     return (

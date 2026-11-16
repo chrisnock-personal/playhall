@@ -5,6 +5,7 @@ import { isWord } from '../words';
 import crypto from 'node:crypto';
 import type { Db } from '../db';
 import { GAMES } from '../../shared/games';
+import { seatsIn } from '../../shared/game';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
 import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
 import { recordGame } from '../stats';
@@ -21,6 +22,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 interface RoomRow {
   id: string; code: string; name: string; game_id: string; host_id: string; host_name: string;
   settings: RoomSettings; seats: RoomRecord['seats']; game: RoomRecord['game']; password_hash: string | null; banned: string[];
+  table_camera?: RoomRecord['tableCamera'];
 }
 
 export interface CreateRoomInput {
@@ -77,7 +79,7 @@ export class RoomManager {
 
   private async load(code: string): Promise<Room | null> {
     const { rows } = await this.db.query<RoomRow>(
-      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash, r.banned
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash, r.banned, r.table_camera
          FROM rooms r JOIN users u ON u.id = r.host_id
         WHERE r.code = $1 AND r.closed_at IS NULL`, [code]);
     const row = rows[0];
@@ -91,6 +93,7 @@ export class RoomManager {
       hostId: row.host_id, hostName: row.host_name,
       settings: { ...DEFAULT_SETTINGS, ...row.settings },
       seats: row.seats, game: row.game, passwordHash: row.password_hash, banned: row.banned ?? [],
+      tableCamera: row.table_camera ?? null,
     };
     const history: ChatLine[] = chat.map((c) => ({
       id: c.line_id, channel: c.channel, kind: c.kind, userId: c.user_id, name: c.name, text: c.body, at: Number(c.at),
@@ -120,6 +123,7 @@ export class RoomManager {
       },
       kick: (userId, reason) => this.onKick(room, userId, reason),
       transcriptsAllowed,
+      newId: () => crypto.randomBytes(18).toString('base64url'),
       changed: () => {
         if (room) this.onChanged(room);
         if (room) this.checkIdle(room);
@@ -139,8 +143,9 @@ export class RoomManager {
     const pending = this.saveTimers.get(rec.id);
     if (pending) { clearTimeout(pending); this.saveTimers.delete(rec.id); }
     await this.db.query(
-      `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, banned = $8, updated_at = now() WHERE id = $1`,
-      [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash, JSON.stringify(rec.banned ?? [])],
+      `UPDATE rooms SET name = $2, host_id = $3, settings = $4, seats = $5, game = $6, password_hash = $7, banned = $8, table_camera = $9, updated_at = now() WHERE id = $1`,
+      [rec.id, rec.name, rec.hostId, JSON.stringify(rec.settings), JSON.stringify(rec.seats), JSON.stringify(rec.game), rec.passwordHash, JSON.stringify(rec.banned ?? []),
+        rec.tableCamera ? JSON.stringify(rec.tableCamera) : null],
     ).catch((err) => console.error('[rooms] save failed:', err.message));
   }
 
@@ -168,6 +173,8 @@ export class RoomManager {
     if (!game) throw new RoomError('Unknown game');
     const name = typeof input.name === 'string' ? input.name.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, 60) : '';
     if (!name) throw new RoomError('Give the room a name');
+    const bad = game.configError?.(input.gameConfig ?? game.defaultConfig);
+    if (bad) throw new RoomError(bad);
     const settings: RoomSettings = {
       ...DEFAULT_SETTINGS,
       listed: input.listed ?? DEFAULT_SETTINGS.listed,
@@ -180,7 +187,7 @@ export class RoomManager {
     };
     const seats: Record<string, SeatHolder | null> = {};
     for (const s of game.seats) seats[s.id] = null;
-    if (input.hostSeat && input.hostSeat in seats) seats[input.hostSeat] = { userId: host.id, name: host.name, guest: false };
+    if (input.hostSeat && seatsIn(game, settings.gameConfig).some((s) => s.id === input.hostSeat)) seats[input.hostSeat] = { userId: host.id, name: host.name, guest: false };
     const gameRec: RoomRecord['game'] = { status: 'idle', state: null, startedAt: null, players: null };
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -215,7 +222,7 @@ export class RoomManager {
         code: r.code, name: r.name, gameId: game.id, gameName: game.name,
         configLabel: game.describeConfig(game.parseConfig(r.settings.gameConfig)),
         hostName: r.host_name, status: r.game.status,
-        seats: game.seats.map((s) => ({ id: s.id, label: s.label, userId: r.seats[s.id]?.userId ?? null, name: r.seats[s.id]?.name ?? null })),
+        seats: seatsIn(game, r.settings.gameConfig).map((s) => ({ id: s.id, label: s.label, userId: r.seats[s.id]?.userId ?? null, name: r.seats[s.id]?.name ?? null })),
         watching: 0, listed: !!r.settings.listed, ranked: r.settings.ranked !== false, locked: !!r.password_hash,
       };
     });
@@ -260,7 +267,7 @@ export class RoomManager {
         code: r.code, name: live?.rec.name ?? r.name, gameName: game.name, hostName: live?.rec.hostName ?? r.host_name,
         status: live?.rec.game.status ?? r.game.status,
         present: live?.presentCount ?? 0,
-        seated: game.seats.filter((s) => seats[s.id]).length, seats: game.seats.length,
+        seated: game.seats.filter((s) => seats[s.id]).length, seats: seatsIn(game, (live?.rec.settings ?? r.settings).gameConfig).length,
         listed: !!(live?.rec.settings ?? r.settings).listed, locked: !!(live ? live.rec.passwordHash : r.password_hash),
         updatedAt: new Date(r.updated_at).toISOString(),
       };

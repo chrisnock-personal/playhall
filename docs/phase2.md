@@ -85,9 +85,72 @@ A game type for **any** board game that isn't built in.
    - [x] Layouts: Focus shrinks the seats to small round tiles, Social widens
      the seat tiles and gallery tiles (also a button on the players panel);
      on a phone tiles stay small under the board.
-4. **The camera table**: the game type, board-camera device, dice, score
-   pad, results with confirmation.
+4. **The camera table** (built, issue #4): the game type, board-camera
+   device, dice, score pad, results with confirmation.
+   - [x] Camera table rooms: the host types the game's name (1-60
+     characters, plain text, required) and picks 2-8 seats (seats 7 and 8
+     are the kit's new red and slate). It shows as "Camera table · Catan ·
+     4 seats".
+   - [x] The table camera device (below): a phone on a stand, no account,
+     no seat; its picture fills the stage. Everyone who may see the table
+     sees it without joining voice (a video-only view of the table channel,
+     the same one watchers already use), and players' cameras still show on
+     their seat cards.
+   - [x] Turns (a turn bar: "Kai's turn", round, the move timer, **Next
+     turn** for that player or the host, who can also pass to anyone), the
+     move timer passing the turn on, the dice roller (any mix of up to 10
+     d4/d6/d8/d10/d12/d20, rolled on the server, each roll said in the
+     table chat), the score pad (everyone sees it; the host edits any score,
+     players their own unless the host turns that off; also on the seat
+     cards), a Rolls tab.
+   - [x] Results: the host enters the places (ties allowed; it starts from
+     the score pad). Each player sees them and confirms or disputes, with
+     who has confirmed shown to all; a seated host's own entry counts as
+     their confirmation. When everyone has, it's recorded and counts like
+     any other game (scoring.ts, and the room's usual rules: casual rooms
+     and guests don't count). A dispute sends it back: the host changes
+     the places and asks again, or ends the game without a result (not
+     counted). A player who drops out isn't put out of the game; the game
+     waits for them.
+   - [x] Leaderboards: the Camera table tab has a tab per game name typed
+     (most played first, plus "every game together"); the standings shown
+     after a game are among games of the same name.
 5. **Transcripts**: *said* lines, from each speaker's browser (built).
+
+### How a device becomes the table camera (built)
+
+Only the host can make one, and the device never gets a session:
+
+1. In a camera table room the host presses **Table camera**. The server
+   (`POST /api/rooms/:code/table-camera`, host only, voice and video on)
+   gives the room a random device id (18 random bytes, kept on the room,
+   never sent to browsers in snapshots) and returns a link,
+   `#/camera/CODE?k=KEY`, shown with a QR code. KEY is signed by the server
+   (scope `table-camera`, the room code and the device id, 12 hours).
+2. The phone opens the link (no sign-in) and taps **Start the table
+   camera** (the tap matters on iPhones). It opens the rear camera at
+   1280x720, then swaps KEY for a LiveKit token
+   (`POST /api/camera/token`). The server checks the signature, that the
+   room exists, and that the device id is still the room's current one.
+3. The token is for the room's table channel only, as identity
+   `camera:<id>`, with `canSubscribe: false` and `canPublishSources:
+   [camera]`: LiveKit itself refuses anything else (no microphone, no screen
+   share, no data, and it can't receive anyone's voice or video). It's
+   published with simulcast (720p, 360p and 180p layers), not mirrored.
+4. **New link** gives a new device id and **Stop the table camera** clears
+   it: either way the old link stops working, and the media sync removes
+   the old device from LiveKit at once. A session token can't be used as a
+   camera key and a camera key can't be used as a session.
+
+Why it's safe: a leaked link lets someone show a picture on that room's
+stage until the host stops it (12 hours at most), and nothing more: no
+seat, no chat, no voice, nothing to see or hear. **Use this device as the
+table camera** on the host's own phone opens the same link.
+
+Multiplatform: the camera page uses `playsInline`, a muted preview and a
+tap to start (iOS Safari), asks the screen to stay awake (Wake Lock, where
+the browser has it; otherwise it says to keep the screen on) and restarts
+the camera if the phone stopped it while the page was in the background.
 
 ## To decide
 
