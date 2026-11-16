@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { Db } from './db';
 import type { SessionUser } from '../shared/protocol';
+import { getPlatformSettings } from './platform';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -19,7 +20,35 @@ const ACCOUNT_TTL = '30d';
 const GUEST_TTL = '7d';
 
 export class Auth {
-  constructor(private db: Db, private secret: string, private allowSignup: boolean) {}
+  /** Usernames made admin by ADMIN_USERNAMES (lower case). */
+  readonly envAdmins: ReadonlySet<string>;
+  /** Ids of every admin account, from the database and ADMIN_USERNAMES, so
+   *  checking a session needs no query. Kept current by setAdmin(). */
+  private admins = new Set<string>();
+
+  constructor(private db: Db, private secret: string, adminUsernames: string[] = []) {
+    this.envAdmins = new Set(adminUsernames.map((u) => u.trim().toLowerCase()).filter(Boolean));
+  }
+
+  /** Read who the admins are (at startup). */
+  async loadAdmins(): Promise<void> {
+    const { rows } = await this.db.query<{ id: string }>(
+      `SELECT id FROM users WHERE kind = 'account' AND (is_admin OR username = ANY($1))`, [[...this.envAdmins]]);
+    this.admins = new Set(rows.map((r) => r.id));
+  }
+
+  isAdmin(userId: string): boolean {
+    return this.admins.has(userId);
+  }
+
+  get adminCount(): number {
+    return this.admins.size;
+  }
+
+  /** Update the cache after the is_admin column changed. */
+  setAdmin(userId: string, on: boolean): void {
+    if (on) this.admins.add(userId); else this.admins.delete(userId);
+  }
 
   sign(user: SessionUser): string {
     return jwt.sign({ name: user.name, guest: user.guest }, this.secret, {
@@ -33,7 +62,7 @@ export class Auth {
     try {
       const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { name: string; guest: boolean; scope?: string };
       if (!p.sub || typeof p.name !== 'string' || p.scope) return null;
-      return { id: p.sub, name: p.name, guest: !!p.guest };
+      return { id: p.sub, name: p.name, guest: !!p.guest, admin: !p.guest && this.admins.has(p.sub) };
     } catch {
       return null;
     }
@@ -65,12 +94,20 @@ export class Auth {
     next();
   };
 
+  /** Signed in as an admin (on its own: no need for requireUser first). */
+  requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
+    this.requireUser(req, res, () => {
+      if (!req.user!.admin) { res.status(403).json({ error: 'Only an admin can do that' }); return; }
+      next();
+    });
+  };
+
   routes(): Router {
     const r = Router();
     const limiter = rateLimit(20, 60_000);
 
     r.post('/register', limiter, async (req, res) => {
-      if (!this.allowSignup) { res.status(403).json({ error: 'New accounts are switched off here' }); return; }
+      if (!getPlatformSettings().signupsAllowed) { res.status(403).json({ error: 'New accounts are switched off here' }); return; }
       const username = cleanUsername(req.body?.username);
       const name = cleanName(req.body?.displayName ?? req.body?.username);
       const password = typeof req.body?.password === 'string' ? req.body.password : '';
@@ -82,7 +119,8 @@ export class Auth {
         const { rows } = await this.db.query<{ id: string }>(
           `INSERT INTO users (kind, username, display_name, password_hash) VALUES ('account', $1, $2, $3) RETURNING id`,
           [username, name, hash]);
-        const user = { id: rows[0].id, name, guest: false };
+        if (this.envAdmins.has(username)) this.admins.add(rows[0].id);
+        const user = { id: rows[0].id, name, guest: false, admin: this.admins.has(rows[0].id) };
         res.status(201).json({ token: this.sign(user), user });
       } catch (err) {
         if ((err as { code?: string }).code === '23505') { res.status(409).json({ error: 'That username is taken' }); return; }
@@ -103,25 +141,27 @@ export class Auth {
       const ok = await bcrypt.compare(password, row?.password_hash ?? DUMMY_HASH);
       if (!row || !ok) { res.status(401).json({ error: 'Wrong username or password' }); return; }
       await this.db.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [row.id]);
-      const user = { id: row.id, name: row.display_name, guest: false };
+      const user = { id: row.id, name: row.display_name, guest: false, admin: this.admins.has(row.id) };
       res.json({ token: this.sign(user), user });
     });
 
     r.post('/guest', limiter, async (req, res) => {
+      if (!getPlatformSettings().guestsAllowed) { res.status(403).json({ error: 'Guests are switched off here: sign in or create an account' }); return; }
       const name = cleanName(req.body?.displayName);
       if (!name) { res.status(400).json({ error: 'Pick a display name (up to 32 characters)' }); return; }
       const { rows } = await this.db.query<{ id: string }>(
         `INSERT INTO users (kind, display_name) VALUES ('guest', $1) RETURNING id`, [name]);
-      const user = { id: rows[0].id, name, guest: true };
+      const user = { id: rows[0].id, name, guest: true, admin: false };
       res.status(201).json({ token: this.sign(user), user });
     });
 
     r.get('/me', this.requireUser, (req, res) => {
-      res.json({ user: req.user, allowSignup: this.allowSignup });
+      res.json({ user: req.user, allowSignup: getPlatformSettings().signupsAllowed });
     });
 
     r.get('/options', (_req, res) => {
-      res.json({ allowSignup: this.allowSignup });
+      const p = getPlatformSettings();
+      res.json({ allowSignup: p.signupsAllowed, allowGuests: p.guestsAllowed });
     });
 
     return r;

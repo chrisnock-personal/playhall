@@ -26,6 +26,8 @@ jobs:
       JWT_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
       # Plain HTTP here; the container job below checks the default HTTPS.
       TLS: 'off'
+      # The smoke test registers this account and tests the platform settings with it.
+      ADMIN_USERNAMES: smoke_admin
     steps:
       - uses: actions/checkout@v5
         with:
@@ -45,7 +47,7 @@ jobs:
         run: |
           node dist/server/index.js > server.log 2>&1 &
           for _ in $(seq 1 30); do curl -sf http://localhost:8450/api/health && break; sleep 1; done
-      - name: End-to-end (accounts, rooms, a game over the WebSocket, results)
+      - name: End-to-end (accounts, rooms, a game over the WebSocket, results, platform settings)
         run: node scripts/smoke.mjs http://localhost:8450
       - name: Demo data loads and removes cleanly
         run: |

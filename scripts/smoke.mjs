@@ -2,6 +2,8 @@
 //   node scripts/smoke.mjs http://host:8450
 // Makes an account and two guests, opens a chess room, plays a short game
 // over the WebSocket, checks who can read the gallery, then closes the room.
+// With ADMIN_USERNAMES=smoke_admin on the server it also tests the platform
+// settings (it changes them for a moment and puts them back).
 import WebSocket from 'ws';
 import assert from 'node:assert/strict';
 
@@ -163,7 +165,90 @@ assert.ok(played, 'a two-letter word was played');
 await api(`/rooms/${words.code}`, { method: 'DELETE', token: host.token });
 for (const c of [wh, wa]) c.ws.close();
 
+// Platform settings (admins only). Runs only when the smoke admin is an
+// admin: start the server with ADMIN_USERNAMES=smoke_admin (CI does), or set
+// SMOKE_ADMIN to another name in ADMIN_USERNAMES. The account is made on the
+// first run and signed in to after that.
+const adminName = process.env.SMOKE_ADMIN ?? 'smoke_admin';
+const adminPw = process.env.SMOKE_ADMIN_PASSWORD ?? 'smoke-admin-pw';
+const admin = await api('/auth/register', { body: { username: adminName, password: adminPw, displayName: 'Smoke Admin' } })
+  .catch((e) => (/409/.test(e.message) ? api('/auth/login', { body: { username: adminName, password: adminPw } }) : Promise.reject(e)));
+let adminTested = false;
+if ((await api('/auth/me', { token: admin.token })).user.admin) {
+  await assert.rejects(api('/admin'), /401/, 'not signed in');
+  await assert.rejects(api('/admin', { token: host.token }), /403/, 'not an admin');
+  await assert.rejects(api('/admin', { token: priya.token }), /403/, 'a guest');
+  assert.equal((await api('/auth/me', { token: host.token })).user.admin, false);
+  const overview = await api('/admin', { token: admin.token });
+  assert.ok(!/PRIVATE KEY/.test(JSON.stringify(overview)), 'never the private key');
+  const original = overview.settings;
+  const put = (body) => api('/admin/settings', { method: 'PUT', token: admin.token, body });
+  try {
+    await assert.rejects(put({ nope: true }), /400/);
+    await assert.rejects(put({ roomDefaults: { moveSeconds: 7 } }), /400/);
+
+    await put({ guestsAllowed: false, signupsAllowed: false });
+    await assert.rejects(api('/auth/guest', { body: { displayName: 'Nope' } }), /403/, 'guests off');
+    await assert.rejects(api('/auth/register', { body: { username: `smoke_n_${id}`, password: 'smoke-test-pw' } }), /403/, 'sign-ups off');
+    assert.deepEqual(await api('/auth/options'), { allowSignup: false, allowGuests: false });
+    await put({ guestsAllowed: true, signupsAllowed: true });
+    await api('/auth/guest', { body: { displayName: 'Back' } });
+
+    await put({ voiceVideoAllowed: false });
+    assert.equal((await api('/health')).media, false, 'health says no voice');
+    assert.equal((await api('/platform')).voiceVideo, false);
+    await assert.rejects(api(`/rooms/${room.code}/media/gallery`, { method: 'POST', token: priya.token }), /503/, 'no voice tokens');
+    await put({ voiceVideoAllowed: original.voiceVideoAllowed });
+
+    await put({ roomDefaults: { moveSeconds: 30, watcherDelay: 15, ranked: false } });
+    assert.deepEqual((await api('/platform')).roomDefaults, { moveSeconds: 30, watcherDelay: 15, ranked: false });
+    const dflt = (await api('/rooms', { token: host.token, body: { name: `Defaults ${id}`, gameId: 'chess', listed: false } })).room;
+    assert.equal(dflt.ranked, false, 'a new room is casual by default');
+    const dc = await connect(dflt.code, host.token);
+    const ds = await dc.until((x) => x.room, 'the defaults room');
+    assert.equal(ds.room.settings.moveSeconds, 30);
+    assert.equal(ds.room.settings.watcherDelay, 15);
+    const chosen = (await api('/rooms', { token: host.token, body: { name: `Ranked ${id}`, gameId: 'chess', listed: false, ranked: true } })).room;
+    assert.equal(chosen.ranked, true, 'the host can still choose');
+    await api(`/rooms/${chosen.code}`, { method: 'DELETE', token: host.token });
+
+    // Admins: make and remove; guests can't be; ADMIN_USERNAMES ones stay.
+    const { users } = await api('/admin/users', { token: admin.token });
+    const me = users.find((u) => u.username === adminName);
+    assert.ok(me.admin && me.envAdmin);
+    await api(`/admin/users/${alex.user.id}/admin`, { method: 'PUT', token: admin.token, body: { admin: true } });
+    assert.equal((await api('/auth/me', { token: alex.token })).user.admin, true, 'admin without signing in again');
+    await api('/admin', { token: alex.token });
+    await api(`/admin/users/${alex.user.id}/admin`, { method: 'PUT', token: alex.token, body: { admin: false } });
+    assert.equal((await api('/auth/me', { token: alex.token })).user.admin, false, 'stepped down');
+    await assert.rejects(api(`/admin/users/${priya.user.id}/admin`, { method: 'PUT', token: admin.token, body: { admin: true } }), /400 Guests/);
+    await assert.rejects(api(`/admin/users/${me.id}/admin`, { method: 'PUT', token: admin.token, body: { admin: false } }), /ADMIN_USERNAMES/);
+
+    // Rooms: every open one is listed, and an admin can close any of them.
+    const { rooms: open } = await api('/admin/rooms', { token: admin.token });
+    assert.ok(open.some((r) => r.code === dflt.code), 'unlisted rooms too');
+    const live = open.find((r) => r.code === dflt.code);
+    assert.equal(live.present, 1);
+    const closed = new Promise((r) => dc.ws.on('close', (code) => r(code)));
+    await api(`/admin/rooms/${dflt.code}`, { method: 'DELETE', token: admin.token });
+    assert.equal(await closed, 4411, 'everyone in it is told an admin closed it');
+    await assert.rejects(api(`/rooms/${dflt.code}`, { token: host.token }), /404/);
+
+    // The certificate: refused when TLS is off; a bad pair is refused (the
+    // real one is left alone).
+    if (!overview.tls) await assert.rejects(api('/admin/tls', { method: 'PUT', token: admin.token, body: { cert: 'x', key: 'y' } }), /409/);
+    else {
+      assert.match(overview.tls.fingerprint256, /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/);
+      await assert.rejects(api('/admin/tls', { method: 'PUT', token: admin.token, body: { cert: 'not a cert', key: 'not a key' } }), /400 The certificate isn/);
+    }
+    adminTested = true;
+  } finally {
+    await put(original);
+  }
+  console.log('admin: platform settings, admins, rooms and the certificate OK');
+} else console.log(`admin: skipped (${adminName} isn't an admin: start the server with ADMIN_USERNAMES=${adminName} to test the platform settings)`);
+
 await api(`/rooms/${room.code}`, { method: 'DELETE', token: host.token });
 await new Promise((r) => a.ws.on('close', (code) => { assert.equal(code, 4410); r(); }));
 for (const c of [h, p]) c.ws.close();
-console.log('PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, private rooms, Letterworks, and closing the room');
+console.log(`PASS: accounts, guests, seats, roles, chat visibility, a full game, results and stats, private rooms, Letterworks, ${adminTested ? 'platform settings, ' : ''}and closing the room`);
