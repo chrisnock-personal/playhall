@@ -176,6 +176,8 @@ export interface SessionUser {
   guest: boolean;
   /** Can open the platform settings page (#/admin). */
   admin: boolean;
+  /** Must choose a new password before anything else (the default admin). */
+  mustChangePassword?: boolean;
 }
 
 // ---- results, leaderboards and stats ---------------------------------

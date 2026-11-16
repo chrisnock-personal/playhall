@@ -58,7 +58,7 @@ export class RoomSockets {
     ws.removeAllListeners('message');
     if (ws.readyState !== ws.OPEN) return;
     const user = this.auth.verify(typeof hello?.token === 'string' ? hello.token : null);
-    if (!user) { ws.close(4401, 'Sign in again'); return; }
+    if (!user || user.mustChangePassword) { ws.close(4401, 'Sign in again'); return; }
     const room = await this.getManager().get(url.searchParams.get('room') ?? '');
     if (!room) { ws.close(4404, 'No such room'); return; }
     if (room.isBanned(user.id)) { ws.close(4409, 'The host removed you from this room'); return; }
