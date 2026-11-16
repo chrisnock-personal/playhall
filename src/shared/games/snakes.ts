@@ -4,7 +4,8 @@
 // back the extra squares. The first to 100 wins; everyone else is placed by
 // how far they got. The layout of snakes and ladders is our own.
 
-import type { GameModule, GameResult, SeatId } from '../game';
+import type { GameResult, SeatId } from '../game';
+import { randInt, withHistory, type GameHistory } from './history';
 
 export const LADDERS: Record<number, number> = { 4: 25, 13: 46, 33: 49, 42: 63, 50: 69, 62: 81, 74: 92 };
 export const SNAKES: Record<number, number> = { 27: 5, 40: 3, 43: 18, 54: 31, 66: 45, 76: 58, 89: 53, 99: 41 };
@@ -20,6 +21,8 @@ export interface SnakesState {
   turn: number;
   rolls: SnakesRoll[];
   result: GameResult | null;
+  /** For replays (see history.ts); missing in games saved before it. */
+  history?: GameHistory;
 }
 
 export interface SnakesView {
@@ -55,7 +58,7 @@ function roll(state: SnakesState, seat: SeatId, value: number): SnakesState {
   return { ...state, pos, rolls, result, turn: result ? state.turn : (state.turn + 1) % state.order.length };
 }
 
-export const snakes: GameModule<SnakesState, Record<string, never>> = {
+export const snakes = withHistory<SnakesState, Record<string, never>>({
   id: 'snakes',
   name: 'Snakes and Ladders',
   description: '2-4 players. Roll the die, climb the ladders, slide down the snakes; first to 100 wins.',
@@ -100,12 +103,12 @@ export const snakes: GameModule<SnakesState, Record<string, never>> = {
     }
     if (action?.type !== 'roll') return { error: 'Unknown move' };
     if (state.order[state.turn] !== seat) return { error: 'It isn’t your turn' };
-    return { state: roll(state, seat, 1 + Math.floor(ctx.random() * 6)) };
+    return { state: roll(state, seat, 1 + randInt(ctx.random, 6)) };
   },
 
   turn: (state) => (state.result ? [] : [state.order[state.turn]]),
   /** Out of time: the die is rolled for you. */
-  timeout: (state, seat, _now, ctx) => roll(state, seat, 1 + Math.floor(ctx.random() * 6)),
+  timeout: (state, seat, _now, ctx) => roll(state, seat, 1 + randInt(ctx.random, 6)),
   tick: () => null,
   nextDeadline: () => null,
   result: (state) => state.result,
@@ -116,4 +119,4 @@ export const snakes: GameModule<SnakesState, Record<string, never>> = {
       last: state.rolls[state.rolls.length - 1] ?? null, rolls: state.rolls.slice(-12), result: state.result,
     };
   },
-};
+}, { keys: [] });

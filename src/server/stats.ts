@@ -70,7 +70,7 @@ export async function recordGame(db: Db, g: FinishedGame, endedAt = new Date()):
   }
   return {
     gameRowId: String(gameRowId),
-    replayable: !!GAMES[g.rec.gameId]?.replay,
+    replayable: canReplay(g.rec.gameId, g.state),
     counted: g.counted,
     note: g.note,
     headToHead,
@@ -108,6 +108,8 @@ interface ResultRow {
   game_row_id: string;
   /** The game's moves were kept (not demo data with only a result). */
   has_moves: boolean;
+  /** The state has a history (games that keep one need it for a replay). */
+  has_history: boolean;
   game_id: string; seat: string; outcome: Outcome; points: number; reason: string;
   opponent_id: string | null; opponent: string | null; room: string; ended_at: Date;
 }
@@ -119,7 +121,7 @@ export async function playerStats(db: Db, userId: string, game: string, period: 
   if (!user) return null;
 
   const { rows } = await db.query<ResultRow>(
-    `SELECT r.game_row_id, NOT COALESCE((g.state->>'demo')::boolean, false) AS has_moves, r.game_id, r.seat, r.outcome, r.points, r.reason, r.opponent_id, ou.display_name AS opponent,
+    `SELECT r.game_row_id, NOT COALESCE((g.state->>'demo')::boolean, false) AS has_moves, g.state ? 'history' AS has_history, r.game_id, r.seat, r.outcome, r.points, r.reason, r.opponent_id, ou.display_name AS opponent,
             rm.name AS room, r.ended_at
        FROM game_results r
        JOIN rooms rm ON rm.id = r.room_id
@@ -184,12 +186,19 @@ export async function playerStats(db: Db, userId: string, game: string, period: 
     weekly,
     endings: [...endings].map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n),
     recent: rows.slice(0, 10).map((r) => ({
-      gameRowId: String(r.game_row_id), replayable: !!GAMES[r.game_id]?.replay && r.has_moves,
+      gameRowId: String(r.game_row_id), replayable: !!GAMES[r.game_id]?.replay && r.has_moves && (!GAMES[r.game_id].keepsHistory || r.has_history),
       opponent: r.opponent, opponentId: r.opponent_id, outcome: r.outcome, reason: r.reason,
       seat: r.seat, seatLabel: seatLabel(r.game_id, r.seat), room: r.room, endedAt: r.ended_at.toISOString(), points: r.points,
     })),
     headToHead: [...h2h.values()].sort((a, b) => (b.w + b.d + b.l) - (a.w + a.d + a.l)).slice(0, 8),
   };
+}
+
+/** Whether a stored game's moves were kept, so it can be replayed. */
+function canReplay(gameId: string, state: unknown): boolean {
+  const game = GAMES[gameId];
+  if (!game?.replay) return false;
+  return !game.keepsHistory || !!(state as { history?: unknown } | null)?.history;
 }
 
 /** A finished game, move by move, for its replay (games that keep their moves). */
@@ -199,7 +208,7 @@ export async function replay(db: Db, id: string): Promise<import('../shared/prot
        FROM games g JOIN rooms r ON r.id = g.room_id WHERE g.id = $1`, [id]);
   const row = rows[0];
   const game = row && GAMES[row.game_id];
-  if (!row || !game?.replay || (row.state as { demo?: boolean })?.demo) return null;
+  if (!row || !game?.replay || (row.state as { demo?: boolean })?.demo || !canReplay(row.game_id, row.state)) return null;
   return {
     id: String(row.id), gameId: row.game_id, room: row.room,
     players: Object.entries(row.players).map(([seat, p]) => ({ seat, name: p.name, userId: p.userId })),
