@@ -75,6 +75,14 @@ shared pool of 10): [creature-duel.md](creature-duel.md).
 Players can report a room or a person; admins see the reports. Hosts can
 already remove people from their own rooms.
 
+### Original game ideas (2026-11-16, #35)
+
+Our own games beyond takes on known ones, in two families to start: family
+fun (co-operative and quick push-your-luck games for mixed ages) and
+hidden-role games (Ship2Shore's engine of rounds, votes and private actions
+suits more). Starting ideas are in the issue; next, one-page designs for two
+or three and paper tests with bot scripts.
+
 ### More games
 
 Under our own names and artwork, like the others ([games.md](games.md)).
