@@ -8,7 +8,7 @@
 
 import { ship2shoreBot } from './games/ship2shore.bot';
 import { checkersBot, fourBot, ludoBot, snakesBot, whoDatBot } from './games/board.bots';
-import { blackjackBot, clashBot, pokerBot, realmBot, seaBot } from './games/card.bots';
+import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot } from './games/card.bots';
 import { ship2shoreTalk } from './games/ship2shore.talk';
 
 /** A bot: its seat's view and its seat in, the action it takes out. */
@@ -27,6 +27,8 @@ export const BOTS: Record<string, Bot> = {
   seabattle: seaBot,
   realmduel: realmBot,
   whodat: whoDatBot,
+  poophead: poopheadBot,
+  hearts: heartsBot,
 };
 
 /** Answering at the table: games where players ask each other things

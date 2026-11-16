@@ -7,6 +7,8 @@ import { handValue, MIN_BET, type BlackjackView } from './blackjack';
 import { bestHand, compareRanks, type PokerView } from './poker';
 import { COLOURS, playable, type ClashView, type Colour } from './colourclash';
 import { SIZE, type SeaView } from './seabattle';
+import { plainMove, value as shValue, type PoopView } from './poophead';
+import { rankOf as hRank, type HeartsView } from './hearts';
 import { CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
 
 // ---- Blackjack: bet a little, then basic strategy ----
@@ -153,4 +155,56 @@ export function realmBot(view: unknown, seat: SeatId): unknown | null {
     }
   });
   return pick ? { type: 'choose', ...(pick as object) } : null;
+}
+
+// ---- Poophead: best cards face up; play low, keep 2s and 10s back ----
+
+export function poopheadBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as PoopView;
+  if (v.result || !v.hand) return null;
+  if (v.phase === 'swap') {
+    if (v.ready.includes(seat)) return null;
+    const good = (c: string) => ('2T'.includes(c[0]) ? 20 : shValue(c));
+    const bestHand = [...v.hand].sort((a, b) => good(b) - good(a))[0];
+    const worstUp = [...v.up[seat]].sort((a, b) => good(a) - good(b))[0];
+    return bestHand && worstUp && good(bestHand) > good(worstUp) ? { type: 'swap', hand: bestHand, up: worstUp } : { type: 'ready' };
+  }
+  if (v.turn !== seat) return null;
+  const cards = v.from === 'hand' ? v.hand : v.from === 'up' ? v.up[seat] : [];
+  return plainMove(v.phase, v.from, cards, v.pile, v.downCount[seat], random);
+}
+
+// ---- Hearts: pass danger, duck tricks, dump points when void ----
+
+export function heartsBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as HeartsView;
+  if (v.result || !v.cards) return null;
+  const rank = hRank;
+  if (v.phase === 'pass') {
+    if (v.yourPass) return null;
+    const danger = (c: string) => (c === 'QS' ? 100 : c === 'AS' || c === 'KS' ? 90 : c[1] === 'H' ? 40 + rank(c) : rank(c));
+    return { type: 'pass', cards: [...v.cards].sort((a, b) => danger(b) - danger(a)).slice(0, 3) };
+  }
+  if (v.turn !== seat || !v.legal.length) return null;
+  const legal = v.legal;
+  const low = (xs: string[]) => [...xs].sort((a, b) => rank(a) - rank(b))[0];
+  const high = (xs: string[]) => [...xs].sort((a, b) => rank(b) - rank(a))[0];
+  if (!v.trick.length) {
+    const safe = legal.filter((c) => c[1] !== 'H' && c !== 'QS' && !(c[1] === 'S' && rank(c) > rank('QS')));
+    return { type: 'play', card: low(safe.length ? safe : legal) };
+  }
+  const led = v.trick[0].card[1];
+  const following = legal.filter((c) => c[1] === led);
+  if (following.length) {
+    const winning = Math.max(...v.trick.filter((t) => t.card[1] === led).map((t) => rank(t.card)));
+    const under = following.filter((c) => rank(c) < winning);
+    const pointsOnTable = v.trick.some((t) => t.card[1] === 'H' || t.card === 'QS');
+    const last = v.trick.length === v.order.length - 1;
+    if (under.length) return { type: 'play', card: high(under) };
+    // Can't duck: last to play on a clean trick, take it high; else lowest.
+    return { type: 'play', card: last && !pointsOnTable && !following.includes('QS') ? high(following) : low(following) };
+  }
+  if (legal.includes('QS')) return { type: 'play', card: 'QS' };
+  const hearts = legal.filter((c) => c[1] === 'H');
+  return { type: 'play', card: hearts.length ? high(hearts) : high(legal) };
 }
