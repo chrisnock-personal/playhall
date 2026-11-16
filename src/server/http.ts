@@ -7,10 +7,10 @@ import type { RoomManager } from './rooms/manager';
 import type { RoomSockets } from './ws';
 import { RoomError } from './rooms/room';
 import { gameList } from '../shared/games';
-import { isGameFilter, leaderboard, PERIODS, playerStats, replay } from './stats';
+import { boardNames, isGameFilter, leaderboard, nameFilter, PERIODS, playerStats, replay } from './stats';
 import type { Period } from '../shared/protocol';
 import type { Db } from './db';
-import { mediaToken, proxyHttp, type MediaConfig } from './media';
+import { cameraToken, mediaToken, proxyHttp, type MediaConfig } from './media';
 import type { Channel } from '../shared/protocol';
 import { adminRoutes, type AdminTls } from './admin';
 import { getPlatformSettings } from './platform';
@@ -68,6 +68,36 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     if (!r.listen) { res.status(403).json({ error: channel === 'gallery' ? 'The gallery is hidden from players during the game' : 'Watchers on a delay can’t hear the table live' }); return; }
     const token = await mediaToken(media, { code: room.rec.code, channel, userId: req.user!.id, name: req.user!.name, ...r });
     res.json({ token, channel, ...r });
+  });
+  // The table camera (camera table rooms). The host asks for the link for a
+  // phone that will film the board: it carries a key for this room and the
+  // device id the room keeps. `fresh` makes a new one (cutting off the old
+  // device); DELETE stops the camera. The device itself has no account: it
+  // swaps the key for a camera-only LiveKit token at /api/camera/token.
+  app.post('/api/rooms/:code/table-camera', auth.requireUser, rateLimit(20, 60_000), async (req, res) => {
+    if (!mediaOn()) { res.status(503).json({ error: media ? 'Voice and video are switched off on this server' : 'Video isn’t set up on this server' }); return; }
+    const room = await rooms.get(String(req.params.code));
+    if (!room) { res.status(404).json({ error: 'No such room' }); return; }
+    if (!room.isHost(req.user!.id)) { res.status(403).json({ error: 'Only the host can make a table camera' }); return; }
+    const id = room.tableCameraId(req.body?.fresh === true);
+    const key = auth.signCameraKey(room.rec.code, id);
+    res.json({ key, path: `#/camera/${room.rec.code}?k=${encodeURIComponent(key)}` });
+  });
+  app.delete('/api/rooms/:code/table-camera', auth.requireUser, async (req, res) => {
+    const room = await rooms.get(String(req.params.code));
+    if (!room) { res.status(404).json({ error: 'No such room' }); return; }
+    if (!room.isHost(req.user!.id)) { res.status(403).json({ error: 'Only the host can stop the table camera' }); return; }
+    room.stopTableCamera();
+    res.status(204).end();
+  });
+  app.post('/api/camera/token', rateLimit(30, 60_000), async (req, res) => {
+    const k = auth.verifyCameraKey(req.body?.key);
+    if (!k) { res.status(403).json({ error: 'This table camera link has expired: ask the host for a new one' }); return; }
+    if (!mediaOn()) { res.status(503).json({ error: 'Video is switched off on this server' }); return; }
+    const room = await rooms.get(k.code);
+    if (!room || !room.isTableCamera(k.cameraId)) { res.status(403).json({ error: 'The host has stopped this table camera or made a new link' }); return; }
+    const token = await cameraToken(media!, { code: room.rec.code, cameraId: k.cameraId });
+    res.json({ token, room: { code: room.rec.code, name: room.rec.name, game: room.game.describeConfig(room.game.parseConfig(room.rec.settings.gameConfig)) } });
   });
   app.get(/^\/rtc(\/.*)?$/, async (req, res) => {
     if (!media) { res.status(404).end(); return; }
@@ -140,8 +170,16 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.get('/api/leaderboard', auth.requireUser, async (req, res) => {
     const f = filters(req.query);
-    if (!f) { res.status(400).json({ error: 'Unknown game or period' }); return; }
-    res.json(await leaderboard(db, f.game, f.period));
+    const name = nameFilter(req.query.name);
+    if (!f || name === undefined) { res.status(400).json({ error: 'Unknown game or period' }); return; }
+    res.json(await leaderboard(db, f.game, f.period, name));
+  });
+
+  // Camera table: the game names it has been played under (a tab each).
+  app.get('/api/leaderboard/names', auth.requireUser, async (req, res) => {
+    const game = typeof req.query.game === 'string' ? req.query.game : '';
+    if (!isGameFilter(game) || game === 'all') { res.status(400).json({ error: 'Unknown game' }); return; }
+    res.json(await boardNames(db, game));
   });
 
   app.get('/api/players/:id/stats', auth.requireUser, async (req, res) => {
