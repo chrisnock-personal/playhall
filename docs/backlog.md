@@ -5,13 +5,11 @@ from this list. The phases themselves are in [design.md](design.md#phases).
 
 ## Still open
 
-### AI players (2026-11-16, #32)
+### AI players for more games (#32)
 
-A bot seat played by a language model on a server the platform admin sets up
-(the shared Ollama, say): it gets its seat's view, the legal choices and the
-table chat, answers with one action and maybe a line of table talk, and falls
-back to the rule bot if it's slow or wrong. Ship2Shore, Manor Mystery and
-Hold'em first. Never counts for the leaderboards.
+Built for Ship2Shore (see Built below). Next: Manor Mystery and Hold'em, each
+with an `AiGame` in `src/shared/` (the position in words, the legal moves as
+numbered options, when it may talk, which moves the model makes).
 
 ### Computer players for the rest (#18)
 
@@ -67,6 +65,7 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 
 | What | When | Where |
 |---|---|---|
+| AI players for Ship2Shore: a language model on the admin's server makes the social moves and talks; the rule bot makes the arithmetic ones and steps in (#32) | 2026-11-16 | `src/shared/ai.ts`, `src/server/ai.ts` |
 | Leaderboard podium: gold, silver and bronze crowns, streaks, points bars | 2026-11-16 | `src/client/pages/Leaderboard.tsx` |
 | Computer players for ten games (#18) | 2026-11-16 | `src/shared/bots.ts` |
 | Hold'em for 2-8, Blackjack for 1-7 (#16) | 2026-11-16 | the game modules |

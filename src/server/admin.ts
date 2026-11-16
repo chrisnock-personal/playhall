@@ -10,6 +10,7 @@ import type { RoomManager } from './rooms/manager';
 import type { RoomSockets } from './ws';
 import type { CertInfo } from './tls';
 import { getPlatformSettings, updatePlatformSettings } from './platform';
+import { checkModelServer } from './ai';
 import { checkPlatformPatch, type AdminOverview, type AdminUser } from '../shared/platform';
 
 /** The certificate being served and a way to replace it (null when TLS is off). */
@@ -65,6 +66,11 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
     for (const room of rooms.loaded()) sockets.changed(room);
     console.log(`[admin] ${req.user!.name} changed ${Object.keys(checked.patch).join(', ')}`);
     res.json({ settings });
+  });
+
+  // AI players (#32): can the model server be reached, and does it have the model?
+  r.post('/ai/check', async (_req, res) => {
+    res.json(await checkModelServer());
   });
 
   // A new certificate (with any intermediates) and its private key, as PEM

@@ -10,7 +10,7 @@ import type { ShipView } from '../../shared/games/ship2shore';
 const host: RoomUser = { id: 'h', name: 'Sam', guest: false };
 const alex: RoomUser = { id: 'a', name: 'Alex', guest: false };
 
-function setup(gameId: string) {
+function setup(gameId: string, ai?: { ask(system: string, user: string): Promise<string | null> }) {
   let now = 1_000_000;
   const timers: { at: number; fn: () => void; live: boolean }[] = [];
   const finished: { counted: boolean; note: string | null; players: Record<string, { bot?: boolean }> }[] = [];
@@ -25,6 +25,7 @@ function setup(gameId: string) {
     gameOver: (g) => { finished.push(g); },
     changed: () => {},
     kick: () => {},
+    ...(ai ? { aiAvailable: () => true, aiAsk: ai.ask } : {}),
   };
   const rec: RoomRecord = {
     id: 'r1', code: 'ABC123', name: 'Test', gameId, hostId: host.id, hostName: host.name,
@@ -98,4 +99,34 @@ test('a bot whose answer is refused falls back to the out-of-time move', () => {
 test('games without bots refuse them', () => {
   const { room } = setup('chess');
   assert.throws(() => room.handle(host, { t: 'addBot', seat: 'black' }), (e: unknown) => e instanceof RoomError && /no computer players/.test(e.message));
+});
+
+const settle = () => new Promise((r) => setImmediate(r));
+
+test('AI players: off unless the server has them; the model picks the social moves and talks; it falls back to the rule bot', async () => {
+  // Without a model server, AI players aren't offered.
+  const off = setup('ship2shore');
+  assert.equal(off.room.snapshotFor(host.id).room.aiPlayers, false);
+  assert.throws(() => off.room.handle(host, { t: 'addBot', seat: 'teal', ai: true }), /AI players aren/);
+
+  // A stand-in model: always the first option, and something to say.
+  const prompts: string[] = [];
+  const { room, rec, lines, advance } = setup('ship2shore', { ask: async (_s, user) => { prompts.push(user); return '{"thought": "t", "choice": 1, "say": "Steady, crew."}'; } });
+  assert.equal(room.snapshotFor(host.id).room.aiPlayers, true);
+  for (const seat of ['amber', 'teal', 'violet', 'rose', 'lime']) room.handle(host, { t: 'addBot', seat, ai: seat === 'teal' || seat === 'rose' });
+  const seats = room.snapshotFor(host.id).seats;
+  assert.deepEqual(seats.filter((s) => s.ai).map((s) => s.name), ['Bram (AI)', 'Dov (AI)']);
+  room.handle(host, { t: 'start' });
+  for (let i = 0; i < 3000 && rec.game.status === 'playing'; i++) { advance(2000); await settle(); }
+  assert.equal(rec.game.status, 'over', 'the game ended');
+  assert.ok(prompts.length > 0, 'the model was asked');
+  assert.ok(prompts.every((p) => !/Keep |Discard /.test(p.split('Options:')[1] ?? '')), 'course orders are left to the rule bot');
+  assert.ok(lines.some((l) => l === 'Steady, crew.'), 'what the AI says goes in the table chat');
+
+  // A model that never answers: the rule bot plays every move.
+  const quiet = setup('ship2shore', { ask: async () => null });
+  for (const seat of ['amber', 'teal', 'violet', 'rose', 'lime']) quiet.room.handle(host, { t: 'addBot', seat, ai: true });
+  quiet.room.handle(host, { t: 'start' });
+  for (let i = 0; i < 3000 && quiet.rec.game.status === 'playing'; i++) { quiet.advance(2000); await settle(); }
+  assert.equal(quiet.rec.game.status, 'over', 'the game ended without the model');
 });

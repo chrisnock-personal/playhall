@@ -34,8 +34,9 @@ export const isBotId = (userId: string | null | undefined) => !!userId && userId
 /** Bots' names, one per seat of the biggest table. */
 export const BOT_NAMES = ['Ada', 'Bram', 'Cleo', 'Dov', 'Esme', 'Finn', 'Greta', 'Hugo', 'Ines', 'Jory', 'Kit'];
 
-/** A bot name not already at the table: "Ada (bot)". */
-export function botName(taken: string[]): string {
-  const n = BOT_NAMES.find((x) => !taken.includes(`${x} (bot)`));
-  return n ? `${n} (bot)` : `Bot ${taken.length + 1}`;
+/** A name not already at the table: "Ada (bot)", or "Ada (AI)" for a
+ *  model-played seat (#32). */
+export function botName(taken: string[], kind: 'bot' | 'AI' = 'bot'): string {
+  const n = BOT_NAMES.find((x) => !taken.some((t) => t.startsWith(`${x} (`)));
+  return n ? `${n} (${kind})` : `${kind === 'AI' ? 'AI' : 'Bot'} ${taken.length + 1}`;
 }

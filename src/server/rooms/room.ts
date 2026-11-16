@@ -7,6 +7,7 @@
 
 import { GAMES } from '../../shared/games';
 import { BOTS, BOT_ID_PREFIX, botName, isBotId } from '../../shared/bots';
+import { AI_GAMES, aiPrompt, readAnswer } from '../../shared/ai';
 import { placingsOf } from '../../shared/scoring';
 import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId } from '../../shared/game';
 import type {
@@ -27,6 +28,8 @@ export interface SeatHolder {
   guest: boolean;
   /** A computer player (#18): its userId is a made-up 'bot:' id. */
   bot?: boolean;
+  /** Played by a language model (#32), with the rule bot as its fallback. */
+  ai?: boolean;
 }
 
 export interface RoomRecord {
@@ -83,6 +86,10 @@ export interface RoomHooks {
   kick(userId: string, reason: string): void;
   /** The server allows transcripts at all (see ../transcripts.ts). */
   transcriptsAllowed?(): boolean;
+  /** AI players (#32): switched on by the admin, with a model server. */
+  aiAvailable?(): boolean;
+  /** Ask the model; null when it can't answer (the rule bot plays then). */
+  aiAsk?(system: string, user: string): Promise<string | null>;
   /** A random, unguessable id (the table camera's). */
   newId?(): string;
 }
@@ -118,6 +125,8 @@ export class Room {
   private cancelTimer: (() => void) | null = null;
   /** A bot's move waiting to be made (#18). */
   private cancelBot: (() => void) | null = null;
+  /** AI players' recent table talk, so they don't chatter or repeat (#32). */
+  private aiTalk = new Map<SeatId, { quiet: number; recent: string[] }>();
   private lastResult: LastResult | null = null;
   /** The game's states over time, for watchers who see it late. */
   private history: { at: number; state: unknown }[] = [];
@@ -337,7 +346,7 @@ export class Room {
       case 'start': this.hostOnly(user); return this.start();
       case 'seat': this.hostOnly(user); return this.seatSomeone(msg.userId, msg.seat);
       case 'unseat': this.hostOnly(user); return this.unseat(msg.userId);
-      case 'addBot': this.hostOnly(user); return this.addBot(msg.seat);
+      case 'addBot': this.hostOnly(user); return this.addBot(msg.seat, msg.ai === true);
       case 'makeHost': this.hostOnly(user); return this.makeHost(msg.userId);
       case 'kick': this.hostOnly(user); return this.kick(user, msg.userId);
       case 'settings': this.hostOnly(user); return this.updateSettings(msg.settings);
@@ -602,6 +611,7 @@ export class Room {
     this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, aliveAt: now };
     this.lastResult = null;
     this.rematch.clear();
+    this.aiTalk.clear();
     this.history = [{ at: now, state: this.rec.game.state }];
     this.endedAt = null;
     this.resetMoveDeadline();
@@ -683,14 +693,15 @@ export class Room {
   }
 
   /** The host puts a computer player in a free seat (games with bots). */
-  private addBot(seat: SeatId): void {
+  private addBot(seat: SeatId, ai = false): void {
     if (!BOTS[this.rec.gameId]) throw new RoomError(`${this.game.name} has no computer players yet`);
+    if (ai && !this.aiPlayers) throw new RoomError(`AI players aren\u2019t available for ${this.game.name} on this server`);
     this.checkSeat(seat);
     if (this.status === 'playing') throw new RoomError('End the game first');
     if (this.rec.seats[seat]) throw new RoomError('That seat is taken');
-    const name = botName(Object.values(this.rec.seats).map((h) => h?.name ?? ''));
+    const name = botName(Object.values(this.rec.seats).map((h) => h?.name ?? ''), ai ? 'AI' : 'bot');
     const id = `${BOT_ID_PREFIX}${Math.floor(this.hooks.random() * 1e12).toString(36)}`;
-    this.place({ userId: id, name, guest: false, bot: true }, seat);
+    this.place({ userId: id, name, guest: false, bot: true, ...(ai ? { ai: true } : {}) }, seat);
     this.system(`The host added ${name} as ${this.seatLabel(seat)}`);
     this.touch();
   }
@@ -722,6 +733,12 @@ export class Room {
     const players = this.rec.game.players ?? {};
     const seat = this.waitingFor().find((s) => players[s]?.bot);
     if (!seat) return;
+    if (players[seat].ai && this.askAi(seat)) return;
+    this.ruleMove(seat);
+  }
+
+  /** The rule bot's move for `seat`, or the out-of-time move if it's refused. */
+  private ruleMove(seat: SeatId): void {
     const now = this.hooks.now();
     const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), seat, () => this.hooks.random());
     const r = action === null ? null : this.game.act(this.rec.game.state, seat, action, now, this.context());
@@ -730,6 +747,56 @@ export class Room {
       this.rec.game.state = this.game.timeout(this.rec.game.state, seat, now, this.context());
       this.afterChange();
     }
+  }
+
+  /** What an AI player may say now, if anything: after speaking it stays
+   *  quiet for its next two decisions, and it never says the same thing twice
+   *  running. Models asked to talk "now and then" talk every time. */
+  private aiLine(seat: SeatId, text: string): string | null {
+    const t = this.aiTalk.get(seat) ?? { quiet: 0, recent: [] };
+    this.aiTalk.set(seat, t);
+    if (t.quiet > 0) { t.quiet--; return null; }
+    const key = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+    if (!key || t.recent.includes(key)) return null;
+    t.recent = [...t.recent, key].slice(-6);
+    t.quiet = 2;
+    return text.slice(0, CHAT_MAX);
+  }
+
+  /** AI players are available in this room: the game has them and the admin set them up. */
+  private get aiPlayers(): boolean {
+    return !!AI_GAMES[this.rec.gameId] && !!this.hooks.aiAvailable?.() && !!this.hooks.aiAsk;
+  }
+
+  /** An AI seat's decision: ask the model, without holding the room up.
+   *  False when the model isn't asked (the rule bot moves now instead). */
+  private askAi(seat: SeatId): boolean {
+    const ai = AI_GAMES[this.rec.gameId];
+    if (!ai || !this.aiPlayers) return false;
+    const state = this.rec.game.state;
+    const view = this.game.view(state, this.hooks.now(), seat);
+    if (ai.modelDecides && !ai.modelDecides(view)) return false;
+    const options = ai.options(view, seat, this.context().names ?? {});
+    if (options.length < 2) return false;
+    const names = this.context().names ?? {};
+    const chat = this.chatLines.filter((l) => l.channel === 'table' && l.kind !== 'system').slice(-12).map((l) => `${l.name}: ${l.text}`);
+    const { system, user } = aiPrompt(ai, view, seat, names, chat, options);
+    let live = true;
+    this.cancelBot = () => { live = false; };
+    this.hooks.aiAsk!(system, user).then((text) => {
+      if (!live) return;
+      this.cancelBot = null;
+      // The game moved on while the model thought (a resign, the host): drop it.
+      if (this.status !== 'playing' || this.rec.game.state !== state) { this.scheduleBots(); return; }
+      const answer = text === null ? null : readAnswer(text, options.length);
+      const r = answer && this.game.act(state, seat, options[answer.choice - 1].action, this.hooks.now(), this.context());
+      if (!r || 'error' in r) { this.ruleMove(seat); return; }
+      const holder = this.rec.game.players?.[seat];
+      const said = answer.say && holder && ai.canTalk(view, seat) ? this.aiLine(seat, answer.say) : null;
+      if (said) this.addLine({ channel: 'table', kind: 'typed', userId: holder!.userId, name: holder!.name, text: said });
+      this.accept(r, seat);
+    }, () => { if (live) { this.cancelBot = null; this.ruleMove(seat); } });
+    return true;
   }
 
   private unseat(userId: string): void {
@@ -924,10 +991,12 @@ export class Room {
         minPlayers: this.minPlayers,
         transcriptsAllowed: this.hooks.transcriptsAllowed?.() ?? false,
         tableCamera: this.game.tableCamera ? { on: !!this.rec.tableCamera } : null,
+        aiPlayers: this.aiPlayers,
       },
       seats: this.seatDefs.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
         ...(this.rec.seats[s.id]?.bot ? { bot: true } : {}),
+        ...(this.rec.seats[s.id]?.ai ? { ai: true } : {}),
       })),
       members: this.members(),
       queue: [...this.queue],
@@ -963,6 +1032,7 @@ export class Room {
       seats: this.seatDefs.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
         ...(this.rec.seats[s.id]?.bot ? { bot: true } : {}),
+        ...(this.rec.seats[s.id]?.ai ? { ai: true } : {}),
       })),
       watching: [...this.present.keys()].filter((id) => !seated.has(id)).length,
       listed: this.rec.settings.listed,

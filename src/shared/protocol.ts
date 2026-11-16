@@ -85,6 +85,8 @@ export interface SeatView {
   name: string | null;
   /** A computer player sits here (#18). */
   bot?: boolean;
+  /** ...played by a language model (#32). */
+  ai?: boolean;
 }
 
 export type GameStatus = 'idle' | 'playing' | 'over';
@@ -110,6 +112,8 @@ export interface RoomSnapshot {
     /** Camera table rooms: whether the host has a table camera link out
      *  (null in other games). */
     tableCamera: { on: boolean } | null;
+    /** The host can add AI players here (#32): the game has them and the admin set them up. */
+    aiPlayers?: boolean;
   };
   seats: SeatView[];
   members: MemberView[];
@@ -154,7 +158,7 @@ export type ClientMessage =
   | { t: 'start' }
   | { t: 'seat'; userId: string; seat: SeatId }
   | { t: 'unseat'; userId: string }
-  | { t: 'addBot'; seat: SeatId }
+  | { t: 'addBot'; seat: SeatId; ai?: boolean }
   | { t: 'makeHost'; userId: string }
   | { t: 'kick'; userId: string }
   | { t: 'settings'; settings: Partial<RoomSettings> }

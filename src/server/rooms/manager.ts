@@ -11,6 +11,7 @@ import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
 import { recordGame } from '../stats';
 import type { AdminRoom } from '../../shared/platform';
 import { transcriptsAllowed } from '../transcripts';
+import { aiAvailable, askModel } from '../ai';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
 const SAVE_DELAY_MS = 150;
@@ -123,6 +124,8 @@ export class RoomManager {
       },
       kick: (userId, reason) => this.onKick(room, userId, reason),
       transcriptsAllowed,
+      aiAvailable,
+      aiAsk: askModel,
       newId: () => crypto.randomBytes(18).toString('base64url'),
       changed: () => {
         if (room) this.onChanged(room);
