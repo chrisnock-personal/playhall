@@ -296,7 +296,7 @@ export interface ShipView {
   result: GameResult | null;
 }
 
-export const SEATS = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue', 'coral', 'slate', 'gold', 'mint', 'plum'];
+export const SEATS = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue', 'red', 'slate', 'gold', 'mint', 'plum'];
 
 // ---- Helpers ----
 

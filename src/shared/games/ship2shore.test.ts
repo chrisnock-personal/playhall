@@ -122,7 +122,7 @@ test('a round: pick the watch, a vote, plotting, the ship sails; off watch next 
 });
 
 test('off watch in games of 8 or more: last round’s helmsman, first officer and captain', () => {
-  const roles: Record<string, Role> = { amber: 'navy', teal: 'navy', violet: 'navy', rose: 'navy', lime: 'spy', blue: 'spy', coral: 'spy', slate: 'fixer' };
+  const roles: Record<string, Role> = { amber: 'navy', teal: 'navy', violet: 'navy', rose: 'navy', lime: 'spy', blue: 'spy', red: 'spy', slate: 'fixer' };
   let s = table(roles, { chart: 'long', threshold: 4 });
   s = round(s, 'teal', 'violet', ['ne.steady', 'ne.steady', 'ne.steady', 'ne.steady']);
   assert.equal(s.round, 2);
@@ -334,10 +334,10 @@ test('contraband: everyone answers; the Fixer bribes, stashes cash or looks at t
 });
 
 test('the resupply line tops everyone up to three rounds', () => {
-  const roles: Record<string, Role> = { amber: 'navy', teal: 'navy', violet: 'navy', rose: 'navy', lime: 'spy', blue: 'spy', coral: 'spy', slate: 'fixer' };
+  const roles: Record<string, Role> = { amber: 'navy', teal: 'navy', violet: 'navy', rose: 'navy', lime: 'spy', blue: 'spy', red: 'spy', slate: 'fixer' };
   const row = CHARTS.long.resupplyRow!;
   const a = (() => { for (let x = -4; x <= 4; x++) if (!actionAt(CHARTS.long, { a: x, b: row })) return x; throw new Error(); })();
-  const s = sail(table(roles, { chart: 'long', ship: { a, b: row - 1 }, ammo: { amber: 0, teal: 1, violet: 5, rose: 3, lime: 0, blue: 0, coral: 0, slate: 2 } }), 's.steady');
+  const s = sail(table(roles, { chart: 'long', ship: { a, b: row - 1 }, ammo: { amber: 0, teal: 1, violet: 5, rose: 3, lime: 0, blue: 0, red: 0, slate: 2 } }), 's.steady');
   assert.equal(s.ammo.amber, 3);
   assert.equal(s.ammo.violet, 5);
   assert.ok(s.log.some((e) => e.k === 'resupply'));

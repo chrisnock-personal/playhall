@@ -20,8 +20,8 @@ export const COLOURS: Record<string, { fill: string; rim: string; label: string 
   lime: { fill: '#9CC83F', rim: '#5E8418', label: 'Lime' },
   blue: { fill: '#4F86E8', rim: '#2A55A8', label: 'Blue' },
   // Seats 7-11, for Ship2Shore's bigger tables.
-  coral: { fill: '#F07A52', rim: '#A8431F', label: 'Coral' },
-  slate: { fill: '#7D8A9C', rim: '#4A5566', label: 'Slate' },
+  red: { fill: '#D2433F', rim: '#8A1F1C', label: 'Red' },
+  slate: { fill: '#8C97A8', rim: '#525C6B', label: 'Slate' },
   gold: { fill: '#F2D64B', rim: '#9C8410', label: 'Gold' },
   mint: { fill: '#A8EBD0', rim: '#3F8F72', label: 'Mint' },
   plum: { fill: '#9E3F7C', rim: '#5E1E49', label: 'Plum' },
@@ -221,7 +221,7 @@ export function GameActions({ snap, send, minPlayers, resign = true, children }:
   return (
     <div className="stage-actions">
       {result && !playing && (
-        <span className="result-pill">{result.aborted ? `Stopped: ${result.reason}` : `${winnerLabel ? `${winnerLabel} wins` : 'Draw'} by ${result.reason}`}</span>
+        <span className="result-pill">{result.aborted ? `Stopped: ${result.reason}` : result.teamWin ? `Team win: ${result.reason}` : `${winnerLabel ? `${winnerLabel} wins` : 'Draw'} by ${result.reason}`}</span>
       )}
       {children}
       {playing && snap.you.seat && resign && (confirm

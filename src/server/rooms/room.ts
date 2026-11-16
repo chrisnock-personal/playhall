@@ -541,8 +541,8 @@ export class Room {
     this.rec.game.moveDeadline = null;
     const placings = placingsOf(result, Object.keys(players));
     const who = (seat: SeatId) => `${players[seat]?.name ?? this.seatLabel(seat)} (${this.seatLabel(seat)})`;
-    let line = placings[0].length === 1 ? `${who(placings[0][0])} won` : 'Draw';
-    if (placings[0].length === 1 && placings[1]?.length && Object.keys(players).length >= 3) {
+    let line = placings[0].length === 1 || result.teamWin ? `${placings[0].map(who).join(', ')} won` : 'Draw';
+    if (placings[0].length === 1 && !result.teamWin && placings[1]?.length && Object.keys(players).length >= 3) {
       line += `, ${placings[1].map(who).join(' and ')} second`;
     }
     this.system(result.aborted ? `Game stopped: ${result.reason}` : `${line} by ${result.reason}`);
