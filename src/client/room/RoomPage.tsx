@@ -9,6 +9,8 @@ import { SeatsPanel } from './SeatsPanel';
 import { GalleryStrip } from './GalleryStrip';
 import { VoiceDock } from './VoiceDock';
 import { useVoice, viewChannel } from './useVoice';
+import { useTranscriber } from './useTranscriber';
+import { TranscriptNotice } from './TranscriptNotice';
 import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ResultCard } from './ResultCard';
@@ -49,6 +51,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   const [toast, setToast] = useState<string | null>(null);
 
   const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send };
+  const tx = useTranscriber(snap.room.code, session.token, snap, voice);
 
   // While you're in one channel's voice, also show the other channel's video
   // when you may see it (players' cameras for watchers in the gallery, and
@@ -111,6 +114,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <div className="room-top-right">
             <VoiceDock voice={voice} snap={snap} />
+            <TranscriptNotice snap={snap} voice={voice} tx={tx} />
             <div className="segmented small" role="group" aria-label="Layout">
               {(Object.keys(PRESETS) as PresetId[]).map((id) => (
                 <button key={id} className={layout.preset === id ? 'on' : ''} onClick={() => preset(id)}>{PRESETS[id].label}</button>
@@ -127,6 +131,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
           <span className="muted">{snap.room.gameName} · {status} · {role}{snap.you.delay > 0 ? ` · ${snap.you.delay} s behind` : ''}</span>
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <VoiceDock voice={voice} snap={snap} compact />
+          <TranscriptNotice snap={snap} voice={voice} tx={tx} compact />
           <button className="icon-btn small" aria-label="Show the top bar" onClick={() => set('top', NEXT.top[layout.top])}><Icon name="down" size={16} /></button>
         </div>
       )}

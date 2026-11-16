@@ -61,6 +61,8 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
     const checked = checkPlatformPatch(req.body);
     if ('error' in checked) { res.status(400).json({ error: checked.error }); return; }
     const settings = await updatePlatformSettings(checked.patch, req.user!.id);
+    // Open rooms see the change at once (e.g. the transcripts switch and notice).
+    for (const room of rooms.loaded()) sockets.changed(room);
     console.log(`[admin] ${req.user!.name} changed ${Object.keys(checked.patch).join(', ')}`);
     res.json({ settings });
   });

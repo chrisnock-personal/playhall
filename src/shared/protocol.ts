@@ -30,6 +30,9 @@ export interface RoomSettings {
   /** Finished games here count for the leaderboards (between account
    *  holders). Off makes a casual room. */
   ranked: boolean;
+  /** What people say in voice is written into the chat as *said* lines
+   *  (speech to text on the server's Whisper). Off by default. */
+  transcripts: boolean;
   /** The game's own settings (for chess, the time control). */
   gameConfig: unknown;
 }
@@ -42,6 +45,7 @@ export const DEFAULT_SETTINGS: Omit<RoomSettings, 'gameConfig'> = {
   watchersWriteTable: false,
   afterGame: 'same',
   ranked: true,
+  transcripts: false,
   moveSeconds: 0,
   watcherDelay: 0,
   watcherVideo: false,
@@ -64,7 +68,8 @@ export interface MemberView {
 export interface ChatLine {
   id: number;
   channel: Channel;
-  kind: 'typed' | 'system';
+  /** typed in the chat, said in voice (transcribed), or from the room. */
+  kind: 'typed' | 'said' | 'system';
   userId: string | null;
   name: string;
   text: string;
@@ -96,6 +101,8 @@ export interface RoomSnapshot {
     moveTimer: boolean;
     /** Fewest players needed to start. */
     minPlayers: number;
+    /** This server allows transcripts at all (the room rule needs it). */
+    transcriptsAllowed: boolean;
   };
   seats: SeatView[];
   members: MemberView[];

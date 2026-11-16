@@ -15,6 +15,7 @@ import type { Channel } from '../shared/protocol';
 import { adminRoutes, type AdminTls } from './admin';
 import { getPlatformSettings } from './platform';
 import type { PublicPlatform } from '../shared/platform';
+import { MAX_WAV_BYTES, SaidLimiter, saidHandler, transcriptsAllowed, whisperTranscribe, whisperUrl } from './transcripts';
 
 export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomSockets; db: Db; staticDir: string; media?: MediaConfig | null; tls?: AdminTls | null }) {
   const { auth, rooms, sockets, db } = opts;
@@ -28,7 +29,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   // Voice and video: set up on this server and allowed by the admin.
   const mediaOn = () => !!media && getPlatformSettings().voiceVideoAllowed;
-  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: mediaOn() }); });
+  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: mediaOn(), transcripts: transcriptsAllowed() }); });
   // Platform settings anyone may know (sign-in page, lobby, rooms).
   app.get('/api/platform', (_req, res) => {
     const p = getPlatformSettings();
@@ -39,6 +40,18 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     res.json(body);
   });
   app.use('/api/admin', adminRoutes({ auth, db, rooms, sockets, media, tls: opts.tls ?? null }));
+
+
+  // Transcripts: one utterance of your speech (16 kHz mono WAV), written into
+  // the chat as a said line. The audio is dropped once Whisper has read it.
+  app.post('/api/rooms/:code/said/:channel', auth.requireUser, rateLimit(120, 60_000),
+    express.raw({ type: ['audio/wav', 'audio/x-wav', 'audio/wave'], limit: MAX_WAV_BYTES + 1024 }),
+    saidHandler({
+      getRoom: (code) => rooms.get(code),
+      allowed: transcriptsAllowed,
+      transcribe: (wav) => whisperTranscribe(whisperUrl()!, wav),
+      limiter: new SaidLimiter(),
+    }));
 
   // Voice and video: a LiveKit token for one channel of a room you're in.
   // The browser connects to LiveKit through this same address (/rtc).
@@ -167,6 +180,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof RoomError) { res.status(400).json({ error: err.message }); return; }
+    if ((err as { type?: string }).type === 'entity.too.large') { res.status(413).json({ error: 'Too big' }); return; }
     console.error('[http] error:', err);
     res.status(500).json({ error: 'Something went wrong' });
   });

@@ -66,6 +66,8 @@ export interface Voice {
   watch(channel: Channel, id: string): () => void;
   /** Also show video from this other channel (null: none). */
   view(channel: Channel | null): void;
+  /** Your microphone's track while it's published (for transcripts). */
+  micTrack: MediaStreamTrack | null;
 }
 
 export function useVoice(code: string, sessionToken: string): Voice {
@@ -91,6 +93,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
   const [mode, setModeState] = useState<VoiceMode>(readMode);
   const [talking, setTalking] = useState(false);
   const volumes = useRef(new Map<string, number>());
+  const [micTrack, setMicTrack] = useState<MediaStreamTrack | null>(null);
 
   /** Subscribe to what's needed and nothing else: everyone's voice in your
    *  channel, and only the cameras whose tiles are on screen. */
@@ -140,6 +143,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     }
     setFeeds(out);
     setSpeaking(talk);
+    setMicTrack(r.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack ?? null);
   }, []);
 
   /** Events that change who's there, what they send, or what we receive. */
@@ -211,7 +215,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     for (const els of audio.current.values()) els.forEach((e) => e.remove());
     audio.current.clear();
     setState('off'); setChannel(null); setPeople([]); setFeeds([]); setSpeaking({ table: [], gallery: [] });
-    setMuted(true); setCamera(false); setNeedsClick(false);
+    setMuted(true); setCamera(false); setNeedsClick(false); setMicTrack(null);
   }, [closeView]);
 
   const join = useCallback(async (ch: Channel) => {
@@ -360,7 +364,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
 
   return {
     state, channel, canTalk, muted, needsClick, people, error, join, leave, toggleMute, startAudio, mode, setMode, talking, pushToTalk, setVolume,
-    canVideo, camera, cameraBusy, toggleCamera, feeds, speaking, watch, view,
+    canVideo, camera, cameraBusy, toggleCamera, feeds, speaking, watch, view, micTrack,
   };
 }
 

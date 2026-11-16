@@ -110,6 +110,18 @@ export function SettingsDialog({ snap, send, game, token, onClose }: {
           ))}
         </section>
         <section>
+          <h3>Voice</h3>
+          <label className={`switch-row${snap.room.transcriptsAllowed ? '' : ' disabled'}`}>
+            <span><strong>Transcripts: write what people say in voice into the chat</strong>
+              <span className="hint">{snap.room.transcriptsAllowed
+                ? 'Table voice goes to the table chat, gallery voice to the gallery, marked “said”, so people who can’t hear can follow. Everyone in voice sees that it’s on. Only the text is kept; the audio isn’t stored.'
+                : 'Not available: transcripts are switched off on this server (no speech-to-text set up, or the admin turned them off).'}</span>
+            </span>
+            <input type="checkbox" role="switch" className="switch" checked={s.transcripts && snap.room.transcriptsAllowed}
+              disabled={!snap.room.transcriptsAllowed} onChange={(e) => update({ transcripts: e.target.checked })} />
+          </label>
+        </section>
+        <section>
           <h3>Private room</h3>
           <p className="hint">
             {snap.room.locked

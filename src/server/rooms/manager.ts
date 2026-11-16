@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, t
 import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
 import { recordGame } from '../stats';
 import type { AdminRoom } from '../../shared/platform';
+import { transcriptsAllowed } from '../transcripts';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
 const SAVE_DELAY_MS = 150;
@@ -99,6 +100,7 @@ export class RoomManager {
           .catch((err) => console.error('[rooms] saving the result failed:', err.message));
       },
       kick: (userId, reason) => this.onKick(room, userId, reason),
+      transcriptsAllowed,
       changed: () => {
         if (room) this.onChanged(room);
         if (room) this.checkIdle(room);
@@ -217,6 +219,9 @@ export class RoomManager {
 
   /** Every open room, listed or not, for the admin page: the live ones with
    *  how many people have them open now. */
+  /** Every room loaded now (e.g. to refresh them all when a platform setting changes). */
+  loaded(): Room[] { return [...this.rooms.values()]; }
+
   async adminList(): Promise<AdminRoom[]> {
     const { rows } = await this.db.query<RoomRow & { updated_at: Date }>(
       `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash, r.updated_at
