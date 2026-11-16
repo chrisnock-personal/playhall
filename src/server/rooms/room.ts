@@ -6,8 +6,8 @@
 // seat. A person in a seat is a player; everyone else present is watching.
 
 import { GAMES } from '../../shared/games';
-import { BOTS, BOT_ID_PREFIX, botName, isBotId } from '../../shared/bots';
-import { AI_GAMES, aiPrompt, readAnswer } from '../../shared/ai';
+import { BOTS, BOT_ID_PREFIX, BOT_TALK, botName, isBotId } from '../../shared/bots';
+import { AI_GAMES, aiPrompt, aiReplyPrompt, readAnswer, readSay } from '../../shared/ai';
 import { placingsOf } from '../../shared/scoring';
 import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId } from '../../shared/game';
 import type {
@@ -127,6 +127,8 @@ export class Room {
   private cancelBot: (() => void) | null = null;
   /** AI players' recent table talk, so they don't chatter or repeat (#32). */
   private aiTalk = new Map<SeatId, { quiet: number; recent: string[] }>();
+  /** When each bot last answered a question, so one question gets one answer. */
+  private botAnswered = new Map<SeatId, number>();
   private lastResult: LastResult | null = null;
   /** The game's states over time, for watchers who see it late. */
   private history: { at: number; state: unknown }[] = [];
@@ -426,6 +428,7 @@ export class Room {
     if (body.length > CHAT_MAX) throw new RoomError(`Keep messages under ${CHAT_MAX} characters`);
     this.addLine({ channel, kind: 'typed', userId: user.id, name: user.name, text: body });
     if (channel === 'table' && this.rec.settings.watcherDelay) this.hooks.setTimer(this.rec.settings.watcherDelay * 1000 + 50, () => this.hooks.changed());
+    if (channel === 'table') this.botsHear(body);
     this.hooks.changed();
   }
 
@@ -447,7 +450,53 @@ export class Room {
     if (!body) return;
     this.addLine({ channel, kind: 'said', userId, name: user.name, text: body });
     if (channel === 'table' && this.rec.settings.watcherDelay) this.hooks.setTimer(this.rec.settings.watcherDelay * 1000 + 50, () => this.hooks.changed());
+    if (channel === 'table') this.botsHear(body);
     this.hooks.changed();
+  }
+
+  /** Someone at the table asked something: any bot or AI player it's put to
+   *  answers, after a moment (Ship2Shore: what orders they had). */
+  private botsHear(text: string): void {
+    const talk = BOT_TALK[this.rec.gameId];
+    if (!talk || this.status !== 'playing') return;
+    const names = this.context().names ?? {};
+    const now = this.hooks.now();
+    for (const [seat, h] of Object.entries(this.rec.game.players ?? {})) {
+      if (!h.bot) continue;
+      const view = this.game.view(this.rec.game.state, now, seat);
+      if (!talk.asked(view, seat, text, names)) continue;
+      if (now - (this.botAnswered.get(seat) ?? 0) < 4000) continue;
+      this.botAnswered.set(seat, now);
+      this.hooks.setTimer(1500 + Math.floor(this.hooks.random() * 1500), () => this.botAnswer(seat, text, 0));
+    }
+  }
+
+  /** A bot's answer, once it may talk (not on the bridge while plotting). */
+  private botAnswer(seat: SeatId, question: string, tries: number): void {
+    const talk = BOT_TALK[this.rec.gameId];
+    const holder = this.rec.game.players?.[seat];
+    if (!talk || !holder || this.status !== 'playing') return;
+    const view = this.game.view(this.rec.game.state, this.hooks.now(), seat);
+    if (!talk.canTalk(view, seat)) {
+      if (tries < 20) this.hooks.setTimer(3000, () => this.botAnswer(seat, question, tries + 1));
+      return;
+    }
+    const rule = talk.answer(view, seat, () => this.hooks.random());
+    const say = (text: string | null) => {
+      if (!text || this.status !== 'playing') return;
+      this.addLine({ channel: 'table', kind: 'typed', userId: holder.userId, name: holder.name, text: text.slice(0, CHAT_MAX) });
+      this.hooks.changed();
+    };
+    const ai = AI_GAMES[this.rec.gameId];
+    const truth = talk.truth(view, seat);
+    if (holder.ai && ai && truth && this.aiPlayers) {
+      const names = this.context().names ?? {};
+      const chat = this.chatLines.filter((l) => l.channel === 'table' && l.kind !== 'system').slice(-12).map((l) => `${l.name}: ${l.text}`);
+      const { system, user } = aiReplyPrompt(ai, view, seat, names, chat, question, truth);
+      this.hooks.aiAsk!(system, user).then((t) => say((t && readSay(t)) ?? rule), () => say(rule));
+      return;
+    }
+    say(rule);
   }
 
   private act(user: RoomUser, action: unknown): void {
@@ -612,6 +661,7 @@ export class Room {
     this.lastResult = null;
     this.rematch.clear();
     this.aiTalk.clear();
+    this.botAnswered.clear();
     this.history = [{ at: now, state: this.rec.game.state }];
     this.endedAt = null;
     this.resetMoveDeadline();
