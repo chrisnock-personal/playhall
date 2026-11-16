@@ -14,6 +14,8 @@ import { manorMysteryClient } from './manormystery';
 import { cameraTableClient } from './cameratable';
 import { ship2shoreClient } from './ship2shore';
 import { whoDatClient } from './whodat';
+import { poopheadClient } from './poophead';
+import { heartsClient } from './hearts';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -31,4 +33,6 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [cameraTableClient.id]: cameraTableClient,
   [ship2shoreClient.id]: ship2shoreClient,
   [whoDatClient.id]: whoDatClient,
+  [poopheadClient.id]: poopheadClient,
+  [heartsClient.id]: heartsClient,
 };

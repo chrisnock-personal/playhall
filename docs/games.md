@@ -146,6 +146,11 @@ seat colours 7-11 (red, slate, gold, mint, plum) and team wins: every member
 of the winning faction scores 3.
 **Who Dat?** is in (2 players, a guess-the-face game with our own cast of 24;
 rules as built in [who-dat.md](who-dat.md)).
+**Hearts** is in (4 players: pass three, avoid hearts and the queen of
+spades, shoot the moon, first to 100 ends it) and **Poophead** (2-5, the
+traditional shedding game also known as Palace and by a ruder name: three
+down, three up, three in hand; 2 resets, 7 means lower, 10 and four of a kind
+burn; the last left holding cards is the Poophead). Both have bots.
 
 ## The camera table (phase 2.4)
 

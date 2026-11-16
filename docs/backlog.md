@@ -12,13 +12,33 @@ a step or hop over any marble (in chains), first to fill the opposite point
 wins. A hex-grid board on the kit, hop chains highlighted and animated, and
 bots that favour the longest forward hops.
 
-### Hearts, Spades and Gin Rummy (2026-11-16, #38, #39, #40)
+### Spades, Gin Rummy and Thirty-One (2026-11-16, #39, #40, #42)
 
-Three more classic card games on the card kit: **Hearts** for four (pass
-three, avoid hearts and the queen of spades, shoot the moon, lowest to 100
-wins); **Spades** for two pairs (bid tricks or nil, spades trump, bags, first
-pair to 500); **Gin Rummy** for two (draw and discard, melds and deadwood,
-knock or gin, game to 100). Bots for each.
+More classic card games on the card kit: **Spades** for two pairs (bid
+tricks or nil, spades trump, bags, first pair to 500); **Gin Rummy** for two
+(draw and discard, melds and deadwood, knock or gin, game to 100);
+**Thirty-One** for 2-9 (three cards, best suit total, knock, lives). Bots
+for each.
+
+### Casino and hall games (2026-11-16, #43, #44, #45)
+
+**Craps** and **Roulette** with play chips, beside Blackjack and Hold'em, and
+**Bingo** (90-ball, 75-ball as an option) for big rooms, numbers called by
+the server.
+
+### Party games (2026-11-16, #46, #47, #48)
+
+Our own takes on three party genres, with our own names, words and cards: a
+team word-association game (working name Clue Words), a fill-in-the-blank
+game (working name Fill the Blank: a family deck by default, an adult deck a
+host can choose), and **What Am I?** (everyone sees your word but you; ask
+the table yes/no questions).
+
+### Landgrab (2026-11-16, #49)
+
+A property-trading board game of our own: our own board, places, cards and
+art; roll, buy, build, trade, auction; shorter games by a time limit or a
+number of rounds; bots that trade sensibly.
 
 ### Bridge (2026-11-16, #37)
 
@@ -28,13 +48,6 @@ thirteen tricks, Chicago scoring first (rubber as an option, duplicate later
 with tournaments). Both partners score a win (`teamWin`). Bots that bid a
 simple natural system and play by simple rules make it playable with one to
 three people.
-
-### Shithead (2026-11-16, #36)
-
-The traditional shedding game (also known as Palace) for 2-6 with a 52-card
-deck: three face-down, three face-up and a hand of three; play equal or
-higher, pick up the pile if you can't; 2 resets, 10 burns (house rules to
-settle); the last player with cards loses. A folk game, on our own cards.
 
 ### Realm Duel team battles (2026-11-16, #34)
 
@@ -112,6 +125,7 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 
 | What | When | Where |
 |---|---|---|
+| Poophead (the shedding game also known as Palace, #36) and Hearts (#38), with bots | 2026-11-16 | `src/shared/games/poophead.ts`, `hearts.ts` |
 | Who Dat?, a guess-the-face game for two, with a bot (#33): [who-dat.md](who-dat.md) | 2026-11-16 | `src/shared/games/whodat.ts` |
 | Ship2Shore bots and AI players answer when asked what orders they had | 2026-11-16 | `src/shared/games/ship2shore.talk.ts` |
 | AI players for Ship2Shore: a language model on the admin's server makes the social moves and talks; the rule bot makes the arithmetic ones and steps in (#32) | 2026-11-16 | `src/shared/ai.ts`, `src/server/ai.ts` |
