@@ -96,10 +96,10 @@ function Chat({ channel, snap, send }: { channel: Channel; snap: RoomSnapshot; s
         {lines.map((l) => l.kind === 'system'
           ? <li key={l.id} className="sys">{l.text}</li>
           : (
-            <li key={l.id} className="msg">
+            <li key={l.id} className={`msg${l.kind === 'said' ? ' said' : ''}`}>
               <Avatar name={l.name} id={l.userId ?? l.name} size={28} />
               <div>
-                <div className="msg-head"><strong>{l.name}</strong> · typed · {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="msg-head"><strong>{l.name}</strong> · {l.kind === 'said' ? <span className="said-tag"><Icon name="mic" size={12} />said</span> : 'typed'} · {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 <div className="msg-text">{l.text}</div>
               </div>
             </li>

@@ -37,6 +37,8 @@ export interface Voice {
   pushToTalk(down: boolean): void;
   /** Your own volume for one person, 0 to 1 (0 mutes them for you only). */
   setVolume(id: string, v: number): void;
+  /** Your microphone's track while it's published (for transcripts). */
+  micTrack: MediaStreamTrack | null;
 }
 
 export function useVoice(code: string, sessionToken: string): Voice {
@@ -52,6 +54,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
   const [mode, setModeState] = useState<VoiceMode>(readMode);
   const [talking, setTalking] = useState(false);
   const volumes = useRef(new Map<string, number>());
+  const [micTrack, setMicTrack] = useState<MediaStreamTrack | null>(null);
 
   const refresh = useCallback(() => {
     const r = room.current;
@@ -65,6 +68,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     })));
     setCanTalk(!!r.localParticipant.permissions?.canPublish);
     setMuted(!r.localParticipant.isMicrophoneEnabled);
+    setMicTrack(r.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack ?? null);
   }, []);
 
   const leave = useCallback(() => {
@@ -73,7 +77,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     void r?.disconnect();
     for (const els of audio.current.values()) els.forEach((e) => e.remove());
     audio.current.clear();
-    setState('off'); setChannel(null); setPeople([]); setMuted(true); setNeedsClick(false);
+    setState('off'); setChannel(null); setPeople([]); setMuted(true); setNeedsClick(false); setMicTrack(null);
   }, []);
 
   const join = useCallback(async (ch: Channel) => {
@@ -168,5 +172,5 @@ export function useVoice(code: string, sessionToken: string): Voice {
 
   useEffect(() => leave, [leave]);
 
-  return { state, channel, canTalk, muted, needsClick, people, error, join, leave, toggleMute, startAudio, mode, setMode, talking, pushToTalk, setVolume };
+  return { state, channel, canTalk, muted, needsClick, people, error, join, leave, toggleMute, startAudio, mode, setMode, talking, pushToTalk, setVolume, micTrack };
 }

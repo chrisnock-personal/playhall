@@ -232,6 +232,16 @@ input:disabled { opacity: 0.6; }
 .msg-head { font-size: 12px; color: var(--muted); }
 .msg-head strong { color: var(--text); }
 .msg-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Transcripts: said lines, the notice in voice, the room rule when unavailable */
+.chat .msg.said .msg-text { font-style: italic; }
+.said-tag { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); }
+.transcript-notice { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #E07A6E; border: 1px solid currentColor; max-width: 100%; }
+.transcript-notice.live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: transcript-pulse 1.2s ease-in-out infinite; }
+.transcript-notice:not(.in-voice) { color: var(--muted); }
+.transcript-error { font-weight: 400; }
+@keyframes transcript-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .transcript-notice.live::before { animation: none; } }
+.switch-row.disabled { cursor: default; opacity: .6; }
 .composer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
 .composer input { flex: 1; }
 .people ul { list-style: none; margin: 6px 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
