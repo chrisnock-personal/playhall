@@ -19,6 +19,11 @@ export const COLOURS: Record<string, { fill: string; rim: string; label: string 
   // Seats 5 and 6 (user, 2026-11-16): told apart from the four above by hue and lightness.
   lime: { fill: '#9CC83F', rim: '#5E8418', label: 'Lime' },
   blue: { fill: '#4F86E8', rim: '#2A55A8', label: 'Blue' },
+  // Seats 7 and 8 (the camera table): a deep red, darker and more saturated
+  // than rose and redder than amber, and a blue-grey slate, the one colour
+  // without much hue (coral was too close to amber and rose).
+  red: { fill: '#D2433F', rim: '#8C1F1C', label: 'Red' },
+  slate: { fill: '#8C97A8', rim: '#525C6B', label: 'Slate' },
   white: { fill: '#F4EFE4', rim: '#9C9488', label: 'White' },
   black: { fill: '#2A2A2E', rim: '#0E0E10', label: 'Black' },
 };
