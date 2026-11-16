@@ -43,6 +43,11 @@ export interface RoomRecord {
     moveDeadline?: number | null;
     /** A result the room decided (the move timer), not the game. */
     result?: GameResult | null;
+    /** Seats whose player has taken part: was in the room when the game
+     *  started, or has acted since. Only they get the reconnect grace (and
+     *  forfeit when it runs out); a seat filled for someone who never came
+     *  (the demo's games) doesn't. Missing in older saves = none yet. */
+    joined?: SeatId[];
   };
 }
 
@@ -132,7 +137,8 @@ export class Room {
     this.present.delete(userId);
     this.queue = this.queue.filter((id) => id !== userId);
     const seat = this.seatOf(userId);
-    if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)) {
+    if (seat && this.status === 'playing' && this.rec.game.players && seat in this.rec.game.players && !this.leaving.has(seat)
+      && this.rec.game.joined?.includes(seat)) {
       const deadline = this.hooks.now() + GRACE_MS;
       const cancel = this.hooks.setTimer(GRACE_MS, () => { this.leaving.delete(seat); this.forfeit(seat); });
       this.leaving.set(seat, { deadline, cancel });
@@ -336,6 +342,7 @@ export class Room {
     const r = this.game.act(this.rec.game.state, seat, action, now, this.context());
     if ('error' in r) throw new RoomError(r.error);
     this.rec.game.state = r.state;
+    if (!this.rec.game.joined?.includes(seat)) this.rec.game.joined = [...(this.rec.game.joined ?? []), seat];
     this.afterChange();
   }
 
@@ -452,7 +459,8 @@ export class Room {
     const players: Record<SeatId, SeatHolder> = {};
     for (const s of seated) players[s.id] = this.rec.seats[s.id]!;
     const ctx: GameContext = { seats: seated.map((s) => s.id), random: () => this.hooks.random(), isWord: this.hooks.isWord };
-    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null };
+    const joined = seated.map((s) => s.id).filter((id) => this.present.has(players[id].userId));
+    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined };
     this.lastResult = null;
     this.rematch.clear();
     this.history = [{ at: now, state: this.rec.game.state }];

@@ -254,6 +254,40 @@ test('a player who drops out has a minute to come back, then forfeits', () => {
   assert.deepEqual(t.over, [{ winner: 'white', reason: 'Alex leaving the game' }]);
 });
 
+test('no reconnect grace for a seat whose player never took part (the demo\u2019s live game)', () => {
+  const t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.leave(alex.id);
+  t.room.handle(host, { t: 'start' });
+  // Alex wasn't there at the start: opening the room and leaving again
+  // doesn't put the game at risk.
+  t.room.join(alex);
+  t.room.leave(alex.id);
+  assert.deepEqual(t.room.snapshotFor(host.id).game.leaving, {});
+  t.advance(61_000);
+  assert.deepEqual(t.over, []);
+  // Once they play, they're in it: leaving starts the grace.
+  t.room.join(alex);
+  t.room.handle(host, move('e2', 'e4'));
+  t.room.handle(alex, move('e7', 'e5'));
+  t.room.leave(alex.id);
+  assert.ok(t.room.snapshotFor(host.id).game.leaving.black);
+});
+
+test('a game loaded with players who never connected (no record of who joined) isn\u2019t forfeited', () => {
+  const t = setup();
+  t.room.handle(host, { t: 'sit', seat: 'white' });
+  t.room.handle(alex, { t: 'sit', seat: 'black' });
+  t.room.handle(host, { t: 'start' });
+  delete t.rec.game.joined; // as the demo seeds it, or an older save
+  t.room.leave(host.id);
+  t.room.leave(alex.id);
+  t.advance(120_000);
+  assert.deepEqual(t.over, []);
+  assert.equal(t.rec.game.status, 'playing');
+});
+
 test('the host can remove someone; they can\u2019t come back', () => {
   const t = setup();
   t.room.handle(host, { t: 'sit', seat: 'white' });
