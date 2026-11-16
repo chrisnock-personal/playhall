@@ -1,7 +1,6 @@
 import type { Session } from './api';
-import { useState } from 'react';
 import { Avatar, Logo } from './ui';
-import { applyTheme, readTheme, type Theme } from './theme';
+import { useTheme, type Theme } from './theme';
 
 export type Section = 'rooms' | 'leaderboard' | 'stats' | 'settings';
 
@@ -32,11 +31,11 @@ export function AppBar({ session, onSignOut, active }: { session: Session; onSig
 }
 
 export function ThemePicker() {
-  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [theme, setTheme] = useTheme();
   return (
     <label className="theme-picker">
       <span className="sr-only">Theme</span>
-      <select value={theme} onChange={(e) => { const t = e.target.value as Theme; setTheme(t); applyTheme(t); }} aria-label="Theme">
+      <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)} aria-label="Theme">
         <option value="auto">Theme: system</option>
         <option value="light">Theme: light</option>
         <option value="dark">Theme: dark</option>
