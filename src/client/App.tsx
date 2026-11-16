@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Settings } from './pages/Settings';
 import { loadSession, saveSession, type Session } from './api';
 import { SignIn } from './pages/SignIn';
 import { Lobby } from './pages/Lobby';
@@ -8,7 +9,7 @@ import { PlayerStats } from './pages/PlayerStats';
 import { Replay } from './pages/Replay';
 
 // Routes live in the #hash: #/ is the lobby, #/r/CODE a room, #/leaderboard,
-// #/stats (your own) and #/players/ID.
+// #/stats (your own), #/players/ID and #/settings.
 function useHash(): string {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
@@ -32,6 +33,7 @@ export function App() {
   const replayId = /^#\/replay\/(\d+)/.exec(hash)?.[1];
   if (replayId) return <Replay key={replayId} session={session} onSignOut={signOut} id={replayId} />;
   if (hash.startsWith('#/leaderboard')) return <Leaderboard session={session} onSignOut={signOut} />;
+  if (hash.startsWith('#/settings')) return <Settings session={session} onSignOut={signOut} />;
   const player = /^#\/players\/([0-9a-f-]{36})/.exec(hash)?.[1];
   if (player || hash.startsWith('#/stats')) {
     const id = player ?? session.user.id;

@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { Avatar, Logo } from './ui';
 import { applyTheme, readTheme, type Theme } from './theme';
 
-export type Section = 'rooms' | 'leaderboard' | 'stats';
+export type Section = 'rooms' | 'leaderboard' | 'stats' | 'settings';
 
 const LINKS: [Section, string, string][] = [
   ['rooms', 'Rooms', '#/'],
   ['leaderboard', 'Leaderboards', '#/leaderboard'],
   ['stats', 'My stats', '#/stats'],
+  ['settings', 'Settings', '#/settings'],
 ];
 
 export function AppBar({ session, onSignOut, active }: { session: Session; onSignOut(): void; active: Section | null }) {
