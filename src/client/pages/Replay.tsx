@@ -25,7 +25,7 @@ export function Replay({ session, onSignOut, id }: { session: Session; onSignOut
     return {
       room: {
         id: 'replay', code: '', name: data.room, gameId: data.gameId, gameName: info.name, configLabel: '', hostId: '',
-        settings: { ...DEFAULT_SETTINGS, gameConfig: info.defaultConfig }, locked: false, moveTimer: false, minPlayers: info.minPlayers,
+        settings: { ...DEFAULT_SETTINGS, gameConfig: info.defaultConfig }, locked: false, moveTimer: false, minPlayers: info.minPlayers, transcriptsAllowed: false,
       },
       seats: info.seats.map((s) => {
         const p = data.players.find((x) => x.seat === s.id);

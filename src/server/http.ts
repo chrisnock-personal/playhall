@@ -12,6 +12,7 @@ import type { Period } from '../shared/protocol';
 import type { Db } from './db';
 import { mediaToken, proxyHttp, type MediaConfig } from './media';
 import type { Channel } from '../shared/protocol';
+import { MAX_WAV_BYTES, SaidLimiter, saidHandler, transcriptsAllowed, whisperTranscribe, whisperUrl } from './transcripts';
 
 export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomSockets; db: Db; staticDir: string; media?: MediaConfig | null }) {
   const { auth, rooms, sockets, db } = opts;
@@ -21,7 +22,18 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
   app.set('trust proxy', 'loopback');
   app.use(express.json({ limit: '32kb' }));
 
-  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: !!media }); });
+  app.get('/api/health', (_req, res) => { res.json({ ok: true, media: !!media, transcripts: transcriptsAllowed() }); });
+
+  // Transcripts: one utterance of your speech (16 kHz mono WAV), written into
+  // the chat as a said line. The audio is dropped once Whisper has read it.
+  app.post('/api/rooms/:code/said/:channel', auth.requireUser, rateLimit(120, 60_000),
+    express.raw({ type: ['audio/wav', 'audio/x-wav', 'audio/wave'], limit: MAX_WAV_BYTES + 1024 }),
+    saidHandler({
+      getRoom: (code) => rooms.get(code),
+      allowed: transcriptsAllowed,
+      transcribe: (wav) => whisperTranscribe(whisperUrl()!, wav),
+      limiter: new SaidLimiter(),
+    }));
 
   // Voice and video: a LiveKit token for one channel of a room you're in.
   // The browser connects to LiveKit through this same address (/rtc).
@@ -147,6 +159,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof RoomError) { res.status(400).json({ error: err.message }); return; }
+    if ((err as { type?: string }).type === 'entity.too.large') { res.status(413).json({ error: 'Too big' }); return; }
     console.error('[http] error:', err);
     res.status(500).json({ error: 'Something went wrong' });
   });

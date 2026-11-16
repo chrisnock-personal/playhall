@@ -8,6 +8,7 @@ import { GAMES } from '../../shared/games';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
 import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
 import { recordGame } from '../stats';
+import { transcriptsAllowed } from '../transcripts';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
 const SAVE_DELAY_MS = 150;
@@ -95,6 +96,7 @@ export class RoomManager {
           .catch((err) => console.error('[rooms] saving the result failed:', err.message));
       },
       kick: (userId, reason) => this.onKick(room, userId, reason),
+      transcriptsAllowed,
       changed: () => {
         if (room) this.onChanged(room);
         if (room) this.checkIdle(room);

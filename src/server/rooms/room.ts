@@ -63,6 +63,8 @@ export interface RoomHooks {
   changed(): void;
   /** Disconnect someone (the host removed them). */
   kick(userId: string, reason: string): void;
+  /** The server allows transcripts at all (see ../transcripts.ts). */
+  transcriptsAllowed?(): boolean;
 }
 
 /** How long a player who drops out mid-game has to come back. */
@@ -317,6 +319,27 @@ export class Room {
     this.hooks.changed();
   }
 
+  /** Can this person's speech in this channel be written into the chat now?
+   *  Null if so, else why not. */
+  saidRefusal(userId: string, channel: Channel): string | null {
+    if (!this.rec.settings.transcripts) return 'Transcripts are off in this room';
+    if (!(this.hooks.transcriptsAllowed?.() ?? false)) return 'Transcripts are switched off on this server';
+    if (!this.mediaRights(userId)?.[channel]?.talk) return 'You can’t talk in that channel now';
+    return null;
+  }
+
+  /** A line someone said in voice, transcribed: like a typed line, kind 'said'. */
+  said(userId: string, channel: Channel, text: string): void {
+    const why = this.saidRefusal(userId, channel);
+    if (why) throw new RoomError(why);
+    const user = this.present.get(userId)!.user;
+    const body = text.trim().slice(0, CHAT_MAX);
+    if (!body) return;
+    this.addLine({ channel, kind: 'said', userId, name: user.name, text: body });
+    if (channel === 'table' && this.rec.settings.watcherDelay) this.hooks.setTimer(this.rec.settings.watcherDelay * 1000 + 50, () => this.hooks.changed());
+    this.hooks.changed();
+  }
+
   private act(user: RoomUser, action: unknown): void {
     if (this.status !== 'playing') throw new RoomError('No game is being played');
     const seat = this.seatOf(user.id);
@@ -536,6 +559,13 @@ export class Room {
       if (typeof r[k] === 'boolean') s[k] = r[k] as boolean;
     };
     bool('listed'); bool('guestsCanPlay'); bool('hideGalleryFromPlayers'); bool('watchersWriteTable');
+    if (typeof r.transcripts === 'boolean' && r.transcripts !== s.transcripts) {
+      if (r.transcripts && !(this.hooks.transcriptsAllowed?.() ?? false)) throw new RoomError('Transcripts are switched off on this server');
+      s.transcripts = r.transcripts;
+      this.system(r.transcripts
+        ? 'The host turned transcripts on: what people say in voice is written into the chat'
+        : 'The host turned transcripts off');
+    }
     if (typeof r.ranked === 'boolean' && r.ranked !== s.ranked) {
       if (this.status === 'playing') throw new RoomError('Change whether games count between games');
       s.ranked = r.ranked;
@@ -660,6 +690,7 @@ export class Room {
         locked: !!this.rec.passwordHash,
         moveTimer: !!this.game.turn,
         minPlayers: this.minPlayers,
+        transcriptsAllowed: this.hooks.transcriptsAllowed?.() ?? false,
       },
       seats: this.game.seats.map((s) => ({
         id: s.id, label: s.label, userId: this.rec.seats[s.id]?.userId ?? null, name: this.rec.seats[s.id]?.name ?? null,
