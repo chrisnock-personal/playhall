@@ -204,6 +204,9 @@ export const checkers: GameModule<CheckersState, Record<string, never>> = {
     return frames;
   },
 
+  // No turn(): the clocks time the game. For computer players (#18):
+  waitingFor: (s) => (s.result ? [] : [s.turn]),
+
   view(state): CheckersView {
     return {
       board: state.board, turn: state.turn,

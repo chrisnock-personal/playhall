@@ -7,12 +7,24 @@
 // move if the bot's answer is refused.
 
 import { ship2shoreBot } from './games/ship2shore.bot';
+import { checkersBot, fourBot, ludoBot, snakesBot } from './games/board.bots';
+import { blackjackBot, clashBot, pokerBot, realmBot, seaBot } from './games/card.bots';
 
-export type Bot = (view: unknown, random: () => number) => unknown | null;
+/** A bot: its seat's view and its seat in, the action it takes out. */
+export type Bot = (view: unknown, seat: string, random: () => number) => unknown | null;
 
 /** The games that have bots, by game id. */
 export const BOTS: Record<string, Bot> = {
   ship2shore: ship2shoreBot,
+  snakes: snakesBot,
+  ludo: ludoBot,
+  fourinarow: fourBot,
+  checkers: checkersBot,
+  blackjack: blackjackBot,
+  poker: pokerBot,
+  colourclash: clashBot,
+  seabattle: seaBot,
+  realmduel: realmBot,
 };
 
 /** Bots' seats hold a made-up id with this prefix, never a real account. */

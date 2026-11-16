@@ -701,7 +701,7 @@ export class Room {
   private scheduleBots(): void {
     if (this.cancelBot || this.status !== 'playing' || !BOTS[this.rec.gameId]) return;
     const players = this.rec.game.players ?? {};
-    const due = (this.game.turn?.(this.rec.game.state) ?? []).filter((seat) => players[seat]?.bot);
+    const due = this.waitingFor().filter((seat) => players[seat]?.bot);
     if (!due.length) return;
     this.cancelBot = this.hooks.setTimer(BOT_PAUSE_MS + Math.floor(this.hooks.random() * BOT_PAUSE_MS), () => {
       this.cancelBot = null;
@@ -709,15 +709,21 @@ export class Room {
     });
   }
 
+  /** Who the game is waiting on (for bots). */
+  private waitingFor(): SeatId[] {
+    const st = this.rec.game.state;
+    return (this.game.waitingFor ?? this.game.turn)?.call(this.game, st) ?? [];
+  }
+
   /** A bot's move: what it decides from its own view, or the game's
    *  out-of-time move if it has no answer or its answer is refused. */
   private botMove(): void {
     if (this.status !== 'playing') return;
     const players = this.rec.game.players ?? {};
-    const seat = (this.game.turn?.(this.rec.game.state) ?? []).find((s) => players[s]?.bot);
+    const seat = this.waitingFor().find((s) => players[s]?.bot);
     if (!seat) return;
     const now = this.hooks.now();
-    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), () => this.hooks.random());
+    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), seat, () => this.hooks.random());
     const r = action === null ? null : this.game.act(this.rec.game.state, seat, action, now, this.context());
     if (r && !('error' in r)) { this.accept(r, seat); return; }
     if (this.game.timeout) {

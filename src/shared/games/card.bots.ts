@@ -1,0 +1,156 @@
+// Bots for the card games, Sea Battle and Realm Duel (#18). Each decides
+// from its own seat's view (see src/shared/bots.ts): a Hold'em bot sees its
+// own two cards and the board, never anyone else's.
+
+import type { SeatId } from '../game';
+import { handValue, MIN_BET, type BlackjackView } from './blackjack';
+import { bestHand, compareRanks, type PokerView } from './poker';
+import { COLOURS, playable, type ClashView, type Colour } from './colourclash';
+import { SIZE, type SeaView } from './seabattle';
+import { CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
+
+// ---- Blackjack: bet a little, then basic strategy ----
+
+const cardValue = (c: string) => (c[0] === 'A' ? 11 : 'TJQK'.includes(c[0]) ? 10 : Number(c[0]));
+
+export function blackjackBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as BlackjackView;
+  if (v.result) return null;
+  const chips = v.chips[seat] ?? 0;
+  if (v.phase === 'betting') {
+    if (v.bets[seat] !== null || chips < MIN_BET) return null;
+    return { type: 'bet', amount: Math.min(chips, Math.max(MIN_BET, Math.round((chips * 0.05) / 10) * 10)) };
+  }
+  if (v.turn !== seat) return null;
+  const cards = v.cards[seat];
+  const { total, soft } = handValue(cards);
+  const up = v.dealer[0] ? cardValue(v.dealer[0]) : 10;
+  const bet = v.bets[seat] ?? 0;
+  const canDouble = cards.length === 2 && chips >= bet;
+  if (canDouble && (total === 11 || (total === 10 && up <= 9) || (soft && total >= 16 && total <= 18 && up >= 4 && up <= 6))) return { type: 'double' };
+  if (soft) return { type: total <= 17 || (total === 18 && up >= 9) ? 'hit' : 'stand' };
+  if (total <= 11) return { type: 'hit' };
+  if (total >= 17) return { type: 'stand' };
+  if (total === 12) return { type: up >= 4 && up <= 6 ? 'stand' : 'hit' };
+  return { type: up <= 6 ? 'stand' : 'hit' };
+}
+
+// ---- Hold'em: play the odds of its own two cards ----
+
+const FULL = (() => { const d: string[] = []; for (const s of 'SHDC') for (const r of '23456789TJQKA') d.push(r + s); return d; })();
+
+/** The chance its hand wins at a showdown against `opponents` random hands,
+ *  by dealing out the rest of the board many times. */
+function equity(hole: string[], board: string[], opponents: number, random: () => number, trials = 200): number {
+  const known = new Set([...hole, ...board]);
+  const rest = FULL.filter((c) => !known.has(c));
+  let score = 0;
+  for (let t = 0; t < trials; t++) {
+    const deck = [...rest];
+    const draw = () => deck.splice(Math.floor(random() * deck.length), 1)[0];
+    const full = [...board];
+    while (full.length < 5) full.push(draw());
+    const mine = bestHand([...hole, ...full]).rank;
+    let lost = false, ties = 0;
+    for (let o = 0; o < opponents && !lost; o++) {
+      const c = compareRanks(mine, bestHand([draw(), draw(), ...full]).rank);
+      if (c < 0) lost = true; else if (c === 0) ties++;
+    }
+    if (!lost) score += 1 / (ties + 1);
+  }
+  return score / trials;
+}
+
+export function pokerBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as PokerView;
+  if (v.result || v.toAct !== seat || !v.hole) return null;
+  const opponents = v.order.filter((p) => p !== seat && v.inHand[p] && !v.folded[p]).length;
+  const eq = equity(v.hole, v.board, Math.max(1, opponents), random);
+  const stack = v.chips[seat];
+  const toCall = Math.min(v.toCall, stack);
+  const potOdds = toCall / (v.pot + toCall || 1);
+  const strong = eq > 0.62 || (opponents === 1 && eq > 0.55);
+  if (strong && v.canRaise && stack > toCall) {
+    const target = Math.max(v.minRaiseTo, (v.bet[seat] ?? 0) + toCall + Math.round(v.pot * (0.5 + random() * 0.5)));
+    return target >= (v.bet[seat] ?? 0) + stack ? { type: 'allin' } : { type: 'raise', to: target };
+  }
+  if (toCall === 0) {
+    // Now and then a small bet with nothing much, so it isn't too easy to read.
+    if (v.canRaise && random() < 0.08 && stack > v.minRaiseTo) return { type: 'raise', to: v.minRaiseTo };
+    return { type: 'check' };
+  }
+  return eq >= potOdds - 0.03 ? { type: 'call' } : { type: 'fold' };
+}
+
+// ---- Colour Clash: keep the colour it holds most of, wilds last ----
+
+export function clashBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as ClashView;
+  if (v.result || v.turn !== seat || !v.hand || !v.top) return null;
+  const most = (): Colour => COLOURS.map((c) => [c, v.hand!.filter((x) => x.colour === c).length] as const).sort((a, b) => b[1] - a[1])[0][0];
+  const can = v.hand.filter((c) => (v.drawn === null || c.id === v.drawn) && playable(c, v.top!, v.colour));
+  if (!can.length) return v.drawn === null ? { type: 'draw' } : { type: 'pass' };
+  const next = v.order[(v.order.indexOf(seat) + v.dir + v.order.length) % v.order.length];
+  const nextLow = (v.counts[next] ?? 7) <= 2;
+  const weight = (c: (typeof can)[number]) => (c.colour === 'wild' ? -10 : 0)
+    + (nextLow && ['skip', 'draw2', 'reverse'].includes(c.value) ? 20 : 0)
+    + v.hand!.filter((x) => x.colour === c.colour).length;
+  const card = [...can].sort((a, b) => weight(b) - weight(a))[0];
+  return card.colour === 'wild' ? { type: 'play', card: card.id, colour: most() } : { type: 'play', card: card.id };
+}
+
+// ---- Sea Battle: a shuffled fleet, then hunt on a checkerboard and finish off hits ----
+
+export function seaBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as SeaView;
+  if (v.result) return null;
+  if (v.phase === 'placing') {
+    if (v.ready[seat]) return null;
+    return v.fleets[seat] ? { type: 'ready' } : { type: 'shuffle' };
+  }
+  if (v.turn !== seat) return null;
+  const shots = v.shots[seat];
+  const tried = new Set(shots.map((s) => s.cell));
+  const hits = new Set(shots.filter((s) => s.hit).map((s) => s.cell));
+  const free = (r: number, c: number) => r >= 0 && r < SIZE && c >= 0 && c < SIZE && !tried.has(r * SIZE + c);
+  // Around hits: carry on along a line of two or more, else try the four sides.
+  const along: number[] = [], beside: number[] = [];
+  for (const h of hits) {
+    const r = Math.floor(h / SIZE), c = h % SIZE;
+    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      if (!free(r + dr, c + dc)) continue;
+      const cell = (r + dr) * SIZE + c + dc;
+      (hits.has((r - dr) * SIZE + (c - dc)) && r - dr >= 0 && r - dr < SIZE && c - dc >= 0 && c - dc < SIZE ? along : beside).push(cell);
+    }
+  }
+  const pool = along.length ? along : beside.length ? beside
+    : Array.from({ length: SIZE * SIZE }, (_, i) => i).filter((i) => !tried.has(i) && (Math.floor(i / SIZE) + (i % SIZE)) % 2 === 0);
+  const cells = pool.length ? pool : Array.from({ length: SIZE * SIZE }, (_, i) => i).filter((i) => !tried.has(i));
+  if (!cells.length) return null;
+  return { type: 'fire', cell: cells[Math.floor(random() * cells.length)] };
+}
+
+// ---- Realm Duel: the creature that does best against what it has seen ----
+
+export function realmBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as RealmView;
+  if (v.result || v.mine || v.locked[seat]) return null;
+  const mine = v.hands[seat];
+  const foe = Object.entries(v.hands).find(([p]) => p !== seat)?.[1] ?? [];
+  const seen = foe.filter((f): f is NonNullable<typeof f> => !!f && f.hp > 0);
+  let best = -Infinity, pick: { creature: number; style: Style } | null = null;
+  mine.forEach((f, i) => {
+    if (!f || f.hp <= 0) return;
+    const me = CREATURES[f.kind];
+    for (const style of STYLES) {
+      // Against creatures not seen yet: its own strength in that style.
+      let s = attackValue(me, style) * 0.1 + f.hp * 0.05;
+      for (const o of seen) {
+        const them = CREATURES[o.kind];
+        s += damage(me, them, style).damage - damage(them, me, bestStyle(them)).damage * 0.7;
+      }
+      if (s > best) { best = s; pick = { creature: i, style }; }
+    }
+  });
+  return pick ? { type: 'choose', ...(pick as object) } : null;
+}
