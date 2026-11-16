@@ -8,7 +8,7 @@
 import net from 'node:net';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import type { Channel } from '../shared/protocol';
 
 export interface MediaConfig {
@@ -64,3 +64,41 @@ export async function proxyHttp(cfg: MediaConfig, url: string): Promise<{ status
   const r = await fetch(cfg.url + url, { signal: AbortSignal.timeout(5000) });
   return { status: r.status, body: await r.text(), type: r.headers.get('content-type') ?? 'text/plain' };
 }
+
+/** Keeps LiveKit's permissions in step with the room: when the game starts or
+ *  ends, or seats or rules change, everyone in the room's voice channels gets
+ *  the rights they now have, and anyone who may no longer listen is removed. */
+export class MediaSync {
+  private client: RoomServiceClient;
+  private last = new Map<string, string>();
+  private timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  constructor(cfg: MediaConfig) {
+    this.client = new RoomServiceClient(cfg.url, cfg.apiKey, cfg.apiSecret);
+  }
+
+  changed(room: { rec: { code: string; seats: Record<string, unknown>; game: { status: string }; settings: unknown }; mediaRights(userId: string): ReturnType<RightsFn> }): void {
+    const code = room.rec.code;
+    const sig = JSON.stringify([room.rec.game.status, room.rec.seats, room.rec.settings]);
+    if (this.last.get(code) === sig) return;
+    this.last.set(code, sig);
+    clearTimeout(this.timers.get(code));
+    this.timers.set(code, setTimeout(() => { this.timers.delete(code); void this.apply(code, room); }, 300));
+  }
+
+  private async apply(code: string, room: { mediaRights(userId: string): ReturnType<RightsFn> }): Promise<void> {
+    for (const channel of ['table', 'gallery'] as Channel[]) {
+      const name = mediaRoomName(code, channel);
+      let people;
+      try { people = await this.client.listParticipants(name); } catch { continue; } // nobody in that channel
+      for (const p of people) {
+        const r = room.mediaRights(p.identity)?.[channel];
+        try {
+          if (!r?.listen) await this.client.removeParticipant(name, p.identity);
+          else await this.client.updateParticipant(name, p.identity, { permission: { canSubscribe: true, canPublish: r.talk, canPublishData: false } });
+        } catch (err) { console.error(`[media] couldn’t update ${p.identity} in ${name}:`, (err as Error).message); }
+      }
+    }
+  }
+}
+type RightsFn = (userId: string) => Record<Channel, { listen: boolean; talk: boolean }> | null;

@@ -80,8 +80,10 @@ jobs:
       - name: Start Playhall with compose
         run: |
           printf 'POSTGRES_PASSWORD=ci-only-compose\nJWT_SECRET=ci-only-not-a-secret-0123456789abcdef0123456789\n' > .env
+          # Voice and video too: the LiveKit container, on this machine's address.
+          printf 'LIVEKIT_URL=http://livekit:7880\nLIVEKIT_API_KEY=playhall\nLIVEKIT_API_SECRET=ci-only-livekit-secret-0123456789abcdef\nLIVEKIT_NODE_IP=127.0.0.1\n' >> .env
           docker compose build -q
-          docker compose up -d
+          docker compose --profile media up -d
           for _ in $(seq 1 60); do curl -skf https://localhost:8450/api/health && break; sleep 2; done
       - name: Demo data inside the container
         run: docker compose exec -T app node dist/server/demo.js
@@ -89,10 +91,16 @@ jobs:
         run: node scripts/smoke.mjs https://localhost:8450
         env:
           NODE_TLS_REJECT_UNAUTHORIZED: '0'
+      - name: Voice, both ways, in two browsers with fake microphones
+        run: |
+          npx playwright install --with-deps chromium
+          node tests/voice.mjs https://localhost:8450
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
       - name: The certificate survives recreating the container
         run: |
           before=$(docker compose exec -T app cat /app/certs/server.crt | sha256sum)
-          docker compose up -d --force-recreate app
+          docker compose --profile media up -d --force-recreate app
           for _ in $(seq 1 60); do curl -skf https://localhost:8450/api/health && break; sleep 2; done
           after=$(docker compose exec -T app cat /app/certs/server.crt | sha256sum)
           test "$before" = "$after"

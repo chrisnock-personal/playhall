@@ -7,6 +7,8 @@ import type { StageProps } from '../games/types';
 import { useLayout, NEXT, PRESETS, type PresetId } from './layout';
 import { SeatsPanel } from './SeatsPanel';
 import { GalleryStrip } from './GalleryStrip';
+import { VoiceDock } from './VoiceDock';
+import { useVoice } from './useVoice';
 import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ResultCard } from './ResultCard';
@@ -15,6 +17,7 @@ import { Icon } from '../ui';
 export function RoomPage({ code, session, onSignOut }: { code: string; session: Session; onSignOut(): void }) {
   const [pass, setPass] = useState<string | null>(() => readRoomPass(code));
   const conn = useRoom(code, session.token, pass);
+  const voice = useVoice(code, session.token);
   const { snap } = conn;
 
   if (conn.state === 'locked') {
@@ -33,10 +36,10 @@ export function RoomPage({ code, session, onSignOut }: { code: string; session: 
     );
   }
   if (!snap) return <div className="center-page"><p className="muted">Opening room {code}…</p></div>;
-  return <Room snap={snap} conn={conn} session={session} />;
+  return <Room snap={snap} conn={conn} session={session} voice={voice} />;
 }
 
-function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<typeof useRoom>; session: Session }) {
+function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: ReturnType<typeof useRoom>; session: Session; voice: ReturnType<typeof useVoice> }) {
   const game = GAME_CLIENTS[snap.room.gameId];
   const { layout, set, preset } = useLayout(snap.room.gameId);
   const [tab, setTab] = useState<SideTab>(snap.you.seat ? 'table' : 'gallery');
@@ -100,6 +103,7 @@ function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<ty
           {snap.you.delay > 0 && <span className="pill delayed" title="The host has set a delay for watchers">{snap.you.delay < 60 ? `${snap.you.delay} s` : `${snap.you.delay / 60} min`} behind live</span>}
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <div className="room-top-right">
+            <VoiceDock voice={voice} snap={snap} />
             <div className="segmented small" role="group" aria-label="Layout">
               {(Object.keys(PRESETS) as PresetId[]).map((id) => (
                 <button key={id} className={layout.preset === id ? 'on' : ''} onClick={() => preset(id)}>{PRESETS[id].label}</button>
@@ -115,6 +119,7 @@ function Room({ snap, conn, session }: { snap: RoomSnapshot; conn: ReturnType<ty
           <strong>{snap.room.name}</strong>
           <span className="muted">{snap.room.gameName} · {status} · {role}{snap.you.delay > 0 ? ` · ${snap.you.delay} s behind` : ''}</span>
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
+          <VoiceDock voice={voice} snap={snap} compact />
           <button className="icon-btn small" aria-label="Show the top bar" onClick={() => set('top', NEXT.top[layout.top])}><Icon name="down" size={16} /></button>
         </div>
       )}
