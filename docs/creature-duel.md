@@ -66,7 +66,7 @@ amber back).
 - **Starters (draft, balance by simulation):** Emberfox (Fire; STR 6 AGI 9
   INT 5 DEF 4 MAG 6, HP 28, Swift: strikes first on a tie), Tidecaller (Water;
   4/6/8/5/8, 30, Undertow: Stun on a magic hit 1 in 3), Stonehorn (Earth;
-  9/3/4/9/2, 40, Shield: half damage on its first round), Galewing (Air;
+  9/3/4/9/2, 34 (was 40: balanced by simulation, 2026-11-16), Shield: half damage on its first round), Galewing (Air;
   5/8/6/3/6, 26, Gust: Stun on a ranged hit 1 in 4), Lumen Stag (Light;
   6/6/7/6/7, 32, Mend: heals 4 after each round), Duskmaw (Shadow;
   7/6/6/5/8, 30, Poison bite: poisons on a melee hit).

@@ -514,7 +514,7 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .seat-stat { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bar); border-radius: 12px; }
 .side-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #5a6170; flex: none; }
 .side-dot.white { background: #f4efe4; } .side-dot.black { background: #17171a; }
-.side-dot.amber { background: #f0a53c; } .side-dot.teal { background: #3fb3a2; } .side-dot.violet { background: #9b7be0; } .side-dot.rose { background: #e07a8f; }
+.side-dot.amber { background: #f0a53c; } .side-dot.teal { background: #3fb3a2; } .side-dot.violet { background: #9b7be0; } .side-dot.rose { background: #e07a8f; } .side-dot.lime { background: #9cc83f; } .side-dot.blue { background: #4f86e8; }
 .seat-pts { display: flex; flex-direction: column; align-items: end; }
 .seat-pts strong { font: 700 18px var(--mono); }
 .seat-pts span { font-size: 11px; color: var(--muted); }

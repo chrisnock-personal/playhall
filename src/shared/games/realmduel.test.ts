@@ -138,14 +138,14 @@ test('Poison bite: a melee hit poisons for 2 a round, three rounds, even resting
   // Duskmaw (6) vs Stonehorn (3): Duskmaw first, melee 14 - 9 = 5, shielded 3.
   let s = round(game(['duskmaw'], ['stonehorn', 'galewing']), [0, 'melee'], [0, 'magic']);
   assert.equal(s.hands.teal[0].poison, POISON_ROUNDS - 1);
-  assert.equal(s.hands.teal[0].hp, 40 - 3 - 2);
+  assert.equal(s.hands.teal[0].hp, 34 - 3 - 2);
   s = round(s, [0, 'magic'], [1, 'magic']);
-  assert.equal(s.hands.teal[0].hp, 40 - 3 - 4, 'poison bites in the hand too');
+  assert.equal(s.hands.teal[0].hp, 34 - 3 - 4, 'poison bites in the hand too');
   s = round(s, [0, 'magic'], [1, 'magic']);
-  assert.equal(s.hands.teal[0].hp, 40 - 3 - 6);
+  assert.equal(s.hands.teal[0].hp, 34 - 3 - 6);
   assert.equal(s.hands.teal[0].poison, 0);
   s = round(s, [0, 'magic'], [1, 'magic']);
-  assert.equal(s.hands.teal[0].hp, 40 - 3 - 6, 'it wears off');
+  assert.equal(s.hands.teal[0].hp, 34 - 3 - 6, 'it wears off');
   // Magic and ranged don't poison.
   s = round(game(['duskmaw'], ['stonehorn']), [0, 'magic'], [0, 'magic']);
   assert.equal(s.hands.teal[0].poison, 0);

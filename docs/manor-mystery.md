@@ -76,15 +76,15 @@ open, it does this:
   player who knows the answer could give it away); everyone sees it at the end.
 - **The end**: a right accusation wins. If nobody is left in the running
   (everyone accused wrongly or resigned), nobody wins: the envelope is opened
-  and the result counts as a shared place for those who accused (a draw).
+  and everyone loses, with no points for anyone (user, 2026-11-16).
   If everyone else resigns, the last player in the running wins.
 - **Resigning / leaving**: the player's cards are laid face up for everyone
   and they're skipped when cards are asked for.
 - **Out of time** (the room's move timer): you move to a random room next
   door if you hadn't moved, and your turn ends; a player who had to choose a
   card to show has one shown at random.
-- **Seats**: six seats in the kit's colours: amber, teal, violet, rose, then
-  white and black (the kit has only four player colours besides chess's two).
+- **Seats**: six seats in the kit's colours: amber, teal, violet, rose, lime
+  and blue (lime and blue added to the kit for seats 5 and 6, 2026-11-16).
 - **Notebook**: the server fills in what you know for certain (your hand,
   cards shown to you, face-up cards, and ✗ for anyone who couldn't show a
   card on a suggestion); your own ✓ ✗ ? marks are kept in your browser per
@@ -93,8 +93,6 @@ open, it does this:
 ## Open points
 
 - Whether to allow a quick "Suggest from anywhere" mode for short games.
-- Two more player colours in the kit, to replace white and black for seats 5
-  and 6.
 
 ## Pieces (mockups approved for now, 2026-11-15; may be improved later)
 

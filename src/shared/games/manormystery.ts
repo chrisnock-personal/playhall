@@ -143,7 +143,7 @@ export interface ManorView {
   result: GameResult | null;
 }
 
-export const SEATS = ['amber', 'teal', 'violet', 'rose', 'white', 'black'];
+export const SEATS = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue'];
 
 function shuffle<T>(xs: readonly T[], random: () => number): T[] {
   const a = [...xs];
@@ -180,7 +180,8 @@ function finish(s: ManorState, winner: SeatId | null, reason: string): ManorStat
   const running = inRunning(s).filter((p) => p !== winner);
   const wrong = s.order.filter((p) => s.out.includes(p) && !s.resigned.includes(p));
   const placings = [winner ? [winner] : [], running, wrong, ...[...s.resigned].reverse().map((p) => [p])].filter((g) => g.length);
-  return { ...s, pending: null, result: { winner, reason, placings } };
+  // Nobody solved it: everyone loses, no points (user, 2026-11-16).
+  return { ...s, pending: null, result: { winner, reason, placings, ...(winner ? {} : { nobodyWins: true }) } };
 }
 
 /** Next player in the running, or the end of the game if there's none. */
@@ -331,7 +332,7 @@ export const manorMystery: GameModule<ManorState, Record<string, never>> = {
       { title: 'Accusing and winning', points: [
         'On your turn you may accuse: name a suspect, an object and any room. Only one accusation per game.',
         'If all three are right, you win. If not, you’re out of the running: no more turns, but you still show cards when asked, and nobody sees the envelope until the end.',
-        'If everyone accuses wrongly, nobody wins and the envelope is opened.',
+        'If everyone accuses wrongly, nobody wins (no points for anyone) and the envelope is opened.',
         'Places: the solver first; players still in the running share second; those who accused wrongly come after.',
       ] },
       { title: 'Timing and leaving', points: [

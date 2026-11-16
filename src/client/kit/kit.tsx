@@ -16,6 +16,9 @@ export const COLOURS: Record<string, { fill: string; rim: string; label: string 
   teal: { fill: '#3FB3A2', rim: '#1F6E63', label: 'Teal' },
   violet: { fill: '#9B7BE0', rim: '#5E43A3', label: 'Violet' },
   rose: { fill: '#E07A8F', rim: '#A3435A', label: 'Rose' },
+  // Seats 5 and 6 (user, 2026-11-16): told apart from the four above by hue and lightness.
+  lime: { fill: '#9CC83F', rim: '#5E8418', label: 'Lime' },
+  blue: { fill: '#4F86E8', rim: '#2A55A8', label: 'Blue' },
   white: { fill: '#F4EFE4', rim: '#9C9488', label: 'White' },
   black: { fill: '#2A2A2E', rim: '#0E0E10', label: 'Black' },
 };

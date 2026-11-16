@@ -227,6 +227,9 @@ test('everyone accusing wrongly: nobody wins and the envelope is opened', () => 
   s = act(s, 'rose', wrong);
   assert.equal(s.result?.winner, null);
   assert.equal(s.result?.reason, 'nobody solving the case');
+  assert.equal(s.result?.nobodyWins, true);
+  const pts = score(s.result!, s.order);
+  assert.ok(s.order.every((p) => pts[p].points === 0 && pts[p].outcome === 'loss'), 'an unsolved case scores nothing for anyone');
   assert.deepEqual(view(s, null).envelope, ENVELOPE);
   assert.equal(view(s, null).turn, null);
   assert.deepEqual(mm.turn!(s), []);
@@ -334,7 +337,7 @@ test('fuzz: many random games always end, with cards conserved and views private
   for (let g = 0; g < 300; g++) {
     const random = seeded(g + 1);
     const n = 3 + (g % 4);
-    const seats = ['amber', 'teal', 'violet', 'rose', 'white', 'black'].slice(0, n);
+    const seats = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue'].slice(0, n);
     const c = ctx(seats, random);
     let s = mm.create({}, 0, c);
     const envelope = s.envelope;

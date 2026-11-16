@@ -28,7 +28,7 @@ export interface Creature {
 export const CREATURES: Record<CreatureId, Creature> = {
   emberfox: { id: 'emberfox', name: 'Emberfox', element: 'fire', str: 6, agi: 9, int: 5, def: 4, mag: 6, hp: 28, ability: 'swift', abilityName: 'Swift', abilityText: 'Strikes first when Agility is tied.' },
   tidecaller: { id: 'tidecaller', name: 'Tidecaller', element: 'water', str: 4, agi: 6, int: 8, def: 5, mag: 8, hp: 30, ability: 'undertow', abilityName: 'Undertow', abilityText: 'A magic hit stuns 1 time in 3.' },
-  stonehorn: { id: 'stonehorn', name: 'Stonehorn', element: 'earth', str: 9, agi: 3, int: 4, def: 9, mag: 2, hp: 40, ability: 'shield', abilityName: 'Shield', abilityText: 'Takes half damage in its first fight.' },
+  stonehorn: { id: 'stonehorn', name: 'Stonehorn', element: 'earth', str: 9, agi: 3, int: 4, def: 9, mag: 2, hp: 34, ability: 'shield', abilityName: 'Shield', abilityText: 'Takes half damage in its first fight.' },
   galewing: { id: 'galewing', name: 'Galewing', element: 'air', str: 5, agi: 8, int: 6, def: 3, mag: 6, hp: 26, ability: 'gust', abilityName: 'Gust', abilityText: 'A ranged hit stuns 1 time in 4.' },
   lumenstag: { id: 'lumenstag', name: 'Lumen Stag', element: 'light', str: 6, agi: 6, int: 7, def: 6, mag: 7, hp: 32, ability: 'mend', abilityName: 'Mend', abilityText: 'Heals 4 after each round it fights.' },
   duskmaw: { id: 'duskmaw', name: 'Duskmaw', element: 'shadow', str: 7, agi: 6, int: 6, def: 5, mag: 8, hp: 30, ability: 'poison', abilityName: 'Poison bite', abilityText: 'A melee hit poisons.' },
