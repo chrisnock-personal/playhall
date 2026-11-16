@@ -3,7 +3,7 @@ import { api, type Session } from '../api';
 import type { BoardNamesResponse, LeaderboardResponse, LeaderboardRow, Period } from '../../shared/protocol';
 import { AppBar } from '../AppBar';
 import { useGames } from '../useGames';
-import { Avatar, OutcomeChip, PeriodPicker, perGame, winPct } from '../ui';
+import { Avatar, Crown, OutcomeChip, PeriodPicker, perGame, winPct } from '../ui';
 
 export function Leaderboard({ session, onSignOut }: { session: Session; onSignOut(): void }) {
   const [period, setPeriod] = useState<Period>('month');
@@ -73,15 +73,23 @@ export function Leaderboard({ session, onSignOut }: { session: Session; onSignOu
         )}
 
         {podium.length > 0 && (
-          <div className="podium">
-            {podium.map((r, i) => (
-              <a key={r.userId} href={`#/players/${r.userId}`} className={`podium-card${i === 0 ? ' first' : ''}`}>
-                <span className={`podium-rank r${i + 1}`}>{r.rank}</span>
-                <Avatar name={r.name} id={r.userId} size={46} />
-                <span className="who"><strong>{r.name}</strong><span>{r.w} W · {r.d} D · {r.l} L</span></span>
-                <span className="podium-pts"><strong>{r.points}</strong><span>points</span></span>
-              </a>
-            ))}
+          <div className={`podium n${podium.length}`}>
+            {podium.map((r, i) => {
+              const place = placeOf(r.rank) ?? ((i + 1) as 1 | 2 | 3);
+              return (
+                <a key={r.userId} href={`#/players/${r.userId}`} className={`podium-spot p${i + 1}`}>
+                  <span className="podium-who">
+                    <span className="podium-crown"><Crown place={place} size={i === 0 ? 46 : 36} /></span>
+                    {i === 0 && <span className="sparkles" aria-hidden="true"><i /><i /><i /><i /></span>}
+                    <Avatar name={r.name} id={r.userId} size={i === 0 ? 72 : 56} />
+                    <strong>{r.name}{r.userId === session.user.id && <span className="you-tag">You</span>}</strong>
+                    <span className="podium-pts"><strong>{r.points}</strong> pts</span>
+                    <span className="muted small">{r.w} W · {r.d} D · {r.l} L{streak(r.form) >= 3 ? <> · <Flame n={streak(r.form)} /></> : null}</span>
+                  </span>
+                  <span className="podium-step" aria-label={`Place ${r.rank}`}>{r.rank}</span>
+                </a>
+              );
+            })}
           </div>
         )}
 
@@ -91,7 +99,7 @@ export function Leaderboard({ session, onSignOut }: { session: Session; onSignOu
               <thead>
                 <tr><th className="l">#</th><th className="l">Player</th><th>Played</th><th>W</th><th>D</th><th>L</th><th>Points</th><th>Per game</th><th>Win %</th><th className="l">Last five</th></tr>
               </thead>
-              <tbody>{data.ranked.map((r) => <Row key={r.userId} r={r} me={session.user.id} />)}</tbody>
+              <tbody>{data.ranked.map((r) => <Row key={r.userId} r={r} me={session.user.id} top={data.ranked[0].points} />)}</tbody>
             </table>
           </div>
         )}
@@ -113,19 +121,43 @@ export function Leaderboard({ session, onSignOut }: { session: Session; onSignOu
   );
 }
 
-function Row({ r, me }: { r: LeaderboardRow; me: string }) {
+/** 1, 2 or 3 for a podium place (ties share it), else null. */
+const placeOf = (rank: number | null) => (rank && rank <= 3 ? (rank as 1 | 2 | 3) : null);
+
+/** Wins in a row, counting back from the latest game. */
+const streak = (form: LeaderboardRow['form']) => { let n = 0; for (const o of form) { if (o !== 'win') break; n++; } return n; };
+
+/** Three wins or more in a row: on a roll. */
+function Flame({ n }: { n: number }) {
   return (
-    <tr className={r.userId === me ? 'me' : ''}>
-      <td className="l muted">{r.rank}</td>
+    <span className="flame" title={`${n} wins in a row`}>
+      <svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 0c1 3 5 4.5 5 8.5A5 5 0 0 1 1 8.5C1 6.5 2.3 5.4 3 4.5c.2 1.4.9 2.2 1.8 2.4C4.6 4.6 5 2 6 0z" fill="#F07A2C" /><path d="M6 6.5c.7 1.4 2.3 2 2.3 3.6a2.3 2.3 0 0 1-4.6 0c0-1 .6-1.6 1-2 .1.6.4.9.8 1-.1-1 .1-1.8.5-2.6z" fill="#FFD25E" /></svg>
+      {n} in a row
+    </span>
+  );
+}
+
+function Row({ r, me, top }: { r: LeaderboardRow; me: string; top: number }) {
+  const place = placeOf(r.rank);
+  const run = streak(r.form);
+  return (
+    <tr className={`${r.userId === me ? 'me' : ''}${place ? ` place-${place}` : ''}`}>
+      <td className="l rank-cell">{place ? <span className="rank-crown"><Crown place={place} size={24} /><span>{r.rank}</span></span> : <span className="muted">{r.rank}</span>}</td>
       <td className="l">
         <a className="player-link" href={`#/players/${r.userId}`}>
           <Avatar name={r.name} id={r.userId} size={30} />
           <strong>{r.name}</strong>
           {r.userId === me && <span className="you-tag">You</span>}
+          {run >= 3 && <Flame n={run} />}
         </a>
       </td>
       <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
-      <td className="pts">{r.points}</td>
+      <td className="pts">
+        <span className="pts-cell">
+          <span className="pts-bar" aria-hidden="true"><i style={{ width: `${top ? Math.max(4, (r.points / top) * 100) : 0}%` }} /></span>
+          {r.points}
+        </span>
+      </td>
       <td>{perGame(r.points, r.played)}</td>
       <td>{winPct(r.w, r.played)}</td>
       <td className="l"><span className="form">{r.form.map((o, i) => <OutcomeChip key={i} outcome={o} />)}</span></td>

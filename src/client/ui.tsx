@@ -100,3 +100,25 @@ export function PeriodPicker({ value, onChange }: { value: Period; onChange(p: P
 
 export const perGame = (points: number, played: number) => (played ? (points / played).toFixed(2) : '-');
 export const winPct = (w: number, played: number) => (played ? `${Math.round((100 * w) / played)}%` : '-');
+
+const CROWN: Record<1 | 2 | 3, { fill: string; deep: string; shine: string; label: string }> = {
+  1: { fill: '#F5C542', deep: '#A87A0C', shine: '#FFF1B8', label: 'Gold crown: first place' },
+  2: { fill: '#D5DBE4', deep: '#7C8796', shine: '#F7F9FC', label: 'Silver crown: second place' },
+  3: { fill: '#D9925A', deep: '#8A5328', shine: '#F6D3B4', label: 'Bronze crown: third place' },
+};
+
+/** A crown for the top three: gold, silver, bronze. Its own colours in both themes. */
+export function Crown({ place, size = 22 }: { place: 1 | 2 | 3; size?: number }) {
+  const c = CROWN[place];
+  return (
+    <svg className={`crown crown-${place}`} width={size} height={size * 0.8} viewBox="0 0 30 24" role="img" aria-label={c.label}>
+      <path d="M3 8l6 5 6-9 6 9 6-5-2 13H5z" fill={c.fill} stroke={c.deep} strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M5.6 17.5h18.8" stroke={c.deep} strokeWidth="1.2" />
+      <path d="M8 15.2l1.4-1.2M14 8l1-1.5" stroke={c.shine} strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="3" cy="7.5" r="2" fill={c.fill} stroke={c.deep} strokeWidth="1.2" />
+      <circle cx="15" cy="3.5" r="2.2" fill={c.fill} stroke={c.deep} strokeWidth="1.2" />
+      <circle cx="27" cy="7.5" r="2" fill={c.fill} stroke={c.deep} strokeWidth="1.2" />
+      <circle cx="15" cy="19.4" r="1.3" fill={place === 1 ? '#D9443F' : place === 2 ? '#4F86E8' : '#3FB3A2'} />
+    </svg>
+  );
+}
