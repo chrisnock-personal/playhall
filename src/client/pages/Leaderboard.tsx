@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Session } from '../api';
-import type { LeaderboardResponse, LeaderboardRow, Period } from '../../shared/protocol';
+import type { BoardNamesResponse, LeaderboardResponse, LeaderboardRow, Period } from '../../shared/protocol';
 import { AppBar } from '../AppBar';
 import { useGames } from '../useGames';
 import { Avatar, OutcomeChip, PeriodPicker, perGame, winPct } from '../ui';
@@ -10,14 +10,29 @@ export function Leaderboard({ session, onSignOut }: { session: Session; onSignOu
   const [game, setGame] = useState('chess');
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const tabs: [string, string][] = [...useGames().map((g) => [g.id, g.name] as [string, string]), ['all', 'All games']];
+  const games = useGames();
+  const tabs: [string, string][] = [...games.map((g) => [g.id, g.name] as [string, string]), ['all', 'All games']];
+  // The camera table: a tab per game name played (null = every name together).
+  const named = !!games.find((g) => g.id === game)?.tableCamera;
+  const [names, setNames] = useState<BoardNamesResponse['names']>([]);
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNames([]); setName(null);
+    if (!named) return;
+    api<BoardNamesResponse>(`/leaderboard/names?game=${game}`, { token: session.token })
+      .then((d) => { setNames(d.names); setName(d.names[0]?.key ?? null); })
+      .catch(() => {});
+  }, [game, named, session.token]);
 
   useEffect(() => {
     setData(null);
-    api<LeaderboardResponse>(`/leaderboard?game=${game}&period=${period}`, { token: session.token })
+    const q = new URLSearchParams({ game, period });
+    if (named && name) q.set('name', name);
+    api<LeaderboardResponse>(`/leaderboard?${q}`, { token: session.token })
       .then((d) => { setData(d); setError(null); })
       .catch((e) => { if (e.status === 401) onSignOut(); else setError(e.message); });
-  }, [game, period, session.token, onSignOut]);
+  }, [game, period, named, name, session.token, onSignOut]);
 
   const podium = data?.ranked.slice(0, 3) ?? [];
 
@@ -38,6 +53,17 @@ export function Leaderboard({ session, onSignOut }: { session: Session; onSignOu
             <button key={id} role="tab" aria-selected={game === id} className={game === id ? 'on' : ''} onClick={() => setGame(id)}>{label}</button>
           ))}
         </div>
+
+        {named && (names.length ? (
+          <div className="page-tabs sub" role="tablist" aria-label="Game name">
+            {names.map((n) => (
+              <button key={n.key} role="tab" aria-selected={name === n.key} className={name === n.key ? 'on' : ''} onClick={() => setName(n.key)}>
+                {n.name} <span className="muted">{n.games}</span>
+              </button>
+            ))}
+            <button role="tab" aria-selected={name === null} className={name === null ? 'on' : ''} onClick={() => setName(null)}>Every game together</button>
+          </div>
+        ) : <p className="muted">No counted camera table games yet. Each game name typed gets its own tab here.</p>)}
 
         {error && <p className="form-error" role="alert">{error}</p>}
         {!data && !error && <p className="muted">Loading…</p>}
