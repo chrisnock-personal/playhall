@@ -5,6 +5,24 @@ from this list. The phases themselves are in [design.md](design.md#phases).
 
 ## Still open
 
+### Who Dat? (2026-11-16, #33)
+
+A guess-the-face deduction game for two, our own take on the genre: each
+player secretly picks a face from the same board of our own drawn
+characters, and players take turns asking yes/no questions and flipping down
+the faces ruled out, or naming the face. Questions are picked from the faces'
+features and answered by the server from the secret face, so nobody answers
+wrongly. Bots ask the question that splits the remaining faces closest to
+half. Our own name, cast, board and look; not the original game's.
+
+### Realm Duel team battles (2026-11-16, #34)
+
+2v2 and 3v3 team battles (and free-for-all) alongside the 1v1 duel: each
+player brings a hand, picks a creature, a style and a target on the other
+team; attacks resolve in Agility order across all fighters; a team wins when
+the other has nobody standing (`teamWin`). Room for abilities that help a
+team mate. Bots and AI players can fill seats on either team.
+
 ### AI players for more games (#32)
 
 Built for Ship2Shore (see Built below). Next: Manor Mystery and Hold'em, each
@@ -65,6 +83,7 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 
 | What | When | Where |
 |---|---|---|
+| Ship2Shore bots and AI players answer when asked what orders they had | 2026-11-16 | `src/shared/games/ship2shore.talk.ts` |
 | AI players for Ship2Shore: a language model on the admin's server makes the social moves and talks; the rule bot makes the arithmetic ones and steps in (#32) | 2026-11-16 | `src/shared/ai.ts`, `src/server/ai.ts` |
 | Leaderboard podium: gold, silver and bronze crowns, streaks, points bars | 2026-11-16 | `src/client/pages/Leaderboard.tsx` |
 | Computer players for ten games (#18) | 2026-11-16 | `src/shared/bots.ts` |
