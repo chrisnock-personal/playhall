@@ -1,0 +1,10 @@
+/* ---- kit: table sound controls (#29) ---- */
+.sound-ctl { position: relative; display: inline-flex; align-items: center; }
+.sound-ctl .icon-btn.off { color: var(--muted); opacity: .75; }
+.sound-ctl .sound-more { width: 18px; margin-left: -4px; }
+.sound-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 220px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 24px rgba(0,0,0,.35); font-size: 13px; }
+.sound-volume { display: flex; align-items: center; gap: 8px; }
+.sound-volume input[type=range] { flex: 1; min-width: 100px; height: auto; accent-color: var(--accent); }
+.sound-pct { width: 36px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sound-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.sound-settings { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
