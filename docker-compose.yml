@@ -21,6 +21,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # HTTPS with a self-signed certificate made on first start (kept in the
       # playhall-certs volume). TLS_HOSTS: extra names/addresses it should cover.
       TLS: ${TLS:-on}

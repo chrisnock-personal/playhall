@@ -7,14 +7,17 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Phase 1 has nine games: chess, checkers, Four in a Row, Snakes and Ladders,
-Ludo, Sea Battle, Blackjack, Colour Clash and Texas Hold'em, drawn from one
-shared kit of boards, pieces, cards, chips and dice
-([docs/games.md](docs/games.md)), built for more games: every game is a plug-in with its own
-seats, rules and board, and the room around it stays the same. Voice and video,
-sharing a game running on your own PC with remote players using controllers,
-OpenBOR rooms run on the server ([docs/openbor.md](docs/openbor.md)), and
-web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
+Twelve games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Battle, Blackjack, Colour Clash, Texas Hold'em, Letterworks (a crossword tile
+game), Realm Duel (a creature card duel) and Manor Mystery (a country-house
+murder mystery), drawn from one shared kit of boards, pieces, cards, chips and
+dice ([docs/games.md](docs/games.md)). Every game is a plug-in with its own
+seats, rules and board, and the room around it stays the same. Rooms have voice
+and video (self-hosted LiveKit) and optional transcripts. Next: the camera
+table for any physical board game, then sharing a game running on your own PC
+with remote players using controllers, OpenBOR rooms run on the server
+([docs/openbor.md](docs/openbor.md)), and web-game plug-ins. See
+[docs/design.md](docs/design.md).
 
 ## What works now
 
@@ -28,6 +31,8 @@ web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
+- **Twelve games**, each with its rules in a How to play tab, and replays of
+  finished games (move by move, hidden cards staying hidden).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a
   game is on).
@@ -37,6 +42,13 @@ web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
   on their seat cards; watchers' cameras show in the gallery strip only when
   the host allows it. With a watcher delay, watchers get neither the players'
   voice nor their video during play.
+- **Transcripts** (optional; with `WHISPER_URL`). When the host turns them on,
+  what people say in voice appears in the chat as "said" lines, with a clear
+  notice for everyone in voice. Only the text is kept, never the audio. The
+  admin can switch them off for the whole server.
+- **Your settings.** Microphone, speakers and camera (pick one when you have
+  several, with a level meter, a test sound and a preview), your password and
+  the theme.
 - **A room layout that gets out of the way.** The top bar, players, watchers
   and side panel each expand, shrink or hide; Default, Focus and Social
   layouts; your layout is remembered per game. Works on a phone.
@@ -76,7 +88,9 @@ the pair and swaps it in with no restart.
 defaults for new rooms, the HTTPS certificate, making other accounts admins,
 and closing any room. These are kept in the database and apply to everyone;
 each person's own settings (devices, theme) stay on the Settings page. To get
-the first admin, create an account, then set `ADMIN_USERNAMES` to its username
+the first admin: a fresh install makes the account **admin** with password
+**admin** (or `ADMIN_PASSWORD`), which must choose its own password at its first
+sign-in before anything else opens. Or create an account, then set `ADMIN_USERNAMES` to its username
 and restart. List an account there only once it exists: while sign-ups are on,
 anyone could otherwise create an account with that name and be an admin.
 
@@ -96,6 +110,7 @@ has left the old container running.
 | `POSTGRES_PASSWORD` | Database password (`python3 -c "import secrets;print(secrets.token_hex(24))"`) |
 | `JWT_SECRET` | Signs sessions; at least 32 random characters or the server won't start |
 | `ALLOW_SIGNUP` | `false` stops new accounts (guests still work). Only the starting value: once an admin changes it on the platform settings page, that wins |
+| `ADMIN_PASSWORD` | The default admin's first password (default `admin`); it has to be changed at the first sign-in anyway |
 | `ADMIN_USERNAMES` | Usernames that are always admins, comma-separated (e.g. `chris`). Admins can make other accounts admins on the platform settings page |
 | `PLAYHALL_PORT` | Port on the host (default 8450) |
 | `TLS` | `on` (default): HTTPS; `off`: plain HTTP, e.g. behind your own proxy that does HTTPS |
