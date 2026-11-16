@@ -56,7 +56,7 @@
 
 /* Small screens: one column, and the stage grows to fit. */
 @media (max-width: 900px) {
-  .stage:has(.s2s-stage) { height: auto; }
+  .stage:has(.s2s-stage) { height: auto; container-type: inline-size; }
   .s2s-stage { overflow: visible; height: auto; padding: 6px; }
   .s2s-layout { grid-template-columns: minmax(0, 1fr); }
   .s2s-chart { max-height: none; }

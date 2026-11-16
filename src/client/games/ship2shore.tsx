@@ -33,16 +33,16 @@ function ShipStage(props: StageProps) {
       <div className="s2s-layout">
         <div className="s2s-main">
           {v?.you && <RolePanel v={v} name={name} />}
+          <div className="s2s-box s2s-controls" aria-live="polite">
+            {!v && <p className="s2s-status">The ship sails when the host starts the game. 5 to 11 players.</p>}
+            {v && <Controls v={v} send={send} name={name} playing={playing} />}
+          </div>
           <div className="s2s-box s2s-chart-box">
             <div className="s2s-chart-head">
               <strong>{v ? `Round ${v.round}` : 'The SS Marigold'}</strong>
               {v && <span className="muted small">{CHARTS[v.chart].name} · {v.deckCount} orders in the deck · mutiny needs {v.threshold} rounds</span>}
             </div>
             <SeaChart chartId={v?.chart ?? 'short'} ship={v ? v.ship : { a: 0, b: 0 }} next={!!v && !v.result} />
-          </div>
-          <div className="s2s-box s2s-controls" aria-live="polite">
-            {!v && <p className="s2s-status">The ship sails when the host starts the game. 5 to 11 players.</p>}
-            {v && <Controls v={v} send={send} name={name} playing={playing} />}
           </div>
           {v?.result && v.reveal && <Reveal v={v} name={name} />}
         </div>
