@@ -170,6 +170,8 @@ try {
     const mics = await sp.locator('#dev-audioinput option').allInnerTexts();
     // Chromium names its fake devices "Fake ..."; Firefox's have other names.
     if (engine === 'chromium') assert.ok(mics.some((m) => /fake/i.test(m)), `fake microphones listed: ${mics}`);
+    // A click first, as a person would: some browsers hold audio back until then.
+    await sp.locator('.settings-page h1').click();
     await sp.waitForFunction(() => Number(document.querySelector('.mic-meter')?.getAttribute('aria-valuenow')) > 0, null, { timeout: 8000 });
     // Chromium fakes several microphones; Firefox may fake only one, and
     // then there's no other to choose and remember.

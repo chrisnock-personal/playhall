@@ -61,6 +61,12 @@ export function DeviceSettings() {
         if (stop) { s.getTracks().forEach((t) => t.stop()); return; }
         micStream.current = s;
         ctx = new AudioContext();
+        // Firefox and Safari can start it paused until the page is clicked or a key pressed.
+        if (ctx.state === 'suspended') {
+          const c = ctx;
+          const wake = () => { void c.resume(); removeEventListener('pointerdown', wake); removeEventListener('keydown', wake); };
+          addEventListener('pointerdown', wake); addEventListener('keydown', wake);
+        }
         const an = ctx.createAnalyser(); an.fftSize = 512;
         ctx.createMediaStreamSource(s).connect(an);
         const buf = new Uint8Array(an.fftSize);
