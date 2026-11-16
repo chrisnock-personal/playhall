@@ -18,6 +18,8 @@ import type { ClashView } from '../../shared/games/colourclash';
 import type { LetterworksView } from '../../shared/games/letterworks';
 import type { RealmView } from '../../shared/games/realmduel';
 import type { ManorView } from '../../shared/games/manormystery';
+import type { CameraTableView } from '../../shared/games/cameratable';
+import type { ShipView } from '../../shared/games/ship2shore';
 
 export type Sound =
   | 'dice' | 'shuffle' | 'card' | 'draw' | 'flip' | 'chip' | 'chips'
@@ -227,10 +229,28 @@ export function manorCues(prev: ManorView | null, next: ManorView): Cue[] {
   return out;
 }
 
+/** Camera table: the dice roller. */
+export function cameraCues(prev: CameraTableView | null, next: CameraTableView): Cue[] {
+  if (!prev || next.rollCount <= prev.rollCount) return [];
+  return [cue('dice')];
+}
+
+/** Ship2Shore: orders passed to you, the ship sailing on. */
+export function shipCues(prev: ShipView | null, next: ShipView): Cue[] {
+  if (!prev) return [];
+  const out: Cue[] = [];
+  const cards = (v: ShipView) => v.you?.hand?.length ?? v.you?.helmCards?.length ?? 0;
+  const gotCards = cards(next) > 0 && (cards(prev) === 0 || prev.phase !== next.phase);
+  if (gotCards) out.push(...run('draw', cards(next), 0, TIMING.deal));
+  if (next.ship.a !== prev.ship.a || next.ship.b !== prev.ship.b) out.push(cue('move'), cue('splash', 380));
+  return out;
+}
+
 export const GAME_CUES: Record<string, Detect> = {
   snakes: snakesCues, ludo: ludoCues, fourinarow: fourCues, checkers: checkersCues, chess: chessCues,
   seabattle: seaCues, blackjack: blackjackCues, poker: pokerCues, colourclash: clashCues,
   letterworks: letterworksCues, realmduel: realmCues, manormystery: manorCues,
+  cameratable: cameraCues, ship2shore: shipCues,
 };
 
 // ---- the room: whose turn, the end of the game ----

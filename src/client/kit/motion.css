@@ -23,6 +23,9 @@
 svg.die { animation: none; }
 svg.die.tumble { animation: die-tumble .42s cubic-bezier(.25, .6, .35, 1); }
 svg.die.tumble.b { animation-name: die-tumble-b; }
+/* Dice drawn another way (the camera table's d4-d20) tumble the same. */
+.die-tumble { animation: die-tumble .42s cubic-bezier(.25, .6, .35, 1); }
+.die-tumble.b { animation-name: die-tumble-b; }
 
 /* Tokens that walk a path: the path animation moves them, not a transition. */
 .track-token.mover { transition: none; }
@@ -81,7 +84,7 @@ svg.die.tumble.b { animation-name: die-tumble-b; }
 @keyframes peg-in { from { opacity: 0; transform: scale(.3); } }
 
 @media (prefers-reduced-motion: reduce) {
-  svg.die.tumble, .four-hole svg.drop, .fade-out, .shuffle, .pot-bump, .peg.landing, .ludo-token-btn { animation: none; }
+  svg.die.tumble, .die-tumble, .four-hole svg.drop, .fade-out, .shuffle, .pot-bump, .peg.landing, .ludo-token-btn { animation: none; }
   .shot-fx, .shuffle, .fade-out { display: none; }
   .ludo-token-btn { filter: drop-shadow(0 0 3px #fff); }
 }

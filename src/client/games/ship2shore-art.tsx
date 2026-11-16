@@ -7,7 +7,8 @@
 // circle (Navy), a diamond (spies) and a hexagon (Black Market); directions
 // are arrows. Our own drawings (docs/ship2shore.md).
 
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { animate } from '../kit/motion';
 import {
   ACTIONS, CHARTS, DIRS, FACTIONS, ORDERS, ROLES, actionAt, orderDir, orderKind,
   type ChartAction, type Dir, type Faction, type Order, type OrderKind, type Pos, type Role,
@@ -434,12 +435,32 @@ export function SeaChart({ chartId, ship, next, className }: { chartId: 'short' 
       <text x={maxX - 10} y={minY + 16} textAnchor="end" fill="#4E6A74" fontSize="8" fontWeight="800" letterSpacing="1" fontFamily={POSTER}>BAY OF BISCAY · 1943</text>
       {shipAt && (
         <g className="s2s-ship" transform={`translate(${shipAt.x} ${shipAt.y})`}>
-          <circle r="15" fill="#F2C84B" stroke={INK} strokeWidth="1.6" />
-          <g transform="translate(-12 -13) scale(.6)"><Ship size={40} colour={INK} /></g>
+          <ShipGlide at={shipAt}>
+            <circle r="15" fill="#F2C84B" stroke={INK} strokeWidth="1.6" />
+            <g transform="translate(-12 -13) scale(.6)"><Ship size={40} colour={INK} /></g>
+          </ShipGlide>
         </g>
       )}
     </svg>
   );
+}
+
+/** The ship sails from its last spot to the new one (#28), not on arrival. */
+function ShipGlide({ at, children }: { at: { x: number; y: number }; children: ReactNode }) {
+  const ref = useRef<SVGGElement>(null);
+  const was = useRef(at);
+  useLayoutEffect(() => {
+    const from = was.current;
+    was.current = at;
+    const dx = from.x - at.x, dy = from.y - at.y;
+    if (!dx && !dy) return;
+    animate(ref.current, [
+      { transform: `translate(${dx}px, ${dy}px)` },
+      { transform: `translate(${dx / 2}px, ${dy / 2}px) rotate(${dx > 0 ? -6 : 6}deg)`, offset: 0.5 },
+      { transform: 'none' },
+    ], { duration: 520, easing: 'ease-in-out' });
+  }, [at.x, at.y]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <g ref={ref}>{children}</g>;
 }
 
 export { DIR_FACTION };
