@@ -1,17 +1,25 @@
 # Backlog
 
-Ideas not yet scheduled into a phase. Newest first.
+Ideas not yet scheduled into a phase, newest first, then what has been built
+from this list. The phases themselves are in [design.md](design.md#phases).
 
-## Ship2Shore (user, 2026-11-15)
+## Still open
 
-A hidden-role game for 5-11 players aboard a 1943 merchant ship: Royal Navy,
-enemy spies and a black-market Fixer, each steering for a different port;
-players who lose the crew's trust are thrown to the sharks. Our own take on
-the hidden-faction steering game *Feed the Kraken*, with our own setting,
-names, rules text and art. Design approved 2026-11-15:
-[ship2shore.md](ship2shore.md); to build after phase 1's card games.
+### AI players (2026-11-16, #32)
 
-## Tournaments (user, 2026-11-15)
+A bot seat played by a language model on a server the platform admin sets up
+(the shared Ollama, say): it gets its seat's view, the legal choices and the
+table chat, answers with one action and maybe a line of table talk, and falls
+back to the rule bot if it's slow or wrong. Ship2Shore, Manor Mystery and
+Hold'em first. Never counts for the leaderboards.
+
+### Computer players for the rest (#18)
+
+Chess (a small engine, or #32), Letterworks (a word search over rack and
+board), Manor Mystery (deduction from the notebook), and smarter Ship2Shore
+bots that bluff and read the log.
+
+### Tournaments (2026-11-15, #17)
 
 A host (or admin) runs a tournament for one game:
 
@@ -27,35 +35,44 @@ A host (or admin) runs a tournament for one game:
 - **Standings**: a tournament page with the bracket or table, tie-breaks
   (Buchholz for Swiss, head-to-head for round robin), and the winner. The
   games count on the ordinary leaderboards too.
-- **Builds on**: the move timer (planned), rooms opened by the server rather
+- **Builds on**: the move timer (built), rooms opened by the server rather
   than a host, and notifications ("your round 3 game is ready").
 
-## More games (user, 2026-11-15)
+### Built-in real-time games
 
-Under our own names and artwork, like the others (docs/games.md):
+The fifth game type in [design.md](design.md#game-types): games the server
+runs on a tick rather than turn by turn (Pong-style), with inputs from the
+players' browsers and the state streamed back.
 
-| Like | Working name | Players | Notes |
-|---|---|---|---|
-| Scrabble | Letterworks | 2-4 | A crossword tile game. Our own board layout, bonus squares and letter values, and a word list we're allowed to use (an open one such as ENABLE or a Wiktionary-derived list, not a licensed tournament list). Racks are hidden information; the bag is server-side luck |
-| Cluedo | Manor Mystery | 3-6 | A deduction game with our own house, suspects and objects. Hidden hands; showing a card to one player only is a private action; the envelope is dealt by the server. Good with voice |
-| [fantasy-card-game](https://github.com/EdwardAThomson/fantasy-card-game) (MIT) | Realm Duel (or similar) | 2 | Creature cards with strength, agility, magic and defence, elements and abilities; pick a creature and an attack style each round. MIT, so its rules and balance can be borrowed with credit; the creatures get our own artwork on the card kit |
+### Learning a game
 
-Names decided 2026-11-15: Letterworks, Manor Mystery (Blackthorn Hall), Realm Duel. Design drafts:
-[letterworks.md](letterworks.md), [manor-mystery.md](manor-mystery.md),
-[creature-duel.md](creature-duel.md).
+A short guided first game for each game, and pictures in the rules (drawn
+from the kit). Every game already has its How to play.
 
-## Rules and how to play (user, 2026-11-15)
+### Realm Duel in full
 
-Every game carries its own **How to play** (`howToPlay` in the game module):
-the goal in a sentence or two, then short sections (turns, how pieces move,
-how a game ends, tips). It shows in every room's **Rules** tab and in the
-lobby when choosing a game. Done for chess and Four in a Row; every new game
-must include it. Later: a short guided first game for each, and pictures in
-the rules (drawn from the kit).
+The 30-creature pool and the draft mode (players take turns picking from a
+shared pool of 10): [creature-duel.md](creature-duel.md).
 
-## Smaller ideas
+### Reporting (#21)
 
-- **Bot seats**: an opponent from the shared Ollama (as open-chess does), or
-  a simple engine per game (minimax for Four in a Row and checkers). Bot games
-  don't count for the leaderboard.
-- **Reporting** for admins (hosts can already remove people).
+Players can report a room or a person; admins see the reports. Hosts can
+already remove people from their own rooms.
+
+### More games
+
+Under our own names and artwork, like the others ([games.md](games.md)).
+
+## Built
+
+| What | When | Where |
+|---|---|---|
+| Leaderboard podium: gold, silver and bronze crowns, streaks, points bars | 2026-11-16 | `src/client/pages/Leaderboard.tsx` |
+| Computer players for ten games (#18) | 2026-11-16 | `src/shared/bots.ts` |
+| Hold'em for 2-8, Blackjack for 1-7 (#16) | 2026-11-16 | the game modules |
+| A roomier room layout; Ship2Shore's hex chart with headings per area | 2026-11-16 | [ship2shore.md](ship2shore.md) |
+| Animations and table sounds (#28, #29) | 2026-11-16 | `src/client/kit/` |
+| Ship2Shore, a hidden-role game for 5-11 (#11) | 2026-11-16 | [ship2shore.md](ship2shore.md) |
+| Manor Mystery and Realm Duel | 2026-11-16 | [manor-mystery.md](manor-mystery.md), [creature-duel.md](creature-duel.md) |
+| Letterworks | 2026-11-15 | [letterworks.md](letterworks.md) |
+| How to play for every game | 2026-11-15 | `howToPlay` in each game module |

@@ -54,9 +54,10 @@ what it needs, and its own side-panel tab.
 |---|---|---|---|---|
 | Built-in rules | Playhall server | Server; watchers can be given a delayed view | Chess, draughts, Connect Four, cards (with a per-seat view for hidden hands) | 1 (chess) |
 | Camera table | A real board on a camera | The people | Board games, tabletop RPGs; plus dice and a score pad | 2 |
-| Share a local game | The host's PC | The game itself | Anything with local multiplayer on Windows | 3 |
-| Web game plug-in | Sandboxed frame in each browser, bridged to the room | The host's copy, or a server module | Any HTML5 game, third-party ones included | 4 |
-| Built-in real-time | Server ticks | Server | Pong-style | later |
+| OpenBOR room | An OpenBOR engine in a container on the server, streamed | The engine | Beat-'em-ups (players import their own) | 3 |
+| Share a local game | The host's PC | The game itself | Anything with local multiplayer on Windows | 4 |
+| Web game plug-in | Sandboxed frame in each browser, bridged to the room | The host's copy, or a server module | Any HTML5 game, third-party ones included | 5 |
+| Built-in real-time | Server ticks | Server | Pong-style | not scheduled ([backlog](backlog.md)) |
 
 The room engine (seats, host, queue, chat, voice) doesn't change by type; only
 the stage and the game's tabs do.
@@ -69,7 +70,14 @@ returns the new state or an error, `tick`/`nextDeadline` for clocks,
 (src/client/games/types.ts) supplies the `Stage`, one side-panel tab, a
 `seatExtra` slot on seat cards (the chess clock), and a `ConfigPicker`.
 
-### Sharing a local game (phase 3)
+**Computer players** (#18): a bot is a pure function in `src/shared/bots.ts`
+from its seat's own `view` (and its seat) to an action, so it knows only what
+a person there would. The room asks it whenever the game is waiting on a bot
+seat (`waitingFor`, or `turn`), after a short pause, and falls back to the
+game's `timeout` move if its answer is refused. Games with a bot never count.
+A model-backed player (#32) will use the same interface.
+
+### Sharing a local game (phase 4)
 
 Following LibreRemotePlay's split, which works:
 - **v1**: the host's browser captures the window with `getDisplayMedia` and
@@ -90,7 +98,7 @@ Following LibreRemotePlay's split, which works:
 - **Risk**: ViGEmBus was retired in 2023; it works but is unmaintained.
   Windows first, Linux later (uinput, PipeWire).
 
-### Web game plug-ins (phase 4)
+### Web game plug-ins (phase 5)
 
 An HTML5 game in an `<iframe sandbox>` with a small bridge over postMessage:
 it's told the seats and who's in them, sends actions, and receives state. In
@@ -110,7 +118,9 @@ The stage always gets the space; every other panel collapses:
 
 Presets: Default, Focus, Social; custom layouts are remembered per game type
 on the device. Clocks and whose turn it is stay visible in every state. On a
-phone, panels stack under a full-width stage.
+phone, panels stack under a full-width stage. During a game an expanded
+players panel shows compact (the game shows the players), and on windows
+901-1599 px wide an expanded side panel shows as its rail until opened.
 
 ## What's borrowed from where
 
@@ -148,7 +158,7 @@ fallback, rather than leaving it out silently.
    and replays, a light theme, and nine games on one shared kit: chess,
    checkers, Four in a Row, Snakes and Ladders, Ludo, Sea Battle, Blackjack,
    Colour Clash and Texas Hold'em ([games.md](games.md)).
-2. **Voice and video, and any board game at all.** LiveKit in every room:
+2. **Done (2026-11-16)**: **voice and video, and any board game at all.** LiveKit in every room:
    voice with the same table/gallery split as the chat, push to talk, the
    talking ring, players' video on their seat cards, transcripts from the
    shared Whisper. With video comes the **camera table**: the host points a
@@ -168,11 +178,15 @@ fallback, rather than leaving it out silently.
    Platforms above for what each can do).
 5. The web-game plug-in SDK; sharing a local game, v2.
 
-Ideas not in a phase yet (Ship2Shore, tournaments, more games, bots):
-[backlog.md](backlog.md).
+Built since phase 1, outside the phases: Letterworks, Realm Duel, Manor
+Mystery and Ship2Shore; animations and table sounds; computer players for
+ten games; Hold'em and Blackjack for up to 8 and 7; the roomier room layout;
+the leaderboard podium. Ideas not in a phase yet: [backlog.md](backlog.md).
 
-## Known gaps in phase 1
+## Known gaps in phase 1 (both fixed)
 
-- Server downtime counts against the player whose clock was running.
-- The WebSocket takes the session token in its URL, so it must not be logged
-  by a proxy.
+- ~~Server downtime counts against the player whose clock was running.~~
+  Fixed: a game loaded again moves its clocks on by the time it was away
+  (`pause`, `aliveAt`).
+- ~~The WebSocket takes the session token in its URL.~~ Fixed (#24): the
+  token goes in the first message.
