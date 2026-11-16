@@ -1,4 +1,4 @@
-// Blackjack against the house, 1-4 players, with play chips only (no real
+// Blackjack against the house, 1-7 players, with play chips only (no real
 // money, nothing to buy). A game is a session of a set number of hands from
 // 1,000 chips each; whoever has the most chips at the end wins. Each hand:
 // everyone bets, two cards each and two for the dealer (one face down), then
@@ -8,7 +8,8 @@
 import type { GameResult, SeatId } from '../game';
 import { randInt, withHistory, type GameHistory } from './history';
 
-export const SEATS = ['amber', 'teal', 'violet', 'rose'];
+/** Seven seats round the table, as in a casino. */
+export const SEATS = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue', 'red'];
 export const START_CHIPS = 1000;
 export const MIN_BET = 10;
 const DECKS = 6;
@@ -152,7 +153,7 @@ function finish(s: BlackjackState): BlackjackState {
 export const blackjack = withHistory<BlackjackState, BlackjackConfig>({
   id: 'blackjack',
   name: 'Blackjack',
-  description: '1-4 players against the house, with play chips only. Most chips after the last hand wins.',
+  description: '1-7 players against the house, with play chips only. Most chips after the last hand wins.',
   howToPlay: {
     goal: 'Finish the session with more chips than anyone else at the table. Each hand, beat the dealer by getting closer to 21 without going over.',
     sections: [

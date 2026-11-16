@@ -2,17 +2,18 @@
 // with no move, and every game ends.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { poker, type PokerState } from './poker';
+import { poker, SEATS, type PokerState } from './poker';
 
-test('100 random games of Hold’em: chips conserved, never stuck, always end', () => {
+test('140 random games of Hold’em, 2 to 8 players: chips conserved, never stuck, always end', () => {
   let seed = 3;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  for (let g = 0; g < 100; g++) {
-    const seats = ['amber', 'teal', 'violet', 'rose'].slice(0, 2 + (g % 3));
+  assert.equal(SEATS.length, 8);
+  for (let g = 0; g < 140; g++) {
+    const seats = SEATS.slice(0, 2 + (g % 7));
     const ctx = { seats, random };
     let s: PokerState = poker.create({ startChips: 1000, blindEvery: 3 }, 0, ctx);
     const total = 1000 * seats.length;
-    for (let i = 0; i < 5000 && !s.result; i++) {
+    for (let i = 0; i < 20000 && !s.result; i++) {
       assert.ok(s.toAct, `game ${g}: nobody to act`);
       const seat = s.toAct!;
       const owe = s.currentBet - s.bet[seat];

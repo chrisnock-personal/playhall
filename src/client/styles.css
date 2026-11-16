@@ -416,7 +416,7 @@ button.ludo-token:focus-visible { outline: 2px solid #fff; }
 .spot.to-move { border-color: #F0A53C; box-shadow: 0 0 0 1px #F0A53C; }
 .spot.mine { background: rgba(240,165,60,.08); }
 .spot.out { opacity: .5; }
-.spot-head { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.spot-head { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #F4F1E8; }
 .spot-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .spot-head .clock { font-size: 12px; padding: 2px 6px; }
 .spot-foot { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #DCEBE3; min-height: 28px; }

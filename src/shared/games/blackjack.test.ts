@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blackjack, handValue, START_CHIPS, type BlackjackState, type BlackjackView } from './blackjack';
+import { blackjack, handValue, SEATS, START_CHIPS, type BlackjackState, type BlackjackView } from './blackjack';
 
 const ctx = (seats = ['amber', 'teal']) => ({ seats, random: Math.random });
 const ok = (r: ReturnType<typeof blackjack.act>): BlackjackState => { if ('error' in r) throw new Error(r.error); return r.state; };
@@ -58,4 +58,24 @@ test('the session ends after the last hand; most chips first', () => {
   s = ok(blackjack.act(s, 'teal', { type: 'bet', amount: 100 }, 0, ctx()));
   s = ok(blackjack.act(s, 'teal', { type: 'stand' }, 0, ctx()));
   assert.deepEqual(s.result?.placings, [['amber'], ['teal']]);
+});
+
+test('a full table of seven plays whole sessions: everyone dealt in, every hand settles, all placed', () => {
+  assert.equal(SEATS.length, 7);
+  for (let g = 0; g < 20; g++) {
+    const c = ctx(SEATS);
+    let s = blackjack.create({ hands: 5 }, 0, c);
+    for (let i = 0; i < 2000 && !s.result; i++) {
+      const who = blackjack.turn!(s);
+      assert.ok(who.length, `game ${g}: nobody to act`);
+      const seat = who[0];
+      const r = s.phase === 'betting'
+        ? blackjack.act(s, seat, { type: 'bet', amount: 10 + 10 * Math.floor(Math.random() * 5) }, 0, c)
+        : blackjack.act(s, seat, { type: Math.random() < 0.5 ? 'hit' : 'stand' }, 0, c);
+      s = ok(r);
+      if (s.phase === 'playing' && s.hand === 1 && i < 8) for (const p of SEATS) assert.ok(s.cards[p].length >= 2 || s.bets[p] === null, `game ${g}: ${p} dealt in`);
+    }
+    assert.ok(s.result, `game ${g} never ended`);
+    assert.equal(s.result!.placings!.flat().length, 7, 'all seven placed');
+  }
 });

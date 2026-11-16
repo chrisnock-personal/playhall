@@ -122,10 +122,10 @@ the logo's pawn are drawn to sit beside them.
    (2-4 players, places for everyone, the move timer rolls or moves for you).
 4. **Done**: hidden information: **Sea Battle** (secret simultaneous
    placement, fleets revealed at the end).
-5. Cards and chips: **Blackjack done** (1-4 players against the house, play
+5. Cards and chips: **Blackjack done** (1-7 players against the house, play
    chips, sessions of 5/10/20 hands; one-player sessions are practice and
    don't count); **Colour Clash done** (2-4 players, our own 108-card deck in
-   the player colours, hidden hands); **Texas Hold'em done** (2-4 player
+   the player colours, hidden hands); **Texas Hold'em done** (2-8 player
    sit-and-go, side pots, rising blinds, our own hand evaluator; fuzzed for
    chip conservation). **All nine phase 1 games are in.**
 

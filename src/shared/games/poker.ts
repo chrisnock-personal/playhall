@@ -1,4 +1,4 @@
-// Texas Hold'em, a sit-and-go for 2-4 players with play chips only (no real
+// Texas Hold'em, a sit-and-go for 2-8 players with play chips only (no real
 // money, nothing to buy). Everyone starts with the same chips; the blinds
 // double every few hands; whoever has every chip at the end wins, and the
 // others are placed by when they went out. Standard rules: two private cards,
@@ -8,7 +8,7 @@ import type { GameResult, SeatId } from '../game';
 import { randInt, withHistory, type GameHistory } from './history';
 import type { Card } from './blackjack';
 
-export const SEATS = ['amber', 'teal', 'violet', 'rose'];
+export const SEATS = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue', 'red', 'slate'];
 export interface PokerConfig { startChips: number; blindEvery: number }
 export type Street = 'preflop' | 'flop' | 'turn' | 'river';
 
@@ -299,7 +299,7 @@ function act(s: PokerState, seat: SeatId, kind: string, to: number | undefined, 
 export const poker = withHistory<PokerState, PokerConfig>({
   id: 'poker',
   name: 'Texas Hold’em',
-  description: '2-4 players, a sit-and-go with play chips. Rising blinds; the last player with chips wins.',
+  description: '2-8 players, a sit-and-go with play chips. Rising blinds; the last player with chips wins.',
   howToPlay: {
     goal: 'Win every chip at the table. Each hand, win the pot with the best five-card poker hand, or by making everyone else fold.',
     sections: [
