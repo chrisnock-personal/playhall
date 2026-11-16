@@ -11,7 +11,11 @@ const loadLiveKit = async () => (lk ??= await import('livekit-client'));
 import { canPickSpeaker, chosen, constraints, listDevices, readDevicePrefs } from '../devices';
 import type { Channel } from '../../shared/protocol';
 
-export interface VoicePerson { id: string; name: string; speaking: boolean; muted: boolean; you: boolean }
+export interface VoicePerson { id: string; name: string; speaking: boolean; muted: boolean; you: boolean; volume: number }
+export type VoiceMode = 'open' | 'ptt';
+
+const MODE_KEY = 'playhall.voiceMode';
+const readMode = (): VoiceMode => { try { return localStorage.getItem(MODE_KEY) === 'ptt' ? 'ptt' : 'open'; } catch { return 'open'; } };
 
 export interface Voice {
   state: 'off' | 'joining' | 'on' | 'error';
@@ -26,6 +30,13 @@ export interface Voice {
   leave(): void;
   toggleMute(): Promise<void>;
   startAudio(): Promise<void>;
+  /** Open mic (mute/unmute) or push to talk (hold Space or the mic button). */
+  mode: VoiceMode;
+  setMode(m: VoiceMode): void;
+  talking: boolean;
+  pushToTalk(down: boolean): void;
+  /** Your own volume for one person, 0 to 1 (0 mutes them for you only). */
+  setVolume(id: string, v: number): void;
 }
 
 export function useVoice(code: string, sessionToken: string): Voice {
@@ -38,6 +49,9 @@ export function useVoice(code: string, sessionToken: string): Voice {
   const [needsClick, setNeedsClick] = useState(false);
   const [people, setPeople] = useState<VoicePerson[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setModeState] = useState<VoiceMode>(readMode);
+  const [talking, setTalking] = useState(false);
+  const volumes = useRef(new Map<string, number>());
 
   const refresh = useCallback(() => {
     const r = room.current;
@@ -47,6 +61,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     setPeople(all.map((p) => ({
       id: p.identity, name: p.name || p.identity, speaking: p.isSpeaking, you: p === r.localParticipant,
       muted: !p.getTrackPublication(Track.Source.Microphone) || !!p.getTrackPublication(Track.Source.Microphone)?.isMuted,
+      volume: volumes.current.get(p.identity) ?? 1,
     })));
     setCanTalk(!!r.localParticipant.permissions?.canPublish);
     setMuted(!r.localParticipant.isMicrophoneEnabled);
@@ -73,6 +88,8 @@ export function useVoice(code: string, sessionToken: string): Voice {
       room.current = r;
       r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, p) => {
         if (track.kind !== Track.Kind.Audio) return;
+        const v = volumes.current.get(p.identity);
+        if (v !== undefined) (p as unknown as { setVolume(v: number): void }).setVolume(v);
         const el = track.attach();
         el.dataset.voice = p.identity;
         document.body.appendChild(el);
@@ -112,7 +129,44 @@ export function useVoice(code: string, sessionToken: string): Voice {
 
   const startAudio = useCallback(async () => { await room.current?.startAudio(); setNeedsClick(false); }, []);
 
+  const setMode = useCallback((m: VoiceMode) => {
+    setModeState(m);
+    try { localStorage.setItem(MODE_KEY, m); } catch { /* not remembered */ }
+    // Switching to push to talk starts muted.
+    const r = room.current;
+    if (m === 'ptt' && r?.localParticipant.isMicrophoneEnabled) void r.localParticipant.setMicrophoneEnabled(false).then(refresh);
+  }, [refresh]);
+
+  const pushToTalk = useCallback((down: boolean) => {
+    const r = room.current;
+    if (!r || !r.localParticipant.permissions?.canPublish) return;
+    setTalking(down);
+    void (async () => {
+      const devices = down ? await listDevices().catch(() => null) : null;
+      await r.localParticipant.setMicrophoneEnabled(down, down ? constraints('audio', readDevicePrefs(), devices?.audioinput) as object : undefined);
+      refresh();
+    })();
+  }, [refresh]);
+
+  const setVolume = useCallback((id: string, v: number) => {
+    volumes.current.set(id, v);
+    const p = room.current?.remoteParticipants.get(id);
+    p?.setVolume(v);
+    refresh();
+  }, [refresh]);
+
+  // Push to talk: hold Space, unless you're typing somewhere.
+  useEffect(() => {
+    if (mode !== 'ptt' || state !== 'on') return;
+    const typing = (e: KeyboardEvent) => { const t = e.target as HTMLElement | null; return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); };
+    const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !e.repeat && !typing(e)) { e.preventDefault(); pushToTalk(true); } };
+    const up = (e: KeyboardEvent) => { if (e.code === 'Space' && !typing(e)) { e.preventDefault(); pushToTalk(false); } };
+    const blur = () => pushToTalk(false);
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
+  }, [mode, state, pushToTalk]);
+
   useEffect(() => leave, [leave]);
 
-  return { state, channel, canTalk, muted, needsClick, people, error, join, leave, toggleMute, startAudio };
+  return { state, channel, canTalk, muted, needsClick, people, error, join, leave, toggleMute, startAudio, mode, setMode, talking, pushToTalk, setVolume };
 }

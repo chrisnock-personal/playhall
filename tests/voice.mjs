@@ -30,6 +30,22 @@ const hears = async (p) => p.waitForFunction(async () => {
 }, null, { timeout: 20000 }).then(() => true, () => false);
 assert.ok(await hears(hp), 'the host hears the watcher');
 assert.ok(await hears(wp), 'the watcher hears the host');
+// Push to talk: hold Space to talk, let go to stop.
+await hp.selectOption('.voice-mode', 'ptt');
+const ptt = hp.locator('.voice-dock.on button.ptt');
+await ptt.waitFor();
+await hp.keyboard.down('Space');
+await hp.waitForFunction(() => document.querySelector('.voice-dock.on button.ptt')?.getAttribute('aria-pressed') === 'true');
+await hp.keyboard.up('Space');
+await hp.waitForFunction(() => document.querySelector('.voice-dock.on button.ptt')?.getAttribute('aria-pressed') === 'false');
+await hp.selectOption('.voice-mode', 'open');
+// Volume for one person, only for you: the watcher silences the host.
+await wp.locator('.voice-av:not([disabled])').first().click();
+await wp.getByRole('button', { name: 'Silence for me' }).click();
+await wp.waitForSelector('.voice-av.silenced');
+assert.equal(await wp.evaluate(() => [...document.querySelectorAll('audio[data-voice]')].every((a) => a.volume === 0)), true, 'the host is silent for the watcher');
+await wp.getByRole('button', { name: 'Hear them again' }).click();
+
 // The game starts: the watcher at the table can now only listen (the server
 // changes their LiveKit rights live), and the players can still talk.
 assert.ok(await wp.locator('.voice-dock.on button[aria-label*="microphone"]').count(), 'before the game the watcher can talk at the table');

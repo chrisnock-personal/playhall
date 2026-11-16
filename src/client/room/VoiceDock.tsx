@@ -10,6 +10,7 @@ const serverHasMedia = () => (mediaOn ??= fetch('/api/health').then((r) => r.jso
 /** Join voice at the table or in the gallery, mute, see who's talking. */
 export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSnapshot; compact?: boolean }) {
   const [available, setAvailable] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   useEffect(() => { void serverHasMedia().then(setAvailable); }, []);
   if (!available) return null;
 
@@ -37,18 +38,48 @@ export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSn
   return (
     <div className="voice-dock on" role="group" aria-label={`Voice: ${label(voice.channel!)}`}>
       <span className="voice-where" title="You're in this voice channel">{label(voice.channel!)}</span>
-      {voice.canTalk ? (
-        <button className={`icon-btn${voice.muted ? ' muted' : ' live'}`} onClick={voice.toggleMute} aria-pressed={!voice.muted}
-          aria-label={voice.muted ? 'Unmute your microphone' : 'Mute your microphone'} title={voice.muted ? 'Unmute' : 'Mute'}>
-          <Icon name={voice.muted ? 'micOff' : 'mic'} size={18} />
-        </button>
-      ) : <span className="voice-listen" title="You can listen here, not talk">Listening</span>}
+      {!voice.canTalk ? <span className="voice-listen" title="You can listen here, not talk">Listening</span>
+        : voice.mode === 'ptt' ? (
+          <button className={`icon-btn ptt${voice.talking ? ' live' : ' muted'}`} aria-pressed={voice.talking}
+            aria-label="Hold to talk (or hold Space)" title="Hold to talk, or hold Space"
+            onPointerDown={() => voice.pushToTalk(true)} onPointerUp={() => voice.pushToTalk(false)} onPointerLeave={() => voice.talking && voice.pushToTalk(false)}>
+            <Icon name={voice.talking ? 'mic' : 'micOff'} size={18} />
+          </button>
+        ) : (
+          <button className={`icon-btn${voice.muted ? ' muted' : ' live'}`} onClick={voice.toggleMute} aria-pressed={!voice.muted}
+            aria-label={voice.muted ? 'Unmute your microphone' : 'Mute your microphone'} title={voice.muted ? 'Unmute' : 'Mute'}>
+            <Icon name={voice.muted ? 'micOff' : 'mic'} size={18} />
+          </button>
+        )}
+      {voice.canTalk && !compact && (
+        <select className="voice-mode" aria-label="How you talk" value={voice.mode} onChange={(e) => voice.setMode(e.target.value as 'open' | 'ptt')}>
+          <option value="open">Open mic</option>
+          <option value="ptt">Push to talk (Space)</option>
+        </select>
+      )}
       <div className="voice-people">
         {voice.people.slice(0, compact ? 4 : 8).map((p) => (
-          <span key={p.id} className={`voice-av${p.speaking ? ' speaking' : ''}${p.muted ? ' quiet' : ''}`} title={`${p.name}${p.you ? ' (you)' : ''}${p.muted ? ', muted' : p.speaking ? ', talking' : ''}`}>
+          <button key={p.id} className={`voice-av${p.speaking ? ' speaking' : ''}${p.muted ? ' quiet' : ''}${p.volume === 0 ? ' silenced' : ''}`}
+            disabled={p.you} onClick={() => setOpen(open === p.id ? null : p.id)} aria-expanded={open === p.id}
+            title={`${p.name}${p.you ? ' (you)' : ''}${p.muted ? ', muted' : p.speaking ? ', talking' : ''}${p.volume === 0 ? ', silenced for you' : ''}`}
+            aria-label={`${p.name}${p.you ? ' (you)' : ': volume'}`}>
             <Avatar name={p.name} id={p.id} size={26} />
-          </span>
+          </button>
         ))}
+        {open && (() => {
+          const p = voice.people.find((x) => x.id === open);
+          if (!p) return null;
+          return (
+            <div className="voice-pop" role="dialog" aria-label={`${p.name}: volume`}>
+              <strong>{p.name}</strong>
+              <label className="row"><Icon name="volume" size={16} />
+                <input type="range" min={0} max={1} step={0.05} value={p.volume} aria-label={`Volume for ${p.name}`} onChange={(e) => voice.setVolume(p.id, Number(e.target.value))} />
+              </label>
+              <button className="btn small" onClick={() => voice.setVolume(p.id, p.volume === 0 ? 1 : 0)}>{p.volume === 0 ? 'Hear them again' : 'Silence for me'}</button>
+              <span className="hint">Only changes what you hear.</span>
+            </div>
+          );
+        })()}
         {voice.people.length > (compact ? 4 : 8) && <span className="muted small">+{voice.people.length - (compact ? 4 : 8)}</span>}
       </div>
       {voice.needsClick && <button className="btn small primary" onClick={voice.startAudio}><Icon name="volume" size={16} />Turn sound on</button>}
