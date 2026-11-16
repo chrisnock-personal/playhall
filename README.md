@@ -19,6 +19,20 @@ with remote players using controllers, OpenBOR rooms run on the server
 ([docs/openbor.md](docs/openbor.md)), and web-game plug-ins. See
 [docs/design.md](docs/design.md).
 
+**More: the [project overview](https://github.com/chrisnock-personal/project-overviews/tree/main/playhall)**, with the whole tour in pictures.
+
+![A chess room during a game: the host playing White against Alex, three people watching, and the players' chat on the right](docs/screenshots/chess-room.png)
+
+<p>
+<img src="docs/screenshots/lobby.png" width="49%" alt="The lobby: rooms playing several games, and the form for a new room">
+<img src="docs/screenshots/letterworks.png" width="49%" alt="Letterworks with three players: HALL, PAWN and QUEEN on the board and a rack of seven tiles">
+</p>
+<p>
+<img src="docs/screenshots/realm-duel.png" width="49%" alt="Realm Duel: the opponent's face-down cards and your three creatures with their stats, the attack styles and Lock in">
+<img src="docs/screenshots/manor-mystery.png" width="49%" alt="Manor Mystery: the plan of Blackthorn Hall, your cards and your notebook">
+</p>
+<img src="docs/screenshots/leaderboard.png" width="62%" alt="Leaderboards: the top three and the table for the week">
+
 ## What works now
 
 - **Accounts and guests.** Sign up with a username and password, or join from
