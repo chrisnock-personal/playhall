@@ -132,6 +132,9 @@ More candidates (Letterworks, Manor Mystery, a creature card duel) are in
 [backlog.md](backlog.md). Since then: **Realm Duel** (two players, the six
 starter creatures, secret simultaneous picks; [creature-duel.md](creature-duel.md))
 is in.
+[backlog.md](backlog.md).
+**Manor Mystery** is in (3-6 players, the murder at Blackthorn Hall; rules as
+built in [manor-mystery.md](manor-mystery.md)).
 
 Leaderboards get a tab per game automatically (from the game list), and "All
 games" adds them up. The project overview page waits until these are in, so

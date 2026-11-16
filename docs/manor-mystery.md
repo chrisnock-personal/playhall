@@ -50,10 +50,51 @@ game's.
   kit's frame with our own illustrations.
 - At its best with phase 2's voice (the table talk and bluffing).
 
+## As built (2026-11-16)
+
+The game is in (`src/shared/games/manormystery.ts`, stage in
+`src/client/games/manormystery.tsx`). Where the rules above left a point
+open, it does this:
+
+- **The map**: the hall is a 3 × 3 plan, top row the Observatory, Music Room,
+  Boathouse; middle the Map Room, Chapel, Greenhouse; bottom the Armoury,
+  Wine Cellar, Nursery. Doors join rooms side by side (not diagonally); the
+  hidden passages join opposite corners: Observatory ↔ Nursery and
+  Boathouse ↔ Armoury. No dice.
+- **Start and moving**: everyone starts in the Chapel. Each turn you must
+  move one room (staying put isn't allowed), then may suggest in the room
+  you're in, then may accuse or end the turn. Suggested suspects aren't
+  pieces on the map (players are seat colours, not characters), so nothing
+  is moved by a suggestion.
+- **Showing cards**: asked in seat order after the suggester. A player with
+  exactly one of the three shows it straight away; with two or more they
+  choose (the move timer applies to them); with none, the log says they
+  couldn't show a card.
+- **Accusing**: on your own turn, at any point (before or after moving), when
+  no card is waiting to be shown; any room may be named. Only one per game.
+  A wrong accuser is **not** shown the envelope (with voice in the room, a
+  player who knows the answer could give it away); everyone sees it at the end.
+- **The end**: a right accusation wins. If nobody is left in the running
+  (everyone accused wrongly or resigned), nobody wins: the envelope is opened
+  and the result counts as a shared place for those who accused (a draw).
+  If everyone else resigns, the last player in the running wins.
+- **Resigning / leaving**: the player's cards are laid face up for everyone
+  and they're skipped when cards are asked for.
+- **Out of time** (the room's move timer): you move to a random room next
+  door if you hadn't moved, and your turn ends; a player who had to choose a
+  card to show has one shown at random.
+- **Seats**: six seats in the kit's colours: amber, teal, violet, rose, then
+  white and black (the kit has only four player colours besides chess's two).
+- **Notebook**: the server fills in what you know for certain (your hand,
+  cards shown to you, face-up cards, and ✗ for anyone who couldn't show a
+  card on a suggestion); your own ✓ ✗ ? marks are kept in your browser per
+  game. A card nobody can hold is marked as in the envelope.
+
 ## Open points
 
-- The map: nine rooms, their connections and the two hidden passages.
 - Whether to allow a quick "Suggest from anywhere" mode for short games.
+- Two more player colours in the kit, to replace white and black for seats 5
+  and 6.
 
 ## Pieces (mockups approved for now, 2026-11-15; may be improved later)
 
