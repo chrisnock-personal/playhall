@@ -128,7 +128,7 @@ function People({ snap, send }: { snap: RoomSnapshot; send(m: ClientMessage): vo
       <div className="who">
         <strong>{m.name}{m.userId === snap.you.userId ? ' (you)' : ''}</strong>
         <span>
-          {[m.host && 'Host', m.seat && seatLabel(m.seat), m.guest && 'guest', !m.online && 'away', m.hand && 'asking for a seat'].filter(Boolean).join(' · ') || 'Watching'}
+          {[m.host && 'Host', m.seat && seatLabel(m.seat), m.bot && 'computer player', m.guest && 'guest', !m.online && 'away', m.hand && 'asking for a seat'].filter(Boolean).join(' · ') || 'Watching'}
         </span>
       </div>
       {snap.you.host && m.userId !== snap.you.userId && <HostActions m={m} snap={snap} send={send} playing={playing} />}
@@ -167,6 +167,11 @@ function HostActions({ m, snap, send, playing }: { m: MemberView; snap: RoomSnap
   const [confirm, setConfirm] = useState(false);
   const [removing, setRemoving] = useState(false);
   const canPlay = !m.guest || snap.room.settings.guestsCanPlay;
+  if (m.bot) {
+    return playing ? null : (
+      <div className="host-actions"><button className="btn tiny" onClick={() => send({ t: 'unseat', userId: m.userId })}>Remove the bot</button></div>
+    );
+  }
   return (
     <div className="host-actions">
       {!m.seat && m.online && canPlay && !playing && (

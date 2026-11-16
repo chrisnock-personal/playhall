@@ -13,6 +13,7 @@ import { realmDuel } from './realmduel';
 import { manorMystery } from './manormystery';
 import { cameraTable } from './cameratable';
 import { ship2shore } from './ship2shore';
+import { BOTS } from '../bots';
 
 // Every built-in game, by id. Adding a game = writing its module here and its
 // stage in src/client/games/.
@@ -43,5 +44,6 @@ export function gameList() {
     minPlayers: g.minPlayers ?? g.seats.length,
     defaultConfig: g.defaultConfig,
     tableCamera: !!g.tableCamera,
+    bots: !!BOTS[g.id],
   }));
 }
