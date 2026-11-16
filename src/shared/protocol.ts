@@ -152,6 +152,8 @@ export interface SessionUser {
   id: string;
   name: string;
   guest: boolean;
+  /** Can open the platform settings page (#/admin). */
+  admin: boolean;
 }
 
 // ---- results, leaderboards and stats ---------------------------------

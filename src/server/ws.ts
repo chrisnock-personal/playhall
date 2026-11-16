@@ -116,8 +116,8 @@ export class RoomSockets {
   }
 
   /** Disconnect everyone from a room that has been closed. */
-  closeRoom(room: Room): void {
-    for (const c of this.conns.get(room) ?? []) c.ws.close(4410, 'The host closed this room');
+  closeRoom(room: Room, byAdmin = false): void {
+    for (const c of this.conns.get(room) ?? []) c.ws.close(byAdmin ? 4411 : 4410, byAdmin ? 'An admin closed this room' : 'The host closed this room');
     this.conns.delete(room);
   }
 

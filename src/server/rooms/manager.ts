@@ -8,6 +8,7 @@ import { GAMES } from '../../shared/games';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
 import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
 import { recordGame } from '../stats';
+import type { AdminRoom } from '../../shared/platform';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
 const SAVE_DELAY_MS = 150;
@@ -27,6 +28,9 @@ export interface CreateRoomInput {
   ranked?: boolean;
   gameConfig?: unknown;
   hostSeat?: string | null;
+  /** From the platform's defaults for new rooms. */
+  moveSeconds?: number;
+  watcherDelay?: number;
   /** Already hashed. */
   passwordHash?: string | null;
 }
@@ -144,6 +148,8 @@ export class RoomManager {
       seatPolicy: input.seatPolicy === 'host' ? 'host' : 'open',
       guestsCanPlay: input.guestsCanPlay ?? DEFAULT_SETTINGS.guestsCanPlay,
       ranked: input.ranked ?? DEFAULT_SETTINGS.ranked,
+      moveSeconds: input.moveSeconds ?? DEFAULT_SETTINGS.moveSeconds,
+      watcherDelay: input.watcherDelay ?? DEFAULT_SETTINGS.watcherDelay,
       gameConfig: game.parseConfig(input.gameConfig ?? game.defaultConfig),
     };
     const seats: Record<string, SeatHolder | null> = {};
@@ -197,6 +203,39 @@ export class RoomManager {
     room.dispose();
     this.rooms.delete(room.rec.code);
     return true;
+  }
+
+  /** Close any room (an admin). */
+  async closeAsAdmin(code: string): Promise<boolean> {
+    const room = await this.get(code);
+    if (!room) return false;
+    await this.db.query('UPDATE rooms SET closed_at = now() WHERE id = $1', [room.rec.id]);
+    room.dispose();
+    this.rooms.delete(room.rec.code);
+    return true;
+  }
+
+  /** Every open room, listed or not, for the admin page: the live ones with
+   *  how many people have them open now. */
+  async adminList(): Promise<AdminRoom[]> {
+    const { rows } = await this.db.query<RoomRow & { updated_at: Date }>(
+      `SELECT r.id, r.code, r.name, r.game_id, r.host_id, u.display_name AS host_name, r.settings, r.seats, r.game, r.password_hash, r.updated_at
+         FROM rooms r JOIN users u ON u.id = r.host_id
+        WHERE r.closed_at IS NULL
+        ORDER BY r.updated_at DESC LIMIT 500`);
+    return rows.filter((r) => GAMES[r.game_id]).map((r) => {
+      const game = GAMES[r.game_id];
+      const live = this.rooms.get(r.code);
+      const seats = live?.rec.seats ?? r.seats;
+      return {
+        code: r.code, name: live?.rec.name ?? r.name, gameName: game.name, hostName: live?.rec.hostName ?? r.host_name,
+        status: live?.rec.game.status ?? r.game.status,
+        present: live?.presentCount ?? 0,
+        seated: game.seats.filter((s) => seats[s.id]).length, seats: game.seats.length,
+        listed: !!(live?.rec.settings ?? r.settings).listed, locked: !!(live ? live.rec.passwordHash : r.password_hash),
+        updatedAt: new Date(r.updated_at).toISOString(),
+      };
+    });
   }
 }
 

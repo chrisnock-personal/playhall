@@ -16,6 +16,8 @@ export interface Config {
   databaseUrl: string;
   jwtSecret: string;
   allowSignup: boolean;
+  /** Accounts that are always admins (ADMIN_USERNAMES, comma-separated). */
+  adminUsernames: string[];
   staticDir: string;
   migrationsDir: string;
 }
@@ -34,6 +36,7 @@ export function loadConfig(): Config {
     databaseUrl: required('DATABASE_URL'),
     jwtSecret,
     allowSignup: (process.env.ALLOW_SIGNUP ?? 'true') !== 'false',
+    adminUsernames: (process.env.ADMIN_USERNAMES ?? '').split(',').map((u) => u.trim().toLowerCase()).filter(Boolean),
     staticDir: path.resolve(process.env.STATIC_DIR ?? 'dist/client'),
     migrationsDir: path.resolve(process.env.MIGRATIONS_DIR ?? 'migrations'),
   };
