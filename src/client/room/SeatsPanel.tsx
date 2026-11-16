@@ -4,8 +4,9 @@ import type { Voice } from './useVoice';
 import { VideoTile } from './VideoTile';
 import { Avatar, Icon } from '../ui';
 
-export function SeatsPanel({ state, onCycle, stage, game, voice, video, onVideo }: {
-  state: Panel3; onCycle(): void; stage: StageProps; game?: GameClient;
+export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video, onVideo }: {
+  /** Set when the panel is compact only for the game: opens it out again. */
+  state: Panel3; onCycle(): void; onExpand?(): void; stage: StageProps; game?: GameClient;
   voice: Voice; video: VideoSize; onVideo(v: VideoSize): void;
 }) {
   const { snap, send } = stage;
@@ -22,8 +23,12 @@ export function SeatsPanel({ state, onCycle, stage, game, voice, video, onVideo 
   if (state === 'compact') {
     return (
       <aside className="seats-panel compact" aria-label="Players">
-        <button className="icon-btn" aria-label="Hide players" onClick={onCycle}><Icon name="left" size={16} /></button>
-        {snap.seats.map((s) => {
+        <div className="seats-mini-head">
+          {onExpand && <button className="icon-btn small" aria-label="Show the players panel in full" title="Show in full" onClick={onExpand}><Icon name="right" size={16} /></button>}
+          <button className={`icon-btn${onExpand ? ' small' : ''}`} aria-label="Hide players" onClick={onCycle}><Icon name="left" size={16} /></button>
+        </div>
+        {/* Free seats can't be taken during a game, so they're left out. */}
+        {snap.seats.filter((s) => s.userId || snap.game.status !== 'playing').map((s) => {
           const m = snap.members.find((x) => x.userId === s.userId);
           const avatar = s.userId ? <Avatar name={s.name ?? '?'} id={s.userId} size={40} dim={m ? !m.online : false} /> : <span className="free-dot big">+</span>;
           return (

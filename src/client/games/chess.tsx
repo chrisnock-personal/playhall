@@ -106,7 +106,17 @@ function ChessStage(props: StageProps) {
     cgRef.current = cg;
     const ro = new ResizeObserver(() => cg.redrawAll());
     ro.observe(el);
-    return () => { ro.disconnect(); cg.destroy(); cgRef.current = null; };
+    // Chessground keeps the board's position from the last resize or scroll.
+    // A panel opening or closing beside it moves the board without either,
+    // and clicks would land on the wrong squares: measure again on each press.
+    const remeasure = () => cg.state.dom.bounds.clear();
+    el.addEventListener('mousedown', remeasure, { capture: true });
+    el.addEventListener('touchstart', remeasure, { capture: true, passive: true });
+    return () => {
+      el.removeEventListener('mousedown', remeasure, { capture: true });
+      el.removeEventListener('touchstart', remeasure, { capture: true });
+      ro.disconnect(); cg.destroy(); cgRef.current = null;
+    };
   }, []);
 
   useEffect(() => {

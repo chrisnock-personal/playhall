@@ -206,6 +206,7 @@ input:disabled { opacity: 0.6; }
 .who span { font-size: 12px; color: var(--muted); }
 .seat-mini { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .seat-mini-label { font-size: 11px; color: var(--muted); }
+.seats-mini-head { display: flex; gap: 2px; justify-content: center; }
 .seat-mini .clock { font-size: 12px; padding: 2px 6px; }
 
 .gallery { flex: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; }

@@ -93,6 +93,10 @@ try {
 
   await hp.click('button:has-text("Start the game")');
   await gp.waitForSelector('.pill.playing');
+  // The players panel goes compact for the game, moving the board: clicks
+  // must still land on the right squares.
+  await hp.waitForSelector('.seats-panel.compact');
+  await gp.waitForSelector('.seats-panel.compact');
 
   await move(hp, 'e2', 'e4', false);
   await gp.waitForSelector('.board square.last-move');
@@ -100,8 +104,15 @@ try {
   await hp.waitForFunction(() => document.querySelectorAll('.clock.running').length > 0);
   await move(hp, 'g1', 'f3', false);
 
+  // In play, the players panel is compact and, on a window this size, the
+  // chat is a rail until opened; the full players panel opens out again.
+  await gp.waitForSelector('.side-panel.rail');
+  await gp.click('.rail-btn[title="Table"]');
+  await gp.click('[aria-label="Show the players panel in full"]');
+  await gp.waitForSelector('.seats-panel:not(.compact) .seat-card');
   await gp.fill('#msg-table', 'Knight already?');
   await gp.press('#msg-table', 'Enter');
+  await hp.click('.rail-btn[title="Table"]');
   await hp.waitForSelector('.chat .msg-text:has-text("Knight already?")');
 
   await gp.click('.tabs [role=tab]:has-text("Moves")');

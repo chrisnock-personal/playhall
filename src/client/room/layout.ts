@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { readPref, writePref } from '../api';
 
 // Every panel around the stage can be expanded, compact or hidden; the game
@@ -56,3 +56,21 @@ export function useLayout(gameId: string) {
 
   return { layout, set, preset };
 }
+
+/** Whether a media query matches, following window resizes. */
+export function useMedia(query: string): boolean {
+  const [on, setOn] = useState(() => typeof matchMedia === 'function' && matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const m = matchMedia(query);
+    const change = () => setOn(m.matches);
+    change();
+    m.addEventListener('change', change);
+    return () => m.removeEventListener('change', change);
+  }, [query]);
+  return on;
+}
+
+/** Windows narrower than this (but wider than a phone, where the panels
+ *  stack) show an expanded chat panel as a rail until it's opened. */
+export const SMALL_WINDOW = '(min-width: 901px) and (max-width: 1599px)';

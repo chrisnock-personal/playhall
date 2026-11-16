@@ -4,7 +4,7 @@ import type { Channel, RoomSnapshot } from '../../shared/protocol';
 import { useRoom } from '../useRoom';
 import { GAME_CLIENTS } from '../games';
 import type { StageProps } from '../games/types';
-import { useLayout, NEXT, PRESETS, type PresetId } from './layout';
+import { useLayout, useMedia, NEXT, PRESETS, SMALL_WINDOW, type Panel3, type PresetId, type SidePanelState } from './layout';
 import { SeatsPanel } from './SeatsPanel';
 import { GalleryStrip } from './GalleryStrip';
 import { VoiceDock } from './VoiceDock';
@@ -51,6 +51,28 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  // During a game an expanded players panel shows compact (the game shows the
+  // players already), and on smaller windows an expanded chat panel shows as a
+  // rail, until opened. Both close again when the game starts or ends.
+  const playing = snap.game.status === 'playing';
+  const small = useMedia(SMALL_WINDOW);
+  const [seatsOpen, setSeatsOpen] = useState(false);
+  const [sideOpen, setSideOpen] = useState(false);
+  useEffect(() => { setSeatsOpen(false); setSideOpen(false); }, [snap.game.status]);
+  const autoSeats = layout.seats === 'full' && playing;
+  const seatsShown: Panel3 = autoSeats && !seatsOpen ? 'compact' : layout.seats;
+  const autoSide = layout.side === 'full' && small;
+  const sideShown: SidePanelState = autoSide && !sideOpen ? 'rail' : layout.side;
+  const cycleSeats = () => {
+    if (autoSeats && seatsOpen) setSeatsOpen(false);
+    else set('seats', NEXT.seats[seatsShown]);
+  };
+  const setSide = (v: SidePanelState) => {
+    if (autoSide && v === 'rail') setSideOpen(false);
+    else if (v === 'full' && layout.side === 'full') setSideOpen(true);
+    else set('side', v);
+  };
+
   const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send, voice, token: session.token };
   const tx = useTranscriber(snap.room.code, session.token, snap, voice);
   // Table sounds (#29): quieter under voice chat, quieter still while someone talks.
@@ -83,7 +105,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   // Lines in the open tab count as read.
   const maxId = (ch: Channel) => snap.chat.reduce((m, l) => (l.channel === ch ? Math.max(m, l.id) : m), 0);
   useEffect(() => {
-    if (layout.side === 'full' && (tab === 'table' || tab === 'gallery')) {
+    if (sideShown === 'full' && (tab === 'table' || tab === 'gallery')) {
       const m = maxId(tab);
       if (m > seen[tab]) setSeen((s) => ({ ...s, [tab]: m }));
     }
@@ -146,7 +168,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
       )}
 
       <div className="room-body">
-        <SeatsPanel state={layout.seats} onCycle={() => set('seats', NEXT.seats[layout.seats])} stage={stageProps} game={game}
+        <SeatsPanel state={seatsShown} onCycle={cycleSeats} onExpand={autoSeats && !seatsOpen ? () => setSeatsOpen(true) : undefined} stage={stageProps} game={game}
           voice={voice} video={layout.video} onVideo={(v) => set('video', v)} />
         <div className="stage-col">
           <div className="stage">
@@ -164,10 +186,10 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
           />
         </div>
         <SidePanel
-          state={layout.side}
-          onSet={(v) => set('side', v)}
+          state={sideShown}
+          onSet={setSide}
           tab={tab}
-          onTab={(t) => { setTab(t); if (layout.side !== 'full') set('side', 'full'); }}
+          onTab={(t) => { setTab(t); if (sideShown !== 'full') setSide('full'); }}
           unread={unread}
           stage={stageProps}
           game={game}
