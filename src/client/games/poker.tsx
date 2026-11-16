@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PokerView } from '../../shared/games/poker';
 import type { GameClient, StageProps } from './types';
-import { COLOURS, Disc, GameActions, MoveTimer } from '../kit/kit';
+import { COLOURS, Disc, GameActions, MoveTimer, spotColumns } from '../kit/kit';
 import { Card, Chip, Deck } from '../kit/cards';
 import { FlyIn, Ghost, useLive, usePrevious, useRises } from '../kit/motion';
 import { TIMING } from '../kit/cues';
@@ -49,7 +49,7 @@ function PokerStage(props: StageProps) {
             <p className="last-hand">Last hand: {winnersLast.map((w) => `${COLOURS[w.seat].label} won ${w.amount}${w.hand ? ` with ${w.hand.toLowerCase()}` : ''}`).join(' · ')}</p>
           )}
         </div>
-        <div className="spots" style={{ gridTemplateColumns: `repeat(${Math.max(order.length, 1)}, minmax(0, 1fr))` }}>
+        <div className="spots" style={{ gridTemplateColumns: `repeat(${spotColumns(order.length)}, minmax(0, 1fr))` }}>
           {order.map((p) => {
             const seat = snap.seats.find((s) => s.id === p)!;
             const out = v?.out.includes(p);

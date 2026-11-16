@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { handValue, MIN_BET, type BlackjackView } from '../../shared/games/blackjack';
 import type { GameClient, StageProps } from './types';
-import { COLOURS, Disc, GameActions, MoveTimer } from '../kit/kit';
+import { COLOURS, Disc, GameActions, MoveTimer, spotColumns } from '../kit/kit';
 import { Card, Chip, Deck } from '../kit/cards';
 import { FlyIn, Ghost, useLive, usePrevious, useRises } from '../kit/motion';
 import { TIMING } from '../kit/cues';
@@ -58,7 +58,7 @@ function BlackjackStage(props: StageProps) {
             </p>
           )}
         </div>
-        <div className="spots" style={{ gridTemplateColumns: `repeat(${Math.max(order.length, 1)}, minmax(0, 1fr))` }}>
+        <div className="spots" style={{ gridTemplateColumns: `repeat(${spotColumns(order.length)}, minmax(0, 1fr))` }}>
           {order.map((p) => {
             const seat = snap.seats.find((s) => s.id === p)!;
             const cards = v?.cards[p] ?? [];

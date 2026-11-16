@@ -269,3 +269,7 @@ export function GameActions({ snap, send, minPlayers, resign = true, children }:
     </div>
   );
 }
+
+/** Columns for a card table's player spots: one row for up to four players,
+ *  two rows for five to eight, so each spot keeps room for its cards. */
+export const spotColumns = (players: number) => (players <= 4 ? Math.max(players, 1) : Math.ceil(players / 2));
