@@ -1,12 +1,19 @@
 import type { GameClient, StageProps } from '../games/types';
-import type { Panel3 } from './layout';
+import type { Panel3, VideoSize } from './layout';
+import type { Voice } from './useVoice';
+import { VideoTile } from './VideoTile';
 import { Avatar, Icon } from '../ui';
 
-export function SeatsPanel({ state, onCycle, stage, game }: { state: Panel3; onCycle(): void; stage: StageProps; game?: GameClient }) {
+export function SeatsPanel({ state, onCycle, stage, game, voice, video, onVideo }: {
+  state: Panel3; onCycle(): void; stage: StageProps; game?: GameClient;
+  voice: Voice; video: VideoSize; onVideo(v: VideoSize): void;
+}) {
   const { snap, send } = stage;
   const filled = snap.seats.filter((s) => s.userId).length;
   const canSit = (seatFree: boolean) => seatFree && snap.game.status !== 'playing' && !snap.you.seat
     && (snap.room.settings.seatPolicy === 'open' || snap.you.host);
+  // Players' cameras are in the table channel; anyone who may see it gets them.
+  const anyVideo = voice.feeds.some((f) => f.channel === 'table');
 
   if (state === 'hidden') {
     return <button className="edge-tab vertical" onClick={onCycle} aria-label="Show players">Players {filled}/{snap.seats.length}</button>;
@@ -18,9 +25,10 @@ export function SeatsPanel({ state, onCycle, stage, game }: { state: Panel3; onC
         <button className="icon-btn" aria-label="Hide players" onClick={onCycle}><Icon name="left" size={16} /></button>
         {snap.seats.map((s) => {
           const m = snap.members.find((x) => x.userId === s.userId);
+          const avatar = s.userId ? <Avatar name={s.name ?? '?'} id={s.userId} size={40} dim={m ? !m.online : false} /> : <span className="free-dot big">+</span>;
           return (
             <div key={s.id} className="seat-mini" title={`${s.label}: ${s.name ?? 'free'}`}>
-              {s.userId ? <Avatar name={s.name ?? '?'} id={s.userId} size={40} dim={m ? !m.online : false} /> : <span className="free-dot big">+</span>}
+              {s.userId ? <VideoTile voice={voice} channel="table" id={s.userId} name={s.name ?? '?'} fallback={avatar} className="mini" /> : avatar}
               <span className="seat-mini-label">{s.label}</span>
               {game?.seatExtra?.(stage, s.id)}
             </div>
@@ -31,19 +39,25 @@ export function SeatsPanel({ state, onCycle, stage, game }: { state: Panel3; onC
   }
 
   return (
-    <aside className="seats-panel" aria-label="Players">
+    <aside className={`seats-panel video-${video}`} aria-label="Players">
       <div className="panel-head">
         <span className="label">Players {filled}/{snap.seats.length}</span>
-        <button className="icon-btn" aria-label="Shrink players" onClick={onCycle}><Icon name="left" size={16} /></button>
+        <div className="row">
+          {anyVideo && (
+            <button className="icon-btn" aria-label={video === 'big' ? 'Smaller video' : 'Bigger video'} title={video === 'big' ? 'Smaller video' : 'Bigger video'}
+              aria-pressed={video === 'big'} onClick={() => onVideo(video === 'big' ? 'normal' : 'big')}>
+              <Icon name="camera" size={16} />
+            </button>
+          )}
+          <button className="icon-btn" aria-label="Shrink players" onClick={onCycle}><Icon name="left" size={16} /></button>
+        </div>
       </div>
       {snap.seats.map((s) => {
         const m = snap.members.find((x) => x.userId === s.userId);
+        const avatar = s.userId ? <Avatar name={s.name ?? '?'} id={s.userId} size={48} dim={m ? !m.online : false} /> : <span className="free-dot big">+</span>;
         return (
-          <div key={s.id} className={`seat-card${s.userId === snap.you.userId ? ' mine' : ''}`}>
-            <div className="seat-tile">
-              {s.userId ? <Avatar name={s.name ?? '?'} id={s.userId} size={48} dim={m ? !m.online : false} /> : <span className="free-dot big">+</span>}
-              <span className="video-note">Video in phase 2</span>
-            </div>
+          <div key={s.id} className={`seat-card${s.userId === snap.you.userId ? ' mine' : ''}`} data-seat={s.id}>
+            <VideoTile voice={voice} channel="table" id={s.userId} name={s.name ?? 'Free seat'} fallback={avatar} className="seat-tile" />
             <div className="seat-meta">
               <div className="who">
                 <strong>{s.name ?? 'Free seat'}</strong>

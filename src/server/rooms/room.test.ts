@@ -273,13 +273,13 @@ test('voice and video follow the chat rules', () => {
   assert.equal(room.mediaRights('nobody'), null, 'not in the room');
   const W = priya.id, P = alex.id;
   room.handle(alex, { t: 'sit', seat: 'black' });
-  assert.deepEqual(room.mediaRights(W), { table: { listen: true, talk: true }, gallery: { listen: true, talk: true } }, 'before the game, watchers can talk at the table');
+  assert.deepEqual(room.mediaRights(W), { table: { listen: true, talk: true, video: false }, gallery: { listen: true, talk: true, video: false } }, 'before the game, watchers can talk at the table');
   room.handle(host, { t: 'sit', seat: 'white' });
   room.handle(host, { t: 'start' });
-  assert.deepEqual(room.mediaRights(P)?.table, { listen: true, talk: true });
+  assert.deepEqual(room.mediaRights(P)?.table, { listen: true, talk: true, video: true });
   assert.equal(room.mediaRights(P)?.gallery.talk, false, 'players don’t talk in the gallery');
-  assert.deepEqual(room.mediaRights(W)?.table, { listen: true, talk: false }, 'watchers listen at the table during play');
-  assert.deepEqual(room.mediaRights(W)?.gallery, { listen: true, talk: true });
+  assert.deepEqual(room.mediaRights(W)?.table, { listen: true, talk: false, video: false }, 'watchers listen at the table during play');
+  assert.deepEqual(room.mediaRights(W)?.gallery, { listen: true, talk: true, video: false });
 });
 
 test('watchers on a delay don’t hear the table live', () => {
@@ -287,6 +287,57 @@ test('watchers on a delay don’t hear the table live', () => {
   room.handle(host, { t: 'sit', seat: 'white' });
   room.handle(alex, { t: 'sit', seat: 'black' });
   room.handle(host, { t: 'start' });
-  assert.deepEqual(room.mediaRights(priya.id)?.table, { listen: false, talk: false });
+  assert.deepEqual(room.mediaRights(priya.id)?.table, { listen: false, talk: false, video: false });
   assert.equal(room.mediaRights(priya.id)?.gallery.listen, true);
+});
+
+test('cameras: players at the table, watchers in the gallery only when the host allows it', () => {
+  const { room } = setup();
+  const W = priya.id, P = alex.id;
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  // Before the game: players send video to the table (their seat cards), never the gallery.
+  assert.equal(room.mediaRights(P)?.table.video, true);
+  assert.equal(room.mediaRights(P)?.gallery.video, false, 'a player’s camera belongs on the seat card');
+  // Watchers: no camera anywhere by default, even where they may talk.
+  assert.equal(room.mediaRights(W)?.table.talk, true);
+  assert.equal(room.mediaRights(W)?.table.video, false, 'watchers never send video to the table');
+  assert.equal(room.mediaRights(W)?.gallery.video, false, 'watcher video is off by default');
+  assert.equal(room.snapshotFor(W).room.settings.watcherVideo, false);
+  // Only the host turns it on.
+  assert.throws(() => room.handle(priya, { t: 'settings', settings: { watcherVideo: true } }), /Only the host/);
+  room.handle(host, { t: 'settings', settings: { watcherVideo: true } });
+  assert.deepEqual(room.mediaRights(W)?.gallery, { listen: true, talk: true, video: true });
+  assert.equal(room.mediaRights(W)?.table.video, false, 'still not at the table');
+  assert.deepEqual(room.snapshotFor(W).you.media, room.mediaRights(W), 'the snapshot carries your rights');
+  // The game starts: players keep their cameras; the gallery is hidden from them (the default rule).
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(host, { t: 'start' });
+  assert.equal(room.mediaRights(P)?.table.video, true);
+  assert.deepEqual(room.mediaRights(P)?.gallery, { listen: false, talk: false, video: false }, 'players don’t see the gallery during play');
+  assert.equal(room.mediaRights(W)?.gallery.video, true);
+  assert.equal(room.mediaRights(W)?.table.video, false);
+  // The host turns it off again: watcher cameras are no longer allowed.
+  room.handle(host, { t: 'settings', settings: { watcherVideo: false } });
+  assert.equal(room.mediaRights(W)?.gallery.video, false);
+});
+
+test('players see watcher video when the gallery isn’t hidden from them', () => {
+  const { room } = setup({ hideGalleryFromPlayers: false, watcherVideo: true });
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.handle(host, { t: 'start' });
+  assert.deepEqual(room.mediaRights(alex.id)?.gallery, { listen: true, talk: false, video: false }, 'they see and hear it, but don’t send to it');
+  assert.equal(room.mediaRights(priya.id)?.gallery.video, true);
+});
+
+test('watchers on a delay see no table video either', () => {
+  const { room, advance } = setup({ watcherDelay: 30, watcherVideo: true });
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.handle(host, { t: 'start' });
+  assert.equal(room.mediaRights(priya.id)?.table.listen, false, 'no live voice or video from the table');
+  assert.equal(room.mediaRights(priya.id)?.gallery.video, true, 'the gallery stays live');
+  room.handle(alex, { t: 'act', action: { type: 'resign' } });
+  advance(1000);
+  assert.deepEqual(room.mediaRights(priya.id)?.table, { listen: true, talk: true, video: false }, 'it comes back between games (still no watcher camera at the table)');
 });

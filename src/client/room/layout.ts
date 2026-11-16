@@ -13,15 +13,20 @@ export interface Layout {
   seats: Panel3;
   gallery: Panel3;
   side: SidePanelState;
+  /** How much room video gets: normal seat tiles, or bigger ones (Social).
+   *  Focus shrinks the seats to small round tiles instead. */
+  video: VideoSize;
   preset: PresetId | 'custom';
 }
+
+export type VideoSize = 'normal' | 'big';
 
 export type PresetId = 'default' | 'focus' | 'social';
 
 export const PRESETS: Record<PresetId, { label: string; layout: Omit<Layout, 'preset'> }> = {
-  default: { label: 'Default', layout: { top: 'full', seats: 'full', gallery: 'compact', side: 'full' } },
-  focus: { label: 'Focus', layout: { top: 'compact', seats: 'compact', gallery: 'hidden', side: 'rail' } },
-  social: { label: 'Social', layout: { top: 'full', seats: 'full', gallery: 'full', side: 'full' } },
+  default: { label: 'Default', layout: { top: 'full', seats: 'full', gallery: 'compact', side: 'full', video: 'normal' } },
+  focus: { label: 'Focus', layout: { top: 'compact', seats: 'compact', gallery: 'hidden', side: 'rail', video: 'normal' } },
+  social: { label: 'Social', layout: { top: 'full', seats: 'full', gallery: 'full', side: 'full', video: 'big' } },
 };
 
 export const NEXT: {
@@ -38,7 +43,8 @@ export const NEXT: {
 
 export function useLayout(gameId: string) {
   const key = `layout.${gameId}`;
-  const [layout, setLayout] = useState<Layout>(() => readPref<Layout>(key, { ...PRESETS.default.layout, preset: 'default' }));
+  // Layouts saved before video existed have no `video`: fill it in.
+  const [layout, setLayout] = useState<Layout>(() => ({ ...PRESETS.default.layout, preset: 'default', ...readPref<Partial<Layout>>(key, {}) }));
 
   const update = useCallback((next: Layout) => { setLayout(next); writePref(key, next); }, [key]);
 

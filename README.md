@@ -30,6 +30,12 @@ web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a
   game is on).
+- **Voice and video** (with LiveKit, the `media` compose profile). Join the
+  table or the gallery, split like the chat; you join muted with your camera
+  off. Push to talk, a talking ring, a volume per person. Players' cameras show
+  on their seat cards; watchers' cameras show in the gallery strip only when
+  the host allows it. With a watcher delay, watchers get neither the players'
+  voice nor their video during play.
 - **A room layout that gets out of the way.** The top bar, players, watchers
   and side panel each expand, shrink or hide; Default, Focus and Social
   layouts; your layout is remembered per game. Works on a phone.
@@ -43,7 +49,8 @@ web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
   it to get in (the host and seated players don't). Changing it makes everyone
   else enter the new one.
 - **Host rules.** Seat policy, guests playing, the after-game rule, time
-  control, chat permissions, listing in the lobby, closing the room.
+  control, chat permissions, watcher cameras, listing in the lobby, closing
+  the room.
 
 ## Run it
 
@@ -93,6 +100,8 @@ DATABASE_URL=postgres://... JWT_SECRET=... TLS=off npm run dev:server   # :8450
 npm run dev:client       # Vite on :5173, proxying /api and /ws
 node scripts/smoke.mjs http://localhost:8450   # end-to-end check against a running server
 node tests/browser.mjs http://localhost:8450   # the same in a real browser (Playwright)
+NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/voice.mjs https://localhost:8450   # voice, fake mics (needs LiveKit)
+NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/video.mjs https://localhost:8450   # video, fake cameras (needs LiveKit)
 npm run demo             # demo data into DATABASE_URL (--remove to take it out)
 ```
 

@@ -8,8 +8,8 @@
 import net from 'node:net';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
-import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
-import type { Channel } from '../shared/protocol';
+import { AccessToken, RoomServiceClient, TrackSource } from 'livekit-server-sdk';
+import type { Channel, MediaRight } from '../shared/protocol';
 
 export interface MediaConfig {
   /** Where Playhall reaches LiveKit's signalling, e.g. http://livekit:7880. */
@@ -27,15 +27,25 @@ export function mediaConfigFromEnv(): MediaConfig | null {
 
 export const mediaRoomName = (code: string, channel: Channel) => `${code}:${channel}`;
 
+/** What someone may send: the microphone when they may talk, the camera
+ *  only when they may also show video. LiveKit treats an empty source list as
+ *  "anything", so talking always names its sources. */
+export function publishSources(r: Pick<MediaRight, 'talk' | 'video'>): TrackSource[] {
+  if (!r.talk) return [];
+  return r.video ? [TrackSource.MICROPHONE, TrackSource.CAMERA] : [TrackSource.MICROPHONE];
+}
+
+/** The LiveKit permission for a set of rights (in the token and live updates). */
+export function mediaPermission(r: MediaRight) {
+  return { canSubscribe: r.listen, canPublish: r.talk, canPublishSources: publishSources(r), canPublishData: false };
+}
+
 /** A LiveKit token for one person in one channel of one room. */
 export async function mediaToken(cfg: MediaConfig, p: {
-  code: string; channel: Channel; userId: string; name: string; listen: boolean; talk: boolean;
-}): Promise<string> {
+  code: string; channel: Channel; userId: string; name: string;
+} & MediaRight): Promise<string> {
   const at = new AccessToken(cfg.apiKey, cfg.apiSecret, { identity: p.userId, name: p.name, ttl: '10m' });
-  at.addGrant({
-    room: mediaRoomName(p.code, p.channel), roomJoin: true,
-    canSubscribe: p.listen, canPublish: p.talk, canPublishData: false, canUpdateOwnMetadata: false,
-  });
+  at.addGrant({ room: mediaRoomName(p.code, p.channel), roomJoin: true, ...mediaPermission(p), canUpdateOwnMetadata: false });
   return at.toJwt();
 }
 
@@ -67,7 +77,8 @@ export async function proxyHttp(cfg: MediaConfig, url: string): Promise<{ status
 
 /** Keeps LiveKit's permissions in step with the room: when the game starts or
  *  ends, or seats or rules change, everyone in the room's voice channels gets
- *  the rights they now have, and anyone who may no longer listen is removed. */
+ *  the rights they now have (a camera no longer allowed is stopped by LiveKit),
+ *  and anyone who may no longer listen is removed. */
 export class MediaSync {
   private client: RoomServiceClient;
   private last = new Map<string, string>();
@@ -95,10 +106,10 @@ export class MediaSync {
         const r = room.mediaRights(p.identity)?.[channel];
         try {
           if (!r?.listen) await this.client.removeParticipant(name, p.identity);
-          else await this.client.updateParticipant(name, p.identity, { permission: { canSubscribe: true, canPublish: r.talk, canPublishData: false } });
+          else await this.client.updateParticipant(name, p.identity, { permission: mediaPermission(r) });
         } catch (err) { console.error(`[media] couldn’t update ${p.identity} in ${name}:`, (err as Error).message); }
       }
     }
   }
 }
-type RightsFn = (userId: string) => Record<Channel, { listen: boolean; talk: boolean }> | null;
+type RightsFn = (userId: string) => Record<Channel, MediaRight> | null;

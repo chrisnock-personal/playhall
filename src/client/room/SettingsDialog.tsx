@@ -4,11 +4,12 @@ import type { GameClient } from '../games/types';
 import { api } from '../api';
 import { Icon } from '../ui';
 
-type BoolKey = 'listed' | 'guestsCanPlay' | 'hideGalleryFromPlayers' | 'watchersWriteTable' | 'ranked';
+type BoolKey = 'listed' | 'guestsCanPlay' | 'hideGalleryFromPlayers' | 'watchersWriteTable' | 'watcherVideo' | 'ranked';
 
 const SWITCHES: { key: BoolKey; label: string; help: string }[] = [
   { key: 'hideGalleryFromPlayers', label: 'Hide the gallery from players during play', help: 'Players can’t read what watchers say until the game ends.' },
   { key: 'watchersWriteTable', label: 'Watchers can write at the table during play', help: 'Off: watchers read the table chat but only write in the gallery.' },
+  { key: 'watcherVideo', label: 'Watchers can turn their cameras on', help: 'Their video shows in the gallery strip, for everyone who can see the gallery. Players’ cameras are always allowed.' },
   { key: 'guestsCanPlay', label: 'Guests can play', help: 'Off: guests can watch but not take a seat.' },
   { key: 'listed', label: 'Show the room in the lobby', help: 'Off: only people with the invite link can find it.' },
   { key: 'ranked', label: 'Games count for the leaderboard', help: 'Off: a casual room. Can change between games. Guests’ games never count.' },
