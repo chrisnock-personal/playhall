@@ -129,7 +129,9 @@ Every game ships its own **How to play** (the goal and short sections on
 turns, moves and endings), shown in the room's Rules tab and in the lobby.
 
 More candidates (Letterworks, Manor Mystery, a creature card duel) are in
-[backlog.md](backlog.md).
+[backlog.md](backlog.md). Since then: **Realm Duel** (two players, the six
+starter creatures, secret simultaneous picks; [creature-duel.md](creature-duel.md))
+is in.
 
 Leaderboards get a tab per game automatically (from the game list), and "All
 games" adds them up. The project overview page waits until these are in, so
