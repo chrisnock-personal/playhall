@@ -6,6 +6,7 @@ import { Chess, type Square } from 'chess.js';
 import { TIME_CONTROLS, type ChessConfig, type ChessSide, type ChessView } from '../../shared/games/chess';
 import type { GameClient, StageProps } from './types';
 import { Avatar } from '../ui';
+import { Rematch } from '../kit/kit';
 
 function useNow(active: boolean, ms = 200): number {
   const [now, setNow] = useState(Date.now());
@@ -197,7 +198,8 @@ function ChessStage(props: StageProps) {
               {snap.game.status === 'over' ? 'Start the next game' : 'Start the game'}
             </button>
           )}
-          {!playing && !snap.you.host && allSeated && <span className="note">Waiting for the host to start</span>}
+          {!playing && <Rematch snap={snap} send={send} />}
+          {!playing && !snap.you.host && allSeated && !(snap.rematch?.allowed && snap.you.seat) && <span className="note">{snap.rematch?.allowed ? 'Waiting for a rematch or the host' : 'Waiting for the host to start'}</span>}
           {!playing && !allSeated && <span className="note">Waiting for players</span>}
         </div>
       </div>

@@ -23,7 +23,8 @@ web-game plug-ins are the next phases. See [docs/design.md](docs/design.md).
 - **Rooms and roles.** Create a room, play in it yourself or just host. Free
   seats are open to anyone, or only to people the host seats; watchers ask for
   a seat and wait in a queue. After each game: same players, winner stays, or
-  both rotate out.
+  both rotate out; the players can start a rematch when they all agree (in
+  rooms where anyone can sit).
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.

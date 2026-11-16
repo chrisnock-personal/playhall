@@ -40,7 +40,10 @@ chess:
 Voice in phase 2 follows the same split (a watcher's mic reaches the gallery).
 
 **After each game**: same players / winner stays / both rotate out. Seats go
-to people asking for one; with nobody asking, the players stay.
+to people asking for one; with nobody asking, the players stay. Then the
+host starts the next game, or the players do by all asking for a rematch
+(everyone seated after the rule above; not in rooms where the host seats
+people).
 
 ## Game types
 

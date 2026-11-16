@@ -34,7 +34,7 @@ export function Replay({ session, onSignOut, id }: { session: Session; onSignOut
       members: data.players.map((p) => ({ userId: p.userId, name: p.name, guest: false, online: true, host: false, seat: p.seat, hand: false })),
       queue: [],
       game: { status: 'playing', view: data.frames[step], result: last ? data.result : null, turnSeats: [], moveDeadline: null, leaving: {} },
-      lastResult: null, chat: [],
+      lastResult: null, rematch: null, chat: [],
       you: { userId: '', host: false, seat: null, canRead: [], canWrite: [], delay: 0 },
       serverNow: Date.now(),
     };
