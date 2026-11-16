@@ -3,9 +3,11 @@
 // lightness as well as hue, one disc, one player strip and the same game
 // controls. See docs/games.md.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ClientMessage, RoomSnapshot } from '../../shared/protocol';
 import { Avatar } from '../ui';
+import { reducedMotion } from './motion';
+import { TIMING } from './cues';
 
 export const WOOD = { light: '#E6D5B3', dark: '#A97F57', frame: '#8A6440', hole: '#2A2219', lastMove: '#EED68A' };
 
@@ -141,13 +143,35 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]],
 };
 
-/** One die. `rollKey` changing replays the roll animation. The value always
- *  comes from the server. */
-export function Die({ value, size = 56, rollKey }: { value: number | null; size?: number; rollKey?: string | number }) {
+/** The faces a die shows as it tumbles to `value` (the same for everyone). */
+export const tumbleFaces = (value: number) => [(value % 6) + 1, ((value + 2) % 6) + 1, ((value + 3) % 6) + 1];
+
+/** One die. `rollKey` changing tumbles it (#28): it rolls in with its faces
+ *  turning over and lands on the value, which always comes from the server.
+ *  `second` tumbles the other way, for the second of two dice. */
+export function Die({ value, size = 56, rollKey, second }: { value: number | null; size?: number; rollKey?: string | number; second?: boolean }) {
+  // While tumbling: the face showing (null once it has landed on `value`).
+  const [face, setFace] = useState<number | null>(null);
+  const [tumbling, setTumbling] = useState(false);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (rollKey === undefined || !value || reducedMotion()) return;
+    const faces = tumbleFaces(value);
+    setFace(faces[0]);
+    setTumbling(true);
+    const timers = [
+      ...faces.slice(1).map((f, i) => setTimeout(() => setFace(f), (i + 1) * 90)),
+      setTimeout(() => setFace(null), faces.length * 90),
+      setTimeout(() => setTumbling(false), TIMING.die),
+    ];
+    return () => { timers.forEach(clearTimeout); setFace(null); setTumbling(false); };
+  }, [rollKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = face ?? value;
   return (
-    <svg key={rollKey} className="die" width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={value ? `Die showing ${value}` : 'Die'}>
+    <svg className={`die${tumbling ? ` tumble${second ? ' b' : ''}` : ''}`} width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={value ? `Die showing ${value}` : 'Die'}>
       <rect x="4" y="4" width="92" height="92" rx="18" fill="#F4EFE4" stroke="#9C9488" strokeWidth="3" />
-      {(PIPS[value ?? 0] ?? []).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="8.5" fill="#2A2219" />)}
+      {(PIPS[shown ?? 0] ?? []).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="8.5" fill="#2A2219" />)}
     </svg>
   );
 }

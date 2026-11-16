@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { CheckersMove, CheckersSide, CheckersView } from '../../shared/games/checkers';
 import type { GameClient, StageProps } from './types';
 import { Disc, GameActions, PlayerStrip, SquareBoard } from '../kit/kit';
+import { FadeOut, Hop, useLive, usePrevious, type Point } from '../kit/motion';
+import { hopTime } from '../kit/cues';
 
 const name = (i: number) => `${'abcdefgh'[i % 8]}${Math.floor(i / 8) + 1}`;
 
@@ -22,6 +24,19 @@ function CheckersStage(props: StageProps) {
   const targets = new Set(path.length ? matches.map((m) => m.path[path.length]).filter((s) => s !== undefined) : []);
   const movable = new Set(legal.map((m) => m.path[0]));
   const last = new Set(v?.lastMove ?? []);
+  // The last move hops into place, square by square, and what it jumped fades (#28).
+  const live = useLive();
+  const before = usePrevious(v);
+  const lm = v?.lastMove ?? null;
+  const end = lm?.[lm.length - 1];
+  const jump = !!lm && (lm.length > 2 || Math.abs(lm[1] - lm[0]) > 9);
+  const step = hopTime(lm ? lm.length - 1 : 1);
+  const jumped = new Map<number, number>();
+  if (lm && jump) lm.slice(1).forEach((s, k) => jumped.set((s + lm[k]) / 2, k));
+  const rel = (s: number, to: number): Point => {
+    const dc = (s % 8) - (to % 8), dr = Math.floor(s / 8) - Math.floor(to / 8);
+    return flipped ? [-dc, dr] : [dc, -dr];
+  };
 
   const click = (i: number) => {
     if (!myTurn) return;
@@ -56,6 +71,13 @@ function CheckersStage(props: StageProps) {
           ].join(' ')}
           render={(i) => {
             const p = v?.board[i];
+            if (p && lm && i === end) {
+              return <Hop hops={lm.slice(0, -1).map((s) => rel(s, i))} play={v?.moveCount} live={live} step={step}><Disc colour={p.side} size="86%" crown={p.king} /></Hop>;
+            }
+            if (!p && jumped.has(i)) {
+              const gone = before?.board[i] ?? { side: v?.turn ?? 'white', king: false };
+              return <FadeOut key={v?.moveCount} live={live} delay={step * (jumped.get(i)! + 0.6)}><Disc colour={gone.side} size="86%" crown={gone.king} /></FadeOut>;
+            }
             return p ? <Disc colour={p.side} size="86%" crown={p.king} /> : null;
           }}
         />

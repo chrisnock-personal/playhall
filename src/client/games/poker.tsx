@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import type { PokerView } from '../../shared/games/poker';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, MoveTimer } from '../kit/kit';
-import { Card, Chip } from '../kit/cards';
+import { Card, Chip, Deck } from '../kit/cards';
+import { FlyIn, Ghost, useLive, usePrevious, useRises } from '../kit/motion';
+import { TIMING } from '../kit/cues';
 import { Avatar } from '../ui';
 
 function PokerStage(props: StageProps) {
@@ -17,6 +19,16 @@ function PokerStage(props: StageProps) {
   const order = v?.order ?? snap.seats.filter((s) => s.userId).map((s) => s.id);
   const shown = v?.last?.shown ?? {};
   const winnersLast = v?.last?.winners ?? [];
+  // Animations (#28): a riffle and the deal for each hand, the flop, turn and
+  // river turned over, bets from each stack, bets to the pot at the end of a
+  // round, and the pot to the winner.
+  const live = useLive();
+  const before = usePrevious(v);
+  const hands = useRises(v?.hand);
+  const boardBefore = before && before.hand === v?.hand ? before.board.length : 0;
+  const dealt = order.filter((p) => v?.inHand[p]);
+  const holeDelay = (p: string, i: number) => TIMING.shuffle + (i * dealt.length + Math.max(0, dealt.indexOf(p))) * TIMING.deal * 0.7;
+  const collected = before && v && (before.street !== v.street || before.hand !== v.hand) ? `${v.hand}:${v.street}` : undefined;
 
   return (
     <div className="board-stage">
@@ -26,8 +38,13 @@ function PokerStage(props: StageProps) {
           <span className="muted">Play chips only</span>
         </div>
         <div className="dealer">
-          <div className="hand">{[0, 1, 2, 3, 4].map((i) => (v?.board[i] ? <Card key={i} code={v.board[i]} width={56} /> : <span key={i} className="card-slot" />))}</div>
-          {v && <span className="pot"><Chip amount={v.pot} size={30} /> Pot {v.pot.toLocaleString()}</span>}
+          <div className="dealer-row">
+            <div className="hand">{[0, 1, 2, 3, 4].map((i) => (v?.board[i]
+              ? <FlyIn key={`${v.hand}-${i}`} from="deck" live={live} flip delay={Math.max(0, i - boardBefore) * TIMING.deal}><Card code={v.board[i]} width={56} /></FlyIn>
+              : <span key={i} className="card-slot" />))}</div>
+            <Deck width={34} shuffle={hands} />
+          </div>
+          {v && <span className="pot" data-fly="pot"><Chip amount={v.pot} size={30} /> Pot {v.pot.toLocaleString()}</span>}
           {winnersLast.length > 0 && (
             <p className="last-hand">Last hand: {winnersLast.map((w) => `${COLOURS[w.seat].label} won ${w.amount}${w.hand ? ` with ${w.hand.toLowerCase()}` : ''}`).join(' · ')}</p>
           )}
@@ -48,13 +65,21 @@ function PokerStage(props: StageProps) {
                   <MoveTimer snap={snap} seatId={p} receivedAt={receivedAt} />
                 </div>
                 <div className="hand small">
-                  {out ? null : cards ? cards.map((c, i) => <Card key={i} code={c} width={46} />) : inHand ? [0, 1].map((i) => <Card key={i} code={null} width={46} />) : null}
+                  {out ? null : (cards ?? (inHand ? [null, null] : [])).map((c, i) => (
+                    <FlyIn key={`${v?.hand}-${i}`} from="deck" live={live} flip={!!c} delay={cards === shown[p] ? 0 : holeDelay(p, i)}><Card code={c} width={46} /></FlyIn>
+                  ))}
                 </div>
                 <div className="spot-foot">
                   <span>{out ? 'Out' : v?.folded[p] ? 'Folded' : v && v.chips[p] === 0 && inHand ? 'All in' : ''}</span>
-                  <span className="bet">{v && v.bet[p] > 0 ? <Chip amount={v.bet[p]} size={26} /> : ''}</span>
+                  <span className="bet">
+                    <Ghost play={collected} to="pot">{before && before.bet[p] > 0 ? <Chip amount={before.bet[p]} size={26} /> : null}</Ghost>
+                    <Ghost play={winnersLast.some((w) => w.seat === p) ? `w${v?.hand}` : undefined} from="pot" delay={150}>
+                      {v?.last?.winners.find((w) => w.seat === p) ? <Chip amount={v.last.winners.find((w) => w.seat === p)!.amount} size={26} /> : null}
+                    </Ghost>
+                    {v && v.bet[p] > 0 ? <FlyIn from={`stack-${p}`} play={v.bet[p]} live={live}><Chip amount={v.bet[p]} size={26} /></FlyIn> : ''}
+                  </span>
                 </div>
-                <div className="stack">{v ? `${v.chips[p].toLocaleString()} chips` : ''}</div>
+                <div className="stack" data-fly={`stack-${p}`}>{v ? `${v.chips[p].toLocaleString()} chips` : ''}</div>
               </div>
             );
           })}

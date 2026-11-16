@@ -5,6 +5,8 @@ import {
 } from '../../shared/games/ship2shore';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, PlayerStrip } from '../kit/kit';
+import { FlyIn, useLive } from '../kit/motion';
+import { TIMING } from '../kit/cues';
 import { FactionBadge, Marker, OrderCard, RankMarker, RoleCard, RoundToken, SeaChart } from './ship2shore-art';
 import './ship2shore.css';
 
@@ -40,7 +42,7 @@ function ShipStage(props: StageProps) {
           <div className="s2s-box s2s-chart-box">
             <div className="s2s-chart-head">
               <strong>{v ? `Round ${v.round}` : 'The SS Marigold'}</strong>
-              {v && <span className="muted small">{CHARTS[v.chart].name} · {v.deckCount} orders in the deck · mutiny needs {v.threshold} rounds</span>}
+              {v && <span className="muted small" data-fly="s2s-deck">{CHARTS[v.chart].name} · {v.deckCount} orders in the deck · mutiny needs {v.threshold} rounds</span>}
             </div>
             <SeaChart chartId={v?.chart ?? 'short'} ship={v ? v.ship : { a: 0, b: 0 }} next={!!v && !v.result} />
           </div>
@@ -143,6 +145,7 @@ function Controls({ v, send, name, playing }: { v: ShipView; send: StageProps['s
   const [gifts, setGifts] = useState<string[]>([]);
   const [bribing, setBribing] = useState(false);
   const [abandoning, setAbandoning] = useState(false);
+  const live = useLive();
   const key = `${v.round}.${v.phase}.${v.captain}`;
   useEffect(() => { setOfficer(null); setHelm(null); setGifts([]); setBribing(false); setAbandoning(false); }, [key]);
 
@@ -191,9 +194,11 @@ function Controls({ v, send, name, playing }: { v: ShipView; send: StageProps['s
             <p className="s2s-status">Plotting the course (no talking on the bridge). Keep one order; the other is discarded unseen.</p>
             <div className="s2s-cards">
               {y.hand.map((o, i) => (
-                <button key={i} className="s2s-card-btn" onClick={() => act(send, { type: 'keep', index: i })} aria-label={`Keep ${orderName(o)}`}>
-                  <OrderCard order={o} width={84} /><span>Keep</span>
-                </button>
+                <FlyIn key={`${key}.${i}`} from="s2s-deck" live={live} flip delay={i * TIMING.deal}>
+                  <button className="s2s-card-btn" onClick={() => act(send, { type: 'keep', index: i })} aria-label={`Keep ${orderName(o)}`}>
+                    <OrderCard order={o} width={84} /><span>Keep</span>
+                  </button>
+                </FlyIn>
               ))}
             </div>
           </>
@@ -207,9 +212,11 @@ function Controls({ v, send, name, playing }: { v: ShipView; send: StageProps['s
             <p className="s2s-status">You’re at the wheel. Pick the order to <strong>discard</strong>; the ship sails on the other. You don’t know who kept which.</p>
             <div className="s2s-cards">
               {y.helmCards.map((o, i) => (
-                <button key={i} className="s2s-card-btn" onClick={() => act(send, { type: 'steer', index: i })} aria-label={`Discard ${orderName(o)}, sail on the other`}>
-                  <OrderCard order={o} width={84} /><span>Discard</span>
-                </button>
+                <FlyIn key={`${key}.${i}`} from="s2s-deck" live={live} flip delay={i * TIMING.deal}>
+                  <button className="s2s-card-btn" onClick={() => act(send, { type: 'steer', index: i })} aria-label={`Discard ${orderName(o)}, sail on the other`}>
+                    <OrderCard order={o} width={84} /><span>Discard</span>
+                  </button>
+                </FlyIn>
               ))}
             </div>
             {abandoning

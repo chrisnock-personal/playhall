@@ -15,6 +15,7 @@ import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ResultCard } from './ResultCard';
 import { Icon } from '../ui';
+import { SoundButton, useTableSounds } from '../kit/SoundControls';
 
 export function RoomPage({ code, session, onSignOut }: { code: string; session: Session; onSignOut(): void }) {
   const [pass, setPass] = useState<string | null>(() => readRoomPass(code));
@@ -52,6 +53,9 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
 
   const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send, voice, token: session.token };
   const tx = useTranscriber(snap.room.code, session.token, snap, voice);
+  // Table sounds (#29): quieter under voice chat, quieter still while someone talks.
+  const talking = voice.state === 'on' && !!voice.channel && voice.speaking[voice.channel].length > 0;
+  useTableSounds(snap, conn.receivedAt, voice.state !== 'on' ? 1 : talking ? 0.35 : 0.6);
 
   // While you're in one channel's voice, also show the other channel's video
   // when you may see it (players' cameras for watchers in the gallery, and
@@ -117,6 +121,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <div className="room-top-right">
             <VoiceDock voice={voice} snap={snap} />
+            <SoundButton watching={!snap.you.seat} />
             <TranscriptNotice snap={snap} voice={voice} tx={tx} />
             <div className="segmented small" role="group" aria-label="Layout">
               {(Object.keys(PRESETS) as PresetId[]).map((id) => (
@@ -134,6 +139,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
           <span className="muted">{snap.room.gameName} · {status} · {role}{snap.you.delay > 0 ? ` · ${snap.you.delay} s behind` : ''}</span>
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <VoiceDock voice={voice} snap={snap} compact />
+          <SoundButton watching={!snap.you.seat} />
           <TranscriptNotice snap={snap} voice={voice} tx={tx} compact />
           <button className="icon-btn small" aria-label="Show the top bar" onClick={() => set('top', NEXT.top[layout.top])}><Icon name="down" size={16} /></button>
         </div>

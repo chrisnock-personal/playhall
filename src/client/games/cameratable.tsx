@@ -2,12 +2,14 @@
 // the dice roller, the score pad and the result (entered by the host,
 // confirmed by every player). See src/shared/games/cameratable.ts.
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { encode } from 'uqr';
 import { DICE, MAX_DICE, MAX_SEATS, MIN_SEATS, NAME_MAX, type CameraTableConfig, type CameraTableView, type Proposal, type Roll } from '../../shared/games/cameratable';
 import type { RoomSnapshot } from '../../shared/protocol';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Die, Disc, GameActions, MoveTimer } from '../kit/kit';
+import { reducedMotion } from '../kit/motion';
+import { TIMING } from '../kit/cues';
 import { VideoTile } from '../room/VideoTile';
 import { isTableCamera } from '../room/useVoice';
 import { api } from '../api';
@@ -179,9 +181,23 @@ function TurnBar(props: StageProps & { v: CameraTableView }) {
 
 // ---- dice ----------------------------------------------------------------
 
-function DieFace({ sides, value }: { sides: number; value: number }) {
-  if (sides === 6) return <Die value={value} size={34} />;
-  return <span className={`ct-die d${sides}`} role="img" aria-label={`d${sides} showing ${value}`}><span>{value}</span></span>;
+/** One die; `rollKey` changing tumbles it (#28), the second of a pair the other way. */
+function DieFace({ sides, value, rollKey, second }: { sides: number; value: number; rollKey?: number; second?: boolean }) {
+  const [tumble, setTumble] = useState(0);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (sides === 6 || rollKey === undefined || reducedMotion()) return;
+    setTumble(rollKey);
+    const t = setTimeout(() => setTumble(0), TIMING.die);
+    return () => clearTimeout(t);
+  }, [rollKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (sides === 6) return <Die value={value} size={34} rollKey={rollKey} second={second} />;
+  return (
+    <span key={tumble} className={`ct-die d${sides}${tumble ? ` die-tumble${second ? ' b' : ''}` : ''}`} role="img" aria-label={`d${sides} showing ${value}`}>
+      <span>{value}</span>
+    </span>
+  );
 }
 
 function DiceRoller(props: StageProps & { v: CameraTableView }) {
@@ -215,10 +231,11 @@ function DiceRoller(props: StageProps & { v: CameraTableView }) {
 }
 
 function LastRoll({ roll }: { roll: Roll }) {
+  // The dice stay mounted so a new roll tumbles them (not the ones there on arrival).
   return (
-    <div className="ct-roll" key={roll.id}>
-      <div className="ct-roll-dice">{roll.dice.map((d, i) => <DieFace key={i} sides={d.sides} value={d.value} />)}</div>
-      <p><strong>{roll.name}</strong> rolled {roll.dice.length > 1 ? `${roll.dice.map((d) => d.value).join(' + ')} = ${roll.total}` : roll.total}</p>
+    <div className="ct-roll">
+      <div className="ct-roll-dice">{roll.dice.map((d, i) => <DieFace key={i} sides={d.sides} value={d.value} rollKey={roll.id} second={i % 2 === 1} />)}</div>
+      <p key={roll.id}><strong>{roll.name}</strong> rolled {roll.dice.length > 1 ? `${roll.dice.map((d) => d.value).join(' + ')} = ${roll.total}` : roll.total}</p>
     </div>
   );
 }

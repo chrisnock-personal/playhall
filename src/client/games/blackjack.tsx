@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { handValue, MIN_BET, type BlackjackView } from '../../shared/games/blackjack';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, MoveTimer } from '../kit/kit';
-import { Card, Chip } from '../kit/cards';
+import { Card, Chip, Deck } from '../kit/cards';
+import { FlyIn, Ghost, useLive, usePrevious, useRises } from '../kit/motion';
+import { TIMING } from '../kit/cues';
 import { Avatar } from '../ui';
 
 const WORD: Record<string, string> = { stand: 'Stands', bust: 'Bust', blackjack: 'Blackjack!', double: 'Doubled' };
@@ -20,6 +22,15 @@ function BlackjackStage(props: StageProps) {
   const order = v?.order ?? snap.seats.filter((s) => s.userId).map((s) => s.id);
   const dealerShown = (v?.dealer ?? []).filter((c): c is string => !!c);
   const dealerTotal = dealerShown.length ? handValue(dealerShown).total : null;
+  // Animations (#28): cards dealt from the shoe in turn, bets from each
+  // stack, the payout to or from the dealer, a riffle for a fresh shoe.
+  const live = useLive();
+  const before = usePrevious(v);
+  const shuffles = useRises(v?.shoeLeft);
+  const dealing = before?.phase === 'betting' && v?.phase === 'playing';
+  const players = order.filter((p) => (v?.cards[p]?.length ?? 0) > 0);
+  const dealDelay = (seatIndex: number, k: number) => (dealing ? (k * (players.length + 1) + seatIndex) * TIMING.deal : 0);
+  const settled = v?.last ? JSON.stringify(v.last) : undefined;
 
   return (
     <div className="board-stage">
@@ -30,8 +41,15 @@ function BlackjackStage(props: StageProps) {
         </div>
         <div className="dealer">
           <span className="label">Dealer{dealerTotal !== null && v?.phase === 'playing' ? ` · ${v.dealer.includes(null) ? `${dealerTotal} showing` : dealerTotal}` : ''}</span>
-          <div className="hand">
-            {(v?.dealer.length ? v.dealer : [null, null]).map((c, i) => <Card key={i} code={v?.dealer.length ? c : null} />)}
+          <div className="dealer-row">
+            <div className="hand">
+              {(v?.dealer.length ? v.dealer : [null, null]).map((c, i) => (
+                <FlyIn key={`${v?.hand}-${i}-${v?.dealer.length ? 'd' : 'e'}`} from="deck" live={live && !!v?.dealer.length} flip={!!c} delay={dealDelay(players.length, i)}>
+                  <Card code={v?.dealer.length ? c : null} />
+                </FlyIn>
+              ))}
+            </div>
+            <Deck width={34} shuffle={shuffles} />
           </div>
           {v?.last && v.phase === 'betting' && (
             <p className="last-hand">
@@ -55,12 +73,19 @@ function BlackjackStage(props: StageProps) {
                   <strong>{seat.name ?? COLOURS[p].label}</strong>
                   <MoveTimer snap={snap} seatId={p} receivedAt={receivedAt} />
                 </div>
-                <div className="hand small">{cards.map((c, i) => <Card key={i} code={c} width={46} />)}</div>
+                <div className="hand small">{cards.map((c, i) => (
+                  <FlyIn key={`${v?.hand}-${i}`} from="deck" live={live} flip delay={dealDelay(players.indexOf(p), i)}><Card code={c} width={46} /></FlyIn>
+                ))}</div>
                 <div className="spot-foot">
                   <span>{total !== null ? total : ''}{status ? ` · ${WORD[status] ?? status}` : ''}</span>
-                  <span className="bet">{v?.bets[p] ? <><Chip amount={v.bets[p]!} size={26} /></> : v?.phase === 'betting' && !out ? 'betting…' : ''}</span>
+                  <span className="bet">{v?.bets[p] ? <FlyIn from={`stack-${p}`} live={live}><Chip amount={v.bets[p]!} size={26} /></FlyIn> : v?.phase === 'betting' && !out ? 'betting…' : ''}</span>
                 </div>
-                <div className="stack">{v ? (out ? 'out of chips' : `${v.chips[p].toLocaleString()} chips`) : ''}</div>
+                <div className="stack" data-fly={`stack-${p}`}>
+                  <Ghost play={settled} {...((v?.last?.deltas[p] ?? 0) > 0 ? { from: 'deck' } : { to: 'deck' })}>
+                    {v?.last?.deltas[p] ? <Chip amount={Math.abs(v.last.deltas[p])} size={26} /> : null}
+                  </Ghost>
+                  {v ? (out ? 'out of chips' : `${v.chips[p].toLocaleString()} chips`) : ''}
+                </div>
               </div>
             );
           })}
