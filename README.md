@@ -7,10 +7,10 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Twelve games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Thirteen games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Letterworks (a crossword tile
-game), Realm Duel (a creature card duel) and Manor Mystery (a country-house
-murder mystery), drawn from one shared kit of boards, pieces, cards, chips and
+game), Realm Duel (a creature card duel), Manor Mystery (a country-house
+murder mystery) and Ship2Shore (a WW2 hidden-role game for 5-11), drawn from one shared kit of boards, pieces, cards, chips and
 dice ([docs/games.md](docs/games.md)). Every game is a plug-in with its own
 seats, rules and board, and the room around it stays the same. Rooms have voice
 and video (self-hosted LiveKit) and optional transcripts. Next: the camera
@@ -31,7 +31,7 @@ with remote players using controllers, OpenBOR rooms run on the server
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
-- **Twelve games**, each with its rules in a How to play tab, and replays of
+- **Thirteen games**, each with its rules in a How to play tab, and replays of
   finished games (move by move, hidden cards staying hidden).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a
