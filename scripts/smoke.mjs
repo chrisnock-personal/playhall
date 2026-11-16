@@ -142,7 +142,10 @@ await wa.until((s) => s.game.status === 'playing' && s.game.view?.rack, 'Letterw
 await wh.until((s) => s.game.status === 'playing' && s.game.view?.rack, 'the host has a rack');
 assert.equal(wa.snap.game.view.rack.length, 7);
 let played = false;
+let movesSoFar = 0;
 for (let turn = 0; turn < 8 && !played; turn++) {
+  // Both connections must have seen the last move before we ask whose turn it is.
+  for (const c of [wh, wa]) await c.until((s) => s.game.view.moves.length >= movesSoFar, 'both players see the last move');
   const me = [wh, wa].find((c) => c.snap.game.view.turn === c.snap.you.seat);
   const rack = me.snap.game.view.rack.filter((l) => l !== '?');
   const pairs = rack.flatMap((x, i) => rack.filter((_, j) => j !== i).map((y) => x + y));
@@ -158,6 +161,7 @@ for (let turn = 0; turn < 8 && !played; turn++) {
   if (good) me.send({ t: 'act', action: { type: 'play', tiles: [{ cell: 112, letter: good[0] }, { cell: 113, letter: good[1] }] } });
   else me.send({ t: 'act', action: { type: 'exchange', letters: me.snap.game.view.rack } });
   const after = await me.until((s) => s.game.view.moves.length > movesBefore, 'a Letterworks move');
+  movesSoFar = after.game.view.moves.length;
   played = !!good;
   if (good) { assert.ok(after.game.view.scores[me.snap.you.seat] > 0, 'the word scored'); assert.equal(after.game.view.rack.length, 7, 'drew back to seven'); }
 }
