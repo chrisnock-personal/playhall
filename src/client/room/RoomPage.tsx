@@ -51,7 +51,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send };
+  const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send, voice, token: session.token };
   const tx = useTranscriber(snap.room.code, session.token, snap, voice);
   // Table sounds (#29): quieter under voice chat, quieter still while someone talks.
   const talking = voice.state === 'on' && !!voice.channel && voice.speaking[voice.channel].length > 0;
@@ -60,7 +60,10 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   // While you're in one channel's voice, also show the other channel's video
   // when you may see it (players' cameras for watchers in the gallery, and
   // watchers' cameras for players, when the gallery isn't hidden from them).
-  const viewing = voice.state === 'on' ? viewChannel(voice.channel, snap.you.media) : null;
+  // Camera table rooms: out of voice, a video-only view of the table shows
+  // the board camera (and the players' cameras) to everyone who may see it.
+  const viewing = voice.state === 'on' ? viewChannel(voice.channel, snap.you.media)
+    : snap.room.tableCamera && voice.state !== 'joining' && snap.you.media.table.listen ? 'table' : null;
   const { view } = voice;
   useEffect(() => { view(viewing); }, [view, viewing]);
 

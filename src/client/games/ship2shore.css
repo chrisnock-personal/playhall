@@ -1,0 +1,63 @@
+/* ---- Ship2Shore (the chart, the bridge, the crew, the log) ---- */
+.s2s-stage { width: 100%; height: 100%; overflow: auto; padding: 10px; box-sizing: border-box; align-self: stretch; }
+.s2s-stage .small { font-size: 12px; }
+.s2s-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 350px); gap: 12px; align-items: start; max-width: 1180px; margin: 0 auto; }
+.s2s-main, .s2s-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.s2s-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; color: var(--text); min-width: 0; }
+.s2s-h { margin: 0 0 8px; font: 600 14px var(--head); }
+.s2s-status { margin: 0 0 8px; font-size: 14px; line-height: 1.45; }
+.s2s-status svg { vertical-align: middle; }
+.s2s-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.s2s-chip { display: inline-flex; align-items: center; gap: 6px; }
+.s2s-chip.on { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--accent-soft); }
+.s2s-pick { display: grid; gap: 4px; margin-bottom: 4px; }
+.s2s-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+
+/* Your role */
+.s2s-role { display: flex; gap: 12px; align-items: flex-start; }
+.s2s-role-text { min-width: 0; flex: 1; }
+.s2s-role-text p { margin: 0 0 6px; }
+.s2s-ammo { display: flex; align-items: flex-end; gap: 2px; flex-wrap: wrap; }
+.s2s-ammo span { margin-left: 6px; color: var(--muted); }
+
+/* The chart: the paper chart keeps its own colours in both themes. */
+.s2s-chart-box { padding: 8px; }
+.s2s-chart-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 0 2px 6px; }
+.s2s-chart { display: block; width: 100%; height: auto; max-height: min(62vh, 560px); margin: 0 auto; }
+.s2s-ship { transition: transform .5s ease; }
+@media (prefers-reduced-motion: reduce) { .s2s-ship { transition: none; } }
+
+/* Cards to choose from */
+.s2s-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.s2s-card-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; padding: 4px; background: none; cursor: pointer; border-radius: 10px; color: var(--text); font: 600 12px var(--body); }
+.s2s-card-btn:hover .playing-card, .s2s-card-btn:focus-visible .playing-card { transform: translateY(-4px); filter: drop-shadow(0 0 6px #F0A53C); }
+.s2s-card-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.s2s-card { transition: transform .15s ease; }
+
+/* The crew */
+.s2s-crew { display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+.s2s-crew .player-strip { flex-wrap: wrap; }
+.s2s-marks { display: inline-flex; gap: 3px; align-items: center; margin-left: auto; flex-wrap: wrap; }
+.s2s-marks svg { display: block; }
+.s2s-voted { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; }
+
+/* What only you know, and the log */
+.s2s-secrets { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; max-height: 180px; overflow: auto; }
+.s2s-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; max-height: 280px; overflow: auto; }
+.s2s-log li { display: grid; grid-template-columns: 14px 1fr; gap: 6px; align-items: start; line-height: 1.35; }
+.s2s-log li svg { margin-top: 3px; }
+.s2s-log li.k-round { border-top: 1px solid var(--line); padding-top: 4px; }
+.s2s-log li.k-pick span, .s2s-log li.k-contraband span { color: var(--text-2); }
+
+/* The reveal */
+.s2s-reveal { display: flex; flex-wrap: wrap; gap: 10px; }
+.s2s-reveal figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; max-width: 80px; text-align: center; }
+.s2s-reveal figure.won figcaption { font-weight: 700; color: var(--accent); }
+
+/* Small screens: one column, and the stage grows to fit. */
+@media (max-width: 900px) {
+  .stage:has(.s2s-stage) { height: auto; container-type: inline-size; }
+  .s2s-stage { overflow: visible; height: auto; padding: 6px; }
+  .s2s-layout { grid-template-columns: minmax(0, 1fr); }
+  .s2s-chart { max-height: none; }
+}

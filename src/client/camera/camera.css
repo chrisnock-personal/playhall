@@ -1,0 +1,17 @@
+/* The table camera page: the preview fills the screen (a phone on a stand),
+   with a small panel of words and buttons over it. */
+
+.cam-page { position: fixed; inset: 0; background: #000; color: #e8eaee; display: flex; align-items: flex-end; justify-content: center; }
+.cam-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform: none; background: #000; }
+.cam-panel { position: relative; margin: 16px; max-width: 520px; width: calc(100% - 32px); box-sizing: border-box; background: rgba(22, 25, 30, .88); border: 1px solid #2f3440;
+  border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.cam-page:not(.live) .cam-panel { align-self: center; }
+.cam-page.live .cam-panel { padding: 8px 12px; }
+.cam-panel h1 { margin: 0; font-size: 20px; }
+.cam-page.live .cam-panel h1 { display: none; }
+.cam-panel p { margin: 0; }
+.cam-room { color: #9aa1ae; }
+.cam-on { display: flex; align-items: center; gap: 8px; }
+.cam-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5484d; flex: none; }
+.cam-error { color: #f2a8a8; }
+.cam-buttons { display: flex; flex-wrap: wrap; gap: 8px; }

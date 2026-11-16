@@ -87,7 +87,7 @@ needs it, so the games read as one family:
 |---|---|---|
 | **Square board** | Chess, Checkers, Sea Battle (two 10×10 grids), Four in a Row (as a frame) | Chess's colours: light `#E6D5B3`, dark `#A97F57`, last-move amber, the same coordinates |
 | **Track board** | Ludo, Snakes and Ladders | The same wood palette and border; our own drawn snakes and ladders |
-| **Player colours** | Every game with more than two sides | Four colours that differ in lightness as well as hue (amber, teal, violet, rose), so they work for colour-blind players; plus white and black for chess and checkers |
+| **Player colours** | Every game with more than two sides | Colours that differ in lightness as well as hue (amber, teal, violet, rose; lime and blue for seats 5-6; red and slate for the camera table's seats 7-8), so they work for colour-blind players; plus white and black for chess and checkers. Coral was considered for seat 7 but sits between amber and rose; red is darker and more saturated than rose, slate is the one colour with little hue |
 | **Discs** | Checkers men and kings, Four in a Row counters, Ludo tokens | One flat disc with a rim, in the player colours; a crown for a king |
 | **Pawn token** | Snakes and Ladders | The pawn from the Playhall logo, in the player colours |
 | **Die** | Snakes and Ladders, Ludo | One die, rolled on the server, one short roll animation |
@@ -139,6 +139,41 @@ is in.
 [backlog.md](backlog.md).
 **Manor Mystery** is in (3-6 players, the murder at Blackthorn Hall; rules as
 built in [manor-mystery.md](manor-mystery.md)).
+**Ship2Shore** is in (5-11 players, a WW2 hidden-role game aboard the SS
+Marigold; rules as built in [ship2shore.md](ship2shore.md), pieces in
+[mockups/ship2shore-pieces.html](mockups/ship2shore-pieces.html)). It brings
+seat colours 7-11 (red, slate, gold, mint, plum) and team wins: every member
+of the winning faction scores 3.
+
+## The camera table (phase 2.4)
+
+Not a game of its own but a room for **any real board game**
+(`src/shared/games/cameratable.ts`, the stage in
+`src/client/games/cameratable.tsx`; the plan is in [phase2.md](phase2.md)).
+What it added to the contract, for any game that wants it:
+
+- `seatsFor(config)`: the host picks how many seats (2 to 8), so the seats
+  in use come from the settings; the room, lobby cards and admin list use
+  them.
+- `configError(raw)`: settings the host must fix rather than have quietly
+  replaced (the camera table refuses an empty game name).
+- `hostAct(...)` and the `hostAct` room message: actions with the host's
+  powers, seated or not (passing the turn to anyone, any score, entering
+  and withdrawing the result, ending without a result).
+- `say` on an accepted action: lines the room posts in the table chat
+  ("Kai rolled 4 + 5 = 9 (2d6)"). `ctx.names` and `ctx.host` give a game the
+  players' and host's names for them.
+- `keepsDroppedPlayers`: a player who drops out isn't put out after the
+  grace minute; the game waits for them.
+- `tableCamera`: the room can have a table camera device (below).
+- `boardName(state)`: results are filed under the typed name too
+  (`game_results.game_name`, and `game_key` for grouping: tidied and
+  case-folded, so "CATAN " and "Catan" are one leaderboard).
+
+The dice are the kit's d6 face for d6 and a numbered shape for d4, d8, d10,
+d12 and d20; up to 10 dice a roll, drawn with `randInt` from the room's
+random numbers. The score pad is whole numbers up to 99,999; the host edits
+any score and players their own (a host rule turns that off).
 
 Leaderboards get a tab per game automatically (from the game list), and "All
 games" adds them up. The project overview page waits until these are in, so

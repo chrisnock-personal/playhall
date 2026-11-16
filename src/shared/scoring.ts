@@ -2,6 +2,7 @@
 //   sole winner 3; a shared first place (a draw) 1 each;
 //   second place 1 (each, if shared) in games of three or more, when first
 //   place isn't shared; everyone else 0.
+// A team win (Ship2Shore) counts as a win for every member: 3 each.
 // In two-player games the loser isn't "second": win 3, draw 1, loss 0.
 
 import type { GameResult, SeatId } from './game';
@@ -29,7 +30,7 @@ export function score(result: GameResult, seats: SeatId[]): Record<SeatId, SeatS
     for (const seat of group) {
       let outcome: Outcome = 'loss';
       let points = 0;
-      if (i === 0 && group.length === 1) { outcome = 'win'; points = 3; }
+      if (i === 0 && (group.length === 1 || result.teamWin)) { outcome = 'win'; points = 3; }
       else if (i === 0) { outcome = 'draw'; points = 1; }
       else if (i === 1 && placings[0].length === 1 && seats.length >= 3) points = 1;
       out[seat] = { outcome, points, place: i + 1 };

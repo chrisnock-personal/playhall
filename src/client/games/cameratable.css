@@ -1,0 +1,85 @@
+/* The camera table: the board camera fills most of the stage, with the turn
+   bar above it; dice, the score pad and the result in a column beside it
+   (under it on narrow screens). Theme tokens throughout; the QR code is
+   always black on white so phones can read it. */
+
+.ct { width: 100%; height: 100%; display: flex; gap: 10px; padding: 8px; box-sizing: border-box; color: var(--text); overflow: hidden; }
+.ct-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ct-side { width: 290px; flex: none; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.ct-side > * { flex-shrink: 0; }
+.ct-side .stage-actions { justify-content: flex-start; }
+
+/* The board camera: never cropped (the whole board matters), never mirrored. */
+.ct-camera { position: relative; flex: 1; min-height: 180px; border-radius: 10px; background: #000; overflow: hidden; display: flex; }
+.ct-camera-tile { flex: 1; display: flex; }
+.ct-camera-tile.video-tile video { object-fit: contain; transform: none; }
+.ct-camera-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #9aa1ae; text-align: center; padding: 16px; }
+.ct-camera-empty p { margin: 0; max-width: 34ch; }
+.ct-camera-btn { position: absolute; top: 8px; right: 8px; z-index: 2; }
+
+.ct-link { position: absolute; top: 8px; right: 8px; z-index: 3; width: min(340px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; box-sizing: border-box;
+  background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.ct-link h3 { margin: 0; }
+.ct-link .hint { margin: 0; }
+.ct-qr { width: 200px; height: 200px; flex: none; align-self: center; border-radius: 6px; } /* flex: none: the panel is a scrolling column and would squash it to nothing */
+.ct-link-url { width: 100%; box-sizing: border-box; font: 12px var(--mono); }
+.ct-link .btn.disabled { pointer-events: none; opacity: .5; }
+
+.ct-turn { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.ct-turn.mine { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ct-turn select { max-width: 130px; }
+.ct-spacer { flex: 1; }
+
+.ct-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ct-card h3 { margin: 0; font-size: 15px; }
+.ct-card .hint { margin: 0; }
+
+/* Dice. */
+.ct-dice-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.ct-dice-pick .chip { height: 30px; padding: 0 10px; }
+.ct-roll { display: flex; flex-direction: column; gap: 6px; animation: ct-pop .25s ease-out; }
+.ct-roll p { margin: 0; }
+.ct-roll-dice { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ct-roll-dice.small .die, .ct-roll-dice.small .ct-die { width: 22px; height: 22px; font-size: 11px; }
+.ct-die { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: #F4EFE4; color: #2A2219; border: 2px solid #9C9488; font: 700 15px var(--head); box-sizing: border-box; }
+.ct-die.d4 { clip-path: polygon(50% 0, 100% 100%, 0 100%); border: 0; padding-top: 10px; }
+.ct-die.d8 { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border: 0; }
+.ct-die.d10 { clip-path: polygon(50% 0, 100% 40%, 50% 100%, 0 40%); border: 0; }
+.ct-die.d12 { clip-path: polygon(50% 0, 98% 35%, 80% 95%, 20% 95%, 2% 35%); border: 0; padding-top: 3px; }
+.ct-die.d20 { clip-path: polygon(50% 0, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%); border: 0; }
+.ct-die:not(.d4):not(.d8):not(.d10):not(.d12):not(.d20) { border-radius: 7px; }
+@keyframes ct-pop { from { transform: scale(.9); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ct-roll { animation: none; } }
+
+/* Score pad. */
+.ct-scores { width: 100%; border-collapse: collapse; }
+.ct-scores td { padding: 3px 2px; vertical-align: middle; }
+.ct-scores tr.mine .ct-name { font-weight: 700; }
+.ct-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.ct-score { text-align: right; }
+.ct-score-value { font: 700 16px var(--head); padding-right: 6px; }
+.ct-score-edit { display: inline-flex; align-items: center; gap: 4px; }
+.ct-score-edit input { width: 58px; text-align: right; font: 700 15px var(--head); padding: 4px 6px; }
+
+/* The result. */
+.ct-result.disputed { border-color: var(--danger-line); }
+.ct-places { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ct-places li, .ct-place-row { display: flex; align-items: center; gap: 8px; }
+.ct-place { width: 34px; font-weight: 700; }
+.ct-place-row .ct-name { flex: 1; }
+.ct-ok { margin-left: auto; color: var(--live); font-weight: 600; }
+.ct-places .muted { margin-left: auto; }
+
+/* Seat cards and the Rolls tab. */
+.ct-seat-extra { display: inline-flex; align-items: center; gap: 6px; }
+.ct-seat-score { font: 700 15px var(--head); min-width: 2ch; text-align: right; }
+.ct-rolls { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.ct-rolls li { display: flex; align-items: center; gap: 8px; }
+
+/* Phones and narrow stages: the camera on top, everything else under it. */
+@container (max-width: 700px) {
+  .ct { flex-direction: column; overflow-y: auto; }
+  .ct-main { flex: none; }
+  .ct-camera { flex: none; aspect-ratio: 16 / 9; min-height: 0; }
+  .ct-side { width: auto; overflow: visible; }
+}

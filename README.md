@@ -7,14 +7,15 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Twelve games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Thirteen games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Letterworks (a crossword tile
-game), Realm Duel (a creature card duel) and Manor Mystery (a country-house
-murder mystery), drawn from one shared kit of boards, pieces, cards, chips and
-dice ([docs/games.md](docs/games.md)). Every game is a plug-in with its own
+game), Realm Duel (a creature card duel), Manor Mystery (a country-house
+murder mystery) and Ship2Shore (a WW2 hidden-role game for 5-11), drawn from
+one shared kit of boards, pieces, cards, chips and dice
+([docs/games.md](docs/games.md)), plus the **camera table** for any real
+board game on your own table. Every game is a plug-in with its own
 seats, rules and board, and the room around it stays the same. Rooms have voice
-and video (self-hosted LiveKit) and optional transcripts. Next: the camera
-table for any physical board game, then sharing a game running on your own PC
+and video (self-hosted LiveKit) and optional transcripts. Next: sharing a game running on your own PC
 with remote players using controllers, OpenBOR rooms run on the server
 ([docs/openbor.md](docs/openbor.md)), and web-game plug-ins. See
 [docs/design.md](docs/design.md).
@@ -45,11 +46,19 @@ with remote players using controllers, OpenBOR rooms run on the server
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
-- **Twelve games**, each with its rules in a How to play tab, and replays of
+- **Thirteen games**, each with its rules in a How to play tab, and replays of
   finished games (move by move, hidden cards staying hidden).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a
   game is on).
+- **The camera table** (with LiveKit). Any real board game: the host types
+  its name, picks 2 to 8 seats and films the board with a phone on a stand
+  (scan the code from the room's Table camera button; the phone needs no
+  account and takes no seat). The board fills the stage for everyone; the
+  room keeps whose turn it is, a dice roller rolled on the server (d4 to d20,
+  every roll said in the chat), a score pad and the move timer. At the end
+  the host enters the places and every player confirms them before it
+  counts; a dispute means it doesn't. Leaderboards have a tab per game name.
 - **Voice and video** (with LiveKit, the `media` compose profile). Join the
   table or the gallery, split like the chat; you join muted with your camera
   off. Push to talk, a talking ring, a volume per person. Players' cameras show
@@ -146,6 +155,7 @@ node tests/browser.mjs http://localhost:8450   # the same in a real browser (Pla
 node tests/browser.mjs http://localhost:8450 firefox   # or webkit (npx playwright install firefox webkit)
 NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/voice.mjs https://localhost:8450   # voice, fake mics (needs LiveKit)
 NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/video.mjs https://localhost:8450   # video, fake cameras (needs LiveKit)
+NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/cameratable.mjs https://localhost:8450   # the camera table: a phone as table camera, dice, results (needs LiveKit)
 NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/transcripts.mjs https://localhost:8450   # speech to said lines (needs LiveKit and WHISPER_URL)
 npm run demo             # demo data into DATABASE_URL (--remove to take it out)
 ```

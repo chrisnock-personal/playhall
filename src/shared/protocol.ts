@@ -103,6 +103,9 @@ export interface RoomSnapshot {
     minPlayers: number;
     /** This server allows transcripts at all (the room rule needs it). */
     transcriptsAllowed: boolean;
+    /** Camera table rooms: whether the host has a table camera link out
+     *  (null in other games). */
+    tableCamera: { on: boolean } | null;
   };
   seats: SeatView[];
   members: MemberView[];
@@ -149,7 +152,9 @@ export type ClientMessage =
   | { t: 'unseat'; userId: string }
   | { t: 'makeHost'; userId: string }
   | { t: 'kick'; userId: string }
-  | { t: 'settings'; settings: Partial<RoomSettings> };
+  | { t: 'settings'; settings: Partial<RoomSettings> }
+  /** Games the host runs (the camera table): an action with the host's powers. */
+  | { t: 'hostAct'; action: unknown };
 
 export type ServerMessage =
   | { t: 'snapshot'; snapshot: RoomSnapshot }
@@ -227,10 +232,18 @@ export interface LeaderboardRow {
 
 export interface LeaderboardResponse {
   game: string;
+  /** Camera table: the game name (its key) the board is for, if one. */
+  name?: string;
   period: Period;
   ranked: LeaderboardRow[];
   unranked: LeaderboardRow[];
   minGames: number;
+}
+
+/** The names the camera table has been played under: a leaderboard tab each. */
+export interface BoardNamesResponse {
+  game: string;
+  names: { key: string; name: string; games: number }[];
 }
 
 export interface PlayerStatsResponse {

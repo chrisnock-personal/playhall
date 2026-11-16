@@ -40,6 +40,23 @@ export function mediaPermission(r: MediaRight) {
   return { canSubscribe: r.listen, canPublish: r.talk, canPublishSources: publishSources(r), canPublishData: false };
 }
 
+/** The table camera (a device filming the board in a camera table room):
+ *  it sends its camera to the table and nothing else. It can't hear or see
+ *  anyone, talk, or send data. */
+export function cameraPermission() {
+  return { canSubscribe: false, canPublish: true, canPublishSources: [TrackSource.CAMERA], canPublishData: false };
+}
+
+/** LiveKit identities of table cameras start with this; people's are user ids (UUIDs). */
+export const CAMERA_PREFIX = 'camera:';
+
+/** A LiveKit token for a room's table camera device, in the table channel. */
+export async function cameraToken(cfg: MediaConfig, p: { code: string; cameraId: string }): Promise<string> {
+  const at = new AccessToken(cfg.apiKey, cfg.apiSecret, { identity: CAMERA_PREFIX + p.cameraId, name: 'Table camera', ttl: '10m' });
+  at.addGrant({ room: mediaRoomName(p.code, 'table'), roomJoin: true, ...cameraPermission(), canUpdateOwnMetadata: false });
+  return at.toJwt();
+}
+
 /** A LiveKit token for one person in one channel of one room. */
 export async function mediaToken(cfg: MediaConfig, p: {
   code: string; channel: Channel; userId: string; name: string;
@@ -88,21 +105,28 @@ export class MediaSync {
     this.client = new RoomServiceClient(cfg.url, cfg.apiKey, cfg.apiSecret);
   }
 
-  changed(room: { rec: { code: string; seats: Record<string, unknown>; game: { status: string }; settings: unknown }; mediaRights(userId: string): ReturnType<RightsFn> }): void {
+  changed(room: SyncedRoom): void {
     const code = room.rec.code;
-    const sig = JSON.stringify([room.rec.game.status, room.rec.seats, room.rec.settings]);
+    const sig = JSON.stringify([room.rec.game.status, room.rec.seats, room.rec.settings, room.rec.tableCamera?.id ?? null]);
     if (this.last.get(code) === sig) return;
     this.last.set(code, sig);
     clearTimeout(this.timers.get(code));
     this.timers.set(code, setTimeout(() => { this.timers.delete(code); void this.apply(code, room); }, 300));
   }
 
-  private async apply(code: string, room: { mediaRights(userId: string): ReturnType<RightsFn> }): Promise<void> {
+  private async apply(code: string, room: SyncedRoom): Promise<void> {
     for (const channel of ['table', 'gallery'] as Channel[]) {
       const name = mediaRoomName(code, channel);
       let people;
       try { people = await this.client.listParticipants(name); } catch { continue; } // nobody in that channel
       for (const p of people) {
+        // A table camera stays only while it's the room's current one.
+        if (p.identity.startsWith(CAMERA_PREFIX)) {
+          if (channel !== 'table' || !room.isTableCamera(p.identity.slice(CAMERA_PREFIX.length))) {
+            await this.client.removeParticipant(name, p.identity).catch((err) => console.error(`[media] couldn’t remove ${p.identity} from ${name}:`, (err as Error).message));
+          }
+          continue;
+        }
         const r = room.mediaRights(p.identity)?.[channel];
         try {
           if (!r?.listen) await this.client.removeParticipant(name, p.identity);
@@ -113,3 +137,8 @@ export class MediaSync {
   }
 }
 type RightsFn = (userId: string) => Record<Channel, MediaRight> | null;
+interface SyncedRoom {
+  rec: { code: string; seats: Record<string, unknown>; game: { status: string }; settings: unknown; tableCamera?: { id: string } | null };
+  mediaRights(userId: string): ReturnType<RightsFn>;
+  isTableCamera(id: string): boolean;
+}

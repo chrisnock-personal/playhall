@@ -1,10 +1,15 @@
 import type { FC, ReactNode } from 'react';
 import type { ClientMessage, RoomSnapshot } from '../../shared/protocol';
+import type { Voice } from '../room/useVoice';
 
 export interface StageProps {
   snap: RoomSnapshot;
   receivedAt: number;
   send(msg: ClientMessage): void;
+  /** The room's voice and video (not in replays): the camera table's stage shows the table camera. */
+  voice?: Voice;
+  /** Your session token, for the few things done over HTTP (the table camera link). */
+  token?: string;
 }
 
 // The browser half of a game plug-in. The room shell gives it the stage (the

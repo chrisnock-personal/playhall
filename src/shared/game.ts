@@ -25,6 +25,9 @@ export interface GameResult {
   /** Everyone lost (e.g. nobody solved the case): it counts, with no points
    *  for anyone, rather than as a draw. */
   nobodyWins?: boolean;
+  /** A team won (Ship2Shore's factions): everyone in the first placing
+   *  scores as a winner (3 points each), not as a shared first. */
+  teamWin?: boolean;
 }
 
 /** How to play, shown in every room's How to play tab and from the lobby. */
@@ -34,7 +37,9 @@ export interface HowToPlay {
   sections: { title: string; points: string[] }[];
 }
 
-export type ActResult<S> = { state: S } | { error: string };
+/** An accepted action, and optionally lines for the table chat that say
+ *  what happened ("Kai rolled 4 + 5 = 9"): the room posts them for everyone. */
+export type ActResult<S> = { state: S; say?: string[] } | { error: string };
 
 /** What the room gives a game besides its state: luck comes from the server,
  *  never the browser, so dice and shuffles can't be tampered with. */
@@ -46,6 +51,10 @@ export interface GameContext {
   /** Word games: is this (upper-case) word in the room's word list? The
    *  server supplies it; without one, every word is allowed. */
   isWord?(word: string): boolean;
+  /** The players' names by seat (for lines the game says in the chat). */
+  names?: Record<SeatId, string>;
+  /** The room's host: their name and their seat, if they have one. */
+  host?: { name: string; seat: SeatId | null };
 }
 
 export interface GameModule<S = unknown, C = unknown> {
@@ -57,14 +66,33 @@ export interface GameModule<S = unknown, C = unknown> {
   seats: SeatDef[];
   /** Fewest players to start (default: every seat). */
   minPlayers?: number;
+  /** Games whose number of seats is a setting (the camera table): the seats
+   *  in use for this config, a prefix of `seats`. Default: all of them. */
+  seatsFor?(config: C): SeatDef[];
   defaultConfig: C;
   /** Turn untrusted input (from a host's settings) into a valid config. */
   parseConfig(raw: unknown): C;
+  /** Input the host must fix rather than have quietly replaced (a missing
+   *  game name): why, in plain words, or null when it's fine. */
+  configError?(raw: unknown): string | null;
   /** A short label for the config, e.g. "5 min + 3 s". */
   describeConfig(config: C): string;
   create(config: C, now: number, ctx: GameContext): S;
   /** Apply one action from a seated player. */
   act(state: S, seat: SeatId, action: unknown, now: number, ctx: GameContext): ActResult<S>;
+  /** Games where the host runs things (the camera table): an action from the
+   *  host, seated or not (their seat, if any, is ctx.host.seat). */
+  hostAct?(state: S, action: unknown, now: number, ctx: GameContext): ActResult<S>;
+  /** A player who drops out mid-game isn't put out of it after the grace
+   *  minute: the game waits for them (the camera table, where the players
+   *  agree the result themselves). */
+  keepsDroppedPlayers?: boolean;
+  /** Played on a real table filmed by a camera device (see the table camera
+   *  in docs/phase2.md): the host can make a phone the table camera. */
+  tableCamera?: boolean;
+  /** Games played under many names (the camera table): the name a finished
+   *  game is filed under, for a leaderboard per name. */
+  boardName?(state: S): string | null;
   /** Who has to act now. Games that give it get the room's move timer
    *  (games with their own clocks, like chess, leave it out). */
   turn?(state: S): SeatId[];
@@ -90,4 +118,9 @@ export interface GameModule<S = unknown, C = unknown> {
   /** What one person sees: `viewer` is their seat, or null for a watcher.
    *  Hands, fleets and hole cards appear only in their owner's view. */
   view(state: S, now: number, viewer: SeatId | null): unknown;
+}
+
+/** The seats in use for a (raw) config. */
+export function seatsIn(game: GameModule<any, any>, rawConfig: unknown): SeatDef[] {
+  return game.seatsFor ? game.seatsFor(game.parseConfig(rawConfig)) : game.seats;
 }

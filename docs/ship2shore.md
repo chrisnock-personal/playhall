@@ -124,3 +124,89 @@ before release.
 After the card games in phase 1 (it needs hidden hands, private actions and
 a deck, which Blackjack, Colour Clash and Hold'em build first), and at its
 best with phase 2's voice.
+
+## Rules as built (2026-11-16)
+
+Built in `src/shared/games/ship2shore.ts` (rules), `src/client/games/ship2shore.tsx`
+(stage) and `ship2shore-art.tsx` (pieces; preview in
+[mockups/ship2shore-pieces.html](mockups/ship2shore-pieces.html)). The three
+recommendations above are followed: team wins score 3 for every member
+(`teamWin` on results), the Fixer wins if thrown to the sharks, and there are
+two charts. Where the plan left something open, the simplest sensible rule:
+
+**Who's who**
+- Roles: 5 players 3 Navy / 1 Spy / Fixer; 6: 3/2; 7: 4/2; 8: 4/3; 9: 5/3;
+  10: 5/4; 11: 5/4 plus a **Smuggler**, the "+1 recruit": Black Market from
+  the start. The Fixer and the Smuggler know each other.
+- A **bribed** player keeps their card but their allegiance becomes Black
+  Market: they learn who the Fixer is (and the Fixer sees all of their
+  people); inspections show the new allegiance; they win with Lisbon (or the
+  Fixer's sharks) and lose with their old side. Bribed spies still know the
+  other spies.
+- Ammunition is secret: only you see your rounds. Votes are shown, per
+  player, once everyone has voted.
+- The first captain is drawn at random.
+
+**A round**
+- The captain picks first officer and helmsman from players aboard. Off watch:
+  last round's helmsman; from 8 players also last round's first officer and
+  captain. If that leaves fewer than two to pick from, nobody is off watch.
+- Everyone aboard except the captain votes (0 is a vote, so nobody is left out
+  in a way that gives away an empty pouch). A silenced player can't take
+  command: the biggest backer who isn't silenced does; if only silenced
+  players committed, the captain stays and the rounds go back. After a mutiny
+  the new captain picks a new watch and plotting starts at once: **no second
+  vote that round**.
+- The helmsman sees the two kept orders in random order, so doesn't know who
+  kept which.
+- **Abandoning post**: the emergency helmsman (anyone aboard but the captain
+  and first officer) steers fresh orders: captain and first officer draw two
+  again. Not allowed with only three aboard. Jumping is not "thrown to the
+  sharks": a Fixer who abandons post just drowns (no Black Market win).
+- **Never fewer than three aboard**: with three left, the sharks find nobody
+  and nobody may abandon post.
+
+**The deck (28 orders, ours)**: north-east: Steady ×6, Shore leave, Arms
+locker ×2, Confiscated ×2; south-west: Steady ×6, Shore leave, Radio intercept
+×2, Spotter ×2; south: Steady, Shore leave, Contraband ×4. Carried-out orders
+are kept face up; discards face down. When the deck runs short, both piles
+are shuffled back in.
+- **Shore leave**: command passes to the player aboard (not the captain, not
+  silenced) with the fewest orders carried out as captain; ties go round the
+  table from the captain.
+- **Radio intercept / Spotter**: the captain picks the player (anyone aboard,
+  themselves included). The spotter's choice (left on top or discarded) is
+  public; the card isn't.
+- **Contraband**: everyone aboard is asked and answers ("Carry on"), so the
+  Fixer isn't the only one with something to do. Bribe: anyone aboard not
+  already Black Market and never inspected or interrogated. Cash stash: one
+  to three new rounds to anyone aboard, the Fixer included; each recipient
+  learns only that someone handed them rounds. Look at the bridge: this
+  round's captain, first officer and helmsman.
+
+**The charts**: sea areas on a slanted grid (north-east is up-right, south-west
+down-left, south straight down). Short (5-7): 7 areas across × 5 down;
+Plymouth or the rendezvous 4 steps east or west of the start, Lisbon 5 south.
+Long (8-11): 9 × 6; 5 steps either way, Lisbon 6 south, and a resupply line
+between the third and fourth rows (crossing it heading south tops everyone
+aboard up to three rounds; more than three are kept). Chart actions are
+spread over both (see `CHARTS`). Moves from an area always stay on the chart
+or reach a port. In random-play simulations each port wins roughly a quarter
+to a third of games; real tuning needs playtests.
+- Chart actions use the captain at that moment; kit inspection, interrogation,
+  radio silence and sharks can't pick the captain. Radio silence is a marker
+  (the game can't mute the chat): the player is asked to keep quiet.
+
+**Endings and leaving**
+- Places: the winning faction (including players in the water) first, all
+  scoring 3; everyone else, then players who resigned.
+- A player who **resigns** can't win; their duties are played automatically
+  (as if their time ran out) and they can still be picked or thrown over. If
+  everyone still aboard has resigned, nobody wins.
+- **Timeouts**: the captain's picks at random; a vote of 0; keep the first of
+  two orders; the helmsman discards at random; a spotter leaves the card; the
+  Fixer looks at the bridge; everyone else carries on.
+- Replays show what a watcher saw: roles and secrets only in the last frame.
+
+**Known tells**: who still has to act is public (the room's turn list), so in
+a contraband round the Fixer may be the last to answer, as at a real table.

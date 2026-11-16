@@ -18,6 +18,8 @@ declare global {
 
 const ACCOUNT_TTL = '30d';
 const GUEST_TTL = '7d';
+/** A table camera link works for a games night, unless the host stops it first. */
+const CAMERA_KEY_TTL = '12h';
 
 export class Auth {
   /** Usernames made admin by ADMIN_USERNAMES (lower case). */
@@ -94,6 +96,28 @@ export class Auth {
 
   signRoomPass(userId: string, code: string, passwordHash: string): string {
     return jwt.sign({ scope: 'room-pass', room: code, pv: fingerprint(passwordHash) }, this.secret, { subject: userId, expiresIn: '7d' });
+  }
+
+  // ---- the table camera ----
+  // The host's link for the device filming the board (a camera table room):
+  // it names the room and the device id the room has on record, so making a
+  // new link or stopping the camera invalidates it. It's not a session: it
+  // can't open the room, chat or play, only ask for a camera-only LiveKit
+  // token (see media.ts cameraToken).
+
+  signCameraKey(code: string, cameraId: string): string {
+    return jwt.sign({ scope: 'table-camera', room: code, cam: cameraId }, this.secret, { expiresIn: CAMERA_KEY_TTL });
+  }
+
+  verifyCameraKey(token: unknown): { code: string; cameraId: string } | null {
+    if (typeof token !== 'string' || token.length > 2000) return null;
+    try {
+      const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { scope?: string; room?: string; cam?: string };
+      if (p.scope !== 'table-camera' || typeof p.room !== 'string' || typeof p.cam !== 'string') return null;
+      return { code: p.room, cameraId: p.cam };
+    } catch {
+      return null;
+    }
   }
 
   verifyRoomPass(token: string | null, userId: string, code: string, passwordHash: string): boolean {
