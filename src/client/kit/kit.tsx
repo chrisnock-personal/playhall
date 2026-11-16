@@ -204,6 +204,7 @@ export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {
       )}
       {canSit && <button className="btn small primary" onClick={() => send({ t: 'sit', seat: seatId })}>Sit here</button>}
       {canAddBot && <button className="btn small" onClick={() => send({ t: 'addBot', seat: seatId })}><Icon name="bot" size={16} />Add a bot</button>}
+      {canAddBot && snap.room.aiPlayers && <button className="btn small" onClick={() => send({ t: 'addBot', seat: seatId, ai: true })}><Icon name="spark" size={16} />Add an AI player</button>}
       {extra}
       {receivedAt !== undefined && <MoveTimer snap={snap} seatId={seatId} receivedAt={receivedAt} />}
     </div>

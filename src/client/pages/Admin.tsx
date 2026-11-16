@@ -1,10 +1,10 @@
 // Platform settings (#/admin): the admin's page for the whole Playhall.
 // Everyone's own settings (devices, theme) are on #/settings.
-import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type Session } from '../api';
 import { AppBar } from '../AppBar';
 import {
-  MOVE_SECONDS_CHOICES, WATCHER_DELAY_CHOICES,
+  AI_SECONDS_CHOICES, MOVE_SECONDS_CHOICES, WATCHER_DELAY_CHOICES,
   type AdminCert, type AdminOverview, type AdminRoom, type AdminUser, type PlatformPatch, type PlatformSettings,
 } from '../../shared/platform';
 import './admin.css';
@@ -134,7 +134,57 @@ function SettingsCards({ session, overview, onSettings }: { session: Session; ov
           <label className="check admin-coming"><input type="radio" name="wordlist" disabled /> Family: no rude words (coming)</label>
         </fieldset>
       </section>
+
+      <AiCard session={session} ai={s.aiPlayers} busy={busy} save={(patch) => save('ai', { aiPlayers: patch })} saved={saved('ai')} />
     </>
+  );
+}
+
+// ---- AI players (#32) ----------------------------------------------------
+
+function AiCard({ session, ai, busy, save, saved }: {
+  session: Session; ai: PlatformSettings['aiPlayers']; busy: boolean; save(patch: Partial<PlatformSettings['aiPlayers']>): Promise<void>; saved: ReactNode;
+}) {
+  const [url, setUrl] = useState(ai.url);
+  const [model, setModel] = useState(ai.model);
+  const [check, setCheck] = useState<{ ok: boolean; message: string } | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => { setUrl(ai.url); setModel(ai.model); }, [ai.url, ai.model]);
+  const dirty = url.trim() !== ai.url || model.trim() !== ai.model;
+  const test = async () => {
+    setChecking(true); setCheck(null);
+    try { setCheck(await api<{ ok: boolean; message: string }>('/admin/ai/check', { method: 'POST', token: session.token, body: {} })); }
+    catch (e) { setCheck({ ok: false, message: (e as Error).message }); }
+    finally { setChecking(false); }
+  };
+  return (
+    <section className="settings-card" aria-labelledby="adm-ai">
+      <h2 id="adm-ai">AI players</h2>
+      <p className="muted">A language model on a server you run plays a seat, talks at the table and bluffs (Ship2Shore so far). Playhall only ever asks the server named here; nothing is sent anywhere else. If the model is slow or answers something it can’t play, the computer player’s own rules make the move.</p>
+      <label className="check admin-check">
+        <input type="checkbox" checked={ai.enabled} disabled={busy} onChange={(e) => save({ enabled: e.target.checked })} />
+        <span><span>Hosts can add AI players</span><span className="hint">Off: only the ordinary computer players are offered.</span></span>
+      </label>
+      <form className="admin-grid" onSubmit={(e) => { e.preventDefault(); save({ url: url.trim(), model: model.trim() }); }}>
+        <label className="field"><span>Model server (Ollama)</span>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://host.containers.internal:11434" spellCheck={false} />
+        </label>
+        <label className="field"><span>Model</span>
+          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="llama3.1:8b" spellCheck={false} />
+        </label>
+        <label className="field"><span>Time for a move</span>
+          <select value={ai.seconds} disabled={busy} onChange={(e) => save({ seconds: Number(e.target.value) })}>
+            {AI_SECONDS_CHOICES.map((v) => <option key={v} value={v}>{v} seconds</option>)}
+          </select>
+        </label>
+        <div className="row">
+          <button className="btn small primary" disabled={busy || !dirty}>Save the server and model</button>
+          <button type="button" className="btn small" disabled={checking || dirty || !ai.url} onClick={test}>{checking ? 'Checking\u2026' : 'Check the server'}</button>
+        </div>
+      </form>
+      {check && <p className={check.ok ? 'admin-ok' : 'form-error'} role="status">{check.message}</p>}
+      {saved}
+    </section>
   );
 }
 

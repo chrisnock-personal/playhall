@@ -17,6 +17,17 @@ export interface RoomDefaults {
   ranked: boolean;
 }
 
+/** AI players (#32): a language model on a server the admin runs. */
+export interface AiPlayersSettings {
+  enabled: boolean;
+  /** The model server: an Ollama address, e.g. http://host.containers.internal:11434. */
+  url: string;
+  model: string;
+  /** How long a move may take before the rule bot plays it instead. */
+  seconds: number;
+}
+export const AI_SECONDS_CHOICES = [5, 10, 15, 30, 60] as const;
+
 export interface PlatformSettings {
   /** People can create accounts (the first value comes from ALLOW_SIGNUP). */
   signupsAllowed: boolean;
@@ -28,6 +39,7 @@ export interface PlatformSettings {
   transcriptsAllowed: boolean;
   roomDefaults: RoomDefaults;
   letterworksWordList: WordList;
+  aiPlayers: AiPlayersSettings;
 }
 
 /** Today's behaviour: what applies until an admin changes something. */
@@ -39,12 +51,13 @@ export function defaultPlatformSettings(env: { signupsAllowed?: boolean } = {}):
     transcriptsAllowed: true,
     roomDefaults: { moveSeconds: 0, watcherDelay: 0, ranked: true },
     letterworksWordList: 'full',
+    aiPlayers: { enabled: false, url: '', model: 'llama3.1:8b', seconds: 15 },
   };
 }
 
 const BOOLEANS = ['signupsAllowed', 'guestsAllowed', 'voiceVideoAllowed', 'transcriptsAllowed'] as const;
 
-export type PlatformPatch = Partial<Omit<PlatformSettings, 'roomDefaults'>> & { roomDefaults?: Partial<RoomDefaults> };
+export type PlatformPatch = Partial<Omit<PlatformSettings, 'roomDefaults' | 'aiPlayers'>> & { roomDefaults?: Partial<RoomDefaults>; aiPlayers?: Partial<AiPlayersSettings> };
 
 /** Check a change from the admin page. Unknown keys are refused, so a typo
  *  doesn't silently do nothing. Returns the clean patch or a reason in words. */
@@ -74,6 +87,25 @@ export function checkPlatformPatch(v: unknown): { patch: PlatformPatch } | { err
         } else return { error: `Unknown room default: ${k}` };
       }
       patch.roomDefaults = rd;
+    } else if (key === 'aiPlayers') {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return { error: 'aiPlayers must be an object' };
+      const ai: Partial<AiPlayersSettings> = {};
+      for (const [k, x] of Object.entries(value)) {
+        if (k === 'enabled') {
+          if (typeof x !== 'boolean') return { error: 'AI players must be on or off' };
+          ai.enabled = x;
+        } else if (k === 'url') {
+          if (typeof x !== 'string' || x.length > 200 || (x !== '' && !/^https?:\/\/[^\s/]+(\/[^\s]*)?$/.test(x.trim()))) return { error: 'The model server must be an http:// or https:// address' };
+          ai.url = x.trim().replace(/\/+$/, '');
+        } else if (k === 'model') {
+          if (typeof x !== 'string' || !/^[\w.:/-]{1,100}$/.test(x.trim())) return { error: 'Give the model\u2019s name, like llama3.1:8b' };
+          ai.model = x.trim();
+        } else if (k === 'seconds') {
+          if (!(AI_SECONDS_CHOICES as readonly unknown[]).includes(x)) return { error: 'Pick a time limit from the list' };
+          ai.seconds = x as number;
+        } else return { error: `Unknown AI setting: ${k}` };
+      }
+      patch.aiPlayers = ai;
     } else return { error: `Unknown setting: ${key}` };
   }
   return { patch };
@@ -82,15 +114,15 @@ export function checkPlatformPatch(v: unknown): { patch: PlatformPatch } | { err
 /** Settings from stored rows (key -> value) over the defaults. Bad or unknown
  *  stored values are skipped, so an old row can't break startup. */
 export function mergePlatformSettings(base: PlatformSettings, stored: Record<string, unknown>): PlatformSettings {
-  const out: PlatformSettings = { ...base, roomDefaults: { ...base.roomDefaults } };
+  const out: PlatformSettings = { ...base, roomDefaults: { ...base.roomDefaults }, aiPlayers: { ...base.aiPlayers } };
   for (const [key, value] of Object.entries(stored)) {
     const one = checkPlatformPatch({ [key]: value });
     if ('error' in one) {
-      // A roomDefaults row with one bad field: keep the good ones.
-      if (key === 'roomDefaults' && value && typeof value === 'object') {
+      // A roomDefaults or aiPlayers row with one bad field: keep the good ones.
+      if ((key === 'roomDefaults' || key === 'aiPlayers') && value && typeof value === 'object') {
         for (const [k, x] of Object.entries(value)) {
-          const f = checkPlatformPatch({ roomDefaults: { [k]: x } });
-          if ('patch' in f) Object.assign(out.roomDefaults, f.patch.roomDefaults);
+          const f = checkPlatformPatch({ [key]: { [k]: x } });
+          if ('patch' in f) Object.assign(key === 'roomDefaults' ? out.roomDefaults : out.aiPlayers, f.patch[key]);
         }
       }
       continue;
@@ -102,9 +134,10 @@ export function mergePlatformSettings(base: PlatformSettings, stored: Record<str
 
 /** Apply a checked patch (in place) and return the settings. */
 export function applyPatch(s: PlatformSettings, patch: PlatformPatch): PlatformSettings {
-  const { roomDefaults, ...rest } = patch;
+  const { roomDefaults, aiPlayers, ...rest } = patch;
   Object.assign(s, rest);
   if (roomDefaults) s.roomDefaults = { ...s.roomDefaults, ...roomDefaults };
+  if (aiPlayers) s.aiPlayers = { ...s.aiPlayers, ...aiPlayers };
   return s;
 }
 
