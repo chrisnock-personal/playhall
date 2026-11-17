@@ -14,6 +14,9 @@ import { transcriptsAllowed } from '../transcripts';
 import { aiAvailable, askModel } from '../ai';
 
 const IDLE_UNLOAD_MS = 10 * 60_000;
+/** A room nobody has been in for this long closes (its games stay). */
+export const EMPTY_CLOSE_MS = 60 * 60_000;
+const SWEEP_EVERY_MS = 5 * 60_000;
 const SAVE_DELAY_MS = 150;
 /** How often a running game notes that the server is up, so a restart
  *  charges nobody's clock for the downtime (at most this much is lost). */
@@ -48,18 +51,40 @@ export class RoomManager {
   private saveTimers = new Map<string, NodeJS.Timeout>();
   private idleTimers = new Map<string, NodeJS.Timeout>();
   private aliveTimer: NodeJS.Timeout;
+  private sweepTimer: NodeJS.Timeout;
 
   constructor(private db: Db, private onChanged: (room: Room) => void, private onKick: (room: Room, userId: string, reason: string) => void = () => {}) {
     this.aliveTimer = setInterval(() => {
       for (const room of this.rooms.values()) if (room.markAlive()) this.scheduleSave(room.rec);
     }, ALIVE_EVERY_MS);
     this.aliveTimer.unref();
+    this.sweepTimer = setInterval(() => { void this.closeEmpty().catch((err) => console.error('[rooms] closing empty rooms failed:', err.message)); }, SWEEP_EVERY_MS);
+    this.sweepTimer.unref();
+  }
+
+  /** Close rooms nobody has been in for EMPTY_CLOSE_MS (counted from when
+   *  the last person left: the room is saved then). Returns their codes. */
+  async closeEmpty(): Promise<string[]> {
+    const busy = [...this.rooms.values()].filter((r) => r.presentCount > 0).map((r) => r.rec.id);
+    const { rows } = await this.db.query<{ code: string }>(
+      `UPDATE rooms SET closed_at = now()
+        WHERE closed_at IS NULL AND updated_at < now() - ($1 || ' milliseconds')::interval AND NOT (id = ANY($2::uuid[]))
+        RETURNING code`, [String(EMPTY_CLOSE_MS), busy]);
+    for (const { code } of rows) {
+      const room = this.rooms.get(code);
+      if (room) { room.dispose(); this.rooms.delete(code); }
+      const t = this.idleTimers.get(code);
+      if (t) { clearTimeout(t); this.idleTimers.delete(code); }
+    }
+    if (rows.length) console.log(`[rooms] closed ${rows.length} room${rows.length === 1 ? '' : 's'} nobody had been in for an hour`);
+    return rows.map((r) => r.code);
   }
 
   /** Shutting down: note every running game as alive now and save it, so the
    *  clocks pick up from here when the server is back. */
   async flush(): Promise<void> {
     clearInterval(this.aliveTimer);
+    clearInterval(this.sweepTimer);
     await Promise.all([...this.rooms.values()].map((room) => {
       room.markAlive();
       return this.saveNow(room.rec);
@@ -160,6 +185,8 @@ export class RoomManager {
       return;
     }
     if (t) return;
+    // The last person just left: save now, so "empty for an hour" counts from here.
+    void this.saveNow(room.rec);
     this.idleTimers.set(room.rec.code, setTimeout(() => {
       this.idleTimers.delete(room.rec.code);
       if (room.presentCount > 0) return this.checkIdle(room);

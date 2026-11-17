@@ -715,3 +715,12 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .voice-dock .icon-btn.cam.on-air { color: #E0453A; }
 .change-password { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
 .change-password p { margin: 0; }
+
+/* Whose turn: a banner over the stage when the turn changes, and a pill in the top bar while it's yours. */
+.turn-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 30; pointer-events: none; padding: 10px 22px; border-radius: 999px; background: rgba(20, 22, 28, .88); color: #fff; font: 700 18px var(--head); box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: turn-in 1.6s ease forwards; white-space: nowrap; }
+.turn-banner.mine { background: var(--accent); color: var(--on-accent); font-size: 22px; padding: 12px 28px; animation-duration: 2.6s; box-shadow: 0 0 0 4px rgba(240,165,60,.35), 0 10px 30px rgba(0,0,0,.4); }
+@keyframes turn-in { 0% { opacity: 0; transform: translate(-50%, -14px) scale(.96); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .turn-banner { animation: none; } }
+.pill.your-turn { background: var(--accent); color: var(--on-accent); font-weight: 700; animation: turn-pulse 2s ease-in-out infinite; }
+@keyframes turn-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,165,60,.5); } 50% { box-shadow: 0 0 0 5px rgba(240,165,60,0); } }
+@media (prefers-reduced-motion: reduce) { .pill.your-turn { animation: none; } }

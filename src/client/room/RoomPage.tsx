@@ -14,6 +14,7 @@ import { TranscriptNotice } from './TranscriptNotice';
 import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ResultCard } from './ResultCard';
+import { TurnBanner, useMyTurn } from './TurnBanner';
 import { Icon } from '../ui';
 import { SoundButton, useTableSounds } from '../kit/SoundControls';
 
@@ -127,6 +128,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
     ? `${snap.seats.find((s) => s.id === snap.you.seat)?.label}${snap.you.host ? ' + host' : ''}`
     : snap.you.host ? 'Host, watching' : 'Watching';
   const status = { idle: 'Waiting', playing: 'In play', over: 'Between games' }[snap.game.status];
+  const myTurn = useMyTurn(snap);
 
   return (
     <div className={`room top-${layout.top}`}>
@@ -138,6 +140,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
             <p>{snap.room.gameName} · {snap.room.configLabel} · code {snap.room.code}</p>
           </div>
           <span className={`pill ${snap.game.status}`}>{status}</span>
+          {myTurn && <span className="pill your-turn">Your turn</span>}
           <span className={`pill ${snap.you.seat ? 'role-player' : 'role-watch'}`}>You: {role}</span>
           {snap.you.delay > 0 && <span className="pill delayed" title="The host has set a delay for watchers">{snap.you.delay < 60 ? `${snap.you.delay} s` : `${snap.you.delay / 60} min`} behind live</span>}
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
@@ -159,6 +162,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
         <div className="room-top-compact">
           <strong>{snap.room.name}</strong>
           <span className="muted">{snap.room.gameName} · {status} · {role}{snap.you.delay > 0 ? ` · ${snap.you.delay} s behind` : ''}</span>
+          {myTurn && <span className="pill your-turn">Your turn</span>}
           {conn.state !== 'open' && <span className="pill warn">Reconnecting…</span>}
           <VoiceDock voice={voice} snap={snap} compact />
           <SoundButton watching={!snap.you.seat} />
@@ -173,6 +177,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
         <div className="stage-col">
           <div className="stage">
             {game ? <game.Stage {...stageProps} /> : <p className="empty">This game isn’t available in this version.</p>}
+            <TurnBanner snap={snap} />
             <ResultCard snap={snap} send={conn.send} />
           </div>
           <GalleryStrip

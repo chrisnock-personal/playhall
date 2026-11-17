@@ -96,6 +96,10 @@ export interface RoomHooks {
 
 /** How long a player who drops out mid-game has to come back. */
 export const GRACE_MS = 60_000;
+/** Between games, a seated player away this long gives up their seat. */
+export const SEAT_AWAY_MS = 5 * 60_000;
+/** A host away this long hands the room to someone still in it. */
+export const HOST_AWAY_MS = 5 * 60_000;
 
 export interface FinishedGame {
   rec: RoomRecord;
@@ -134,6 +138,9 @@ export class Room {
   private history: { at: number; state: unknown }[] = [];
   /** Seats whose player dropped out mid-game: when they forfeit, and the timer. */
   private leaving = new Map<SeatId, { deadline: number; cancel: () => void }>();
+  /** Seated people who are away between games, and their timers (by userId). */
+  private seatAway = new Map<string, () => void>();
+  private hostAway: (() => void) | null = null;
   private endedAt: number | null = null;
   /** After a game: the seated players who asked for a rematch (userIds). */
   private rematch = new Set<string>();
@@ -148,6 +155,10 @@ export class Room {
     this.resume();
     this.armTimer();
     this.scheduleBots();
+    // Loaded with nobody in it yet: whoever doesn't come back gives up their
+    // seat, and the host their room, after a while.
+    for (const h of Object.values(rec.seats)) if (h && !h.bot) this.startSeatAway(h.userId);
+    this.startHostAway();
   }
 
   /** A game loaded mid-play: the time since it was last alive was spent with
@@ -177,6 +188,9 @@ export class Room {
   join(user: RoomUser): void {
     const p = this.present.get(user.id);
     if (p) { p.conns++; p.user = user; } else this.present.set(user.id, { user, conns: 1 });
+    this.seatAway.get(user.id)?.();
+    this.seatAway.delete(user.id);
+    if (user.id === this.rec.hostId) { this.hostAway?.(); this.hostAway = null; }
     const seat = this.seatOf(user.id);
     const away = seat ? this.leaving.get(seat) : undefined;
     if (seat && away) { away.cancel(); this.leaving.delete(seat); this.system(`${user.name} is back`); }
@@ -204,7 +218,44 @@ export class Room {
       this.leaving.set(seat, { deadline, cancel });
       this.system(`${p.user.name} dropped out: back within a minute or the game goes on without them`);
     }
+    if (seat) this.startSeatAway(userId);
+    if (userId === this.rec.hostId) this.startHostAway();
     this.hooks.changed();
+  }
+
+  /** Between games, a seated person who stays away gives up their seat (not
+   *  during a game they're in: there the minute's grace applies). */
+  private startSeatAway(userId: string): void {
+    if (this.present.has(userId) || this.seatAway.has(userId)) return;
+    const cancel = this.hooks.setTimer(SEAT_AWAY_MS, () => {
+      this.seatAway.delete(userId);
+      const seat = this.seatOf(userId);
+      if (!seat || this.present.has(userId)) return;
+      if (this.status === 'playing' && this.rec.game.players?.[seat]?.userId === userId) { this.startSeatAway(userId); return; }
+      const name = this.rec.seats[seat]!.name;
+      this.rec.seats[seat] = null;
+      this.system(`${name} was away for ${SEAT_AWAY_MS / 60_000} minutes, so ${this.seatLabel(seat)} is free`);
+      this.touch();
+    });
+    this.seatAway.set(userId, cancel);
+  }
+
+  /** A host who stays away hands the room on: to someone seated if there is
+   *  one, else anyone in the room with an account. */
+  private startHostAway(): void {
+    if (this.present.has(this.rec.hostId) || this.hostAway) return;
+    this.hostAway = this.hooks.setTimer(HOST_AWAY_MS, () => {
+      this.hostAway = null;
+      if (this.present.has(this.rec.hostId)) return;
+      const here = [...this.present.values()].map((p) => p.user).filter((u) => !u.guest && !isBotId(u.id));
+      const next = here.find((u) => this.seatOf(u.id)) ?? here[0];
+      if (!next) { this.startHostAway(); return; }
+      const was = this.rec.hostName;
+      this.rec.hostId = next.id;
+      this.rec.hostName = next.name;
+      this.system(`${was} was away for ${HOST_AWAY_MS / 60_000} minutes: ${next.name} is the host now`);
+      this.touch();
+    });
   }
 
   /** A player who dropped out didn't come back in time. */
@@ -241,6 +292,10 @@ export class Room {
     this.cancelTimer = null;
     this.cancelBot?.();
     this.cancelBot = null;
+    for (const c of this.seatAway.values()) c();
+    this.seatAway.clear();
+    this.hostAway?.();
+    this.hostAway = null;
   }
 
   /** Who can come in without the room password: the host and anyone seated. */
@@ -667,6 +722,16 @@ export class Room {
     this.resetMoveDeadline();
     const who = seated.map((s) => `${s.label} ${players[s.id].name}`).join(', ');
     this.system(`Game started: ${who} · ${this.game.describeConfig(config)}`);
+    // Anyone seated but not here gets the same minute as someone who drops out.
+    if (!this.game.keepsDroppedPlayers) {
+      for (const s of seated) {
+        const h = players[s.id];
+        if (h.bot || this.present.has(h.userId) || this.leaving.has(s.id)) continue;
+        const cancel = this.hooks.setTimer(GRACE_MS, () => { this.leaving.delete(s.id); this.forfeit(s.id); });
+        this.leaving.set(s.id, { deadline: now + GRACE_MS, cancel });
+        this.system(`${h.name} isn\u2019t here: back within a minute or the game goes on without them`);
+      }
+    }
     this.armTimer();
     this.scheduleBots();
     this.touch();
@@ -1002,7 +1067,7 @@ export class Room {
       status: g.status,
       view: g.state ? this.game.view(g.state, now, this.seatOf(userId)) : null,
       result: g.result ?? (g.state ? this.game.result(g.state) : null),
-      turnSeats: g.status === 'playing' && g.state ? this.game.turn?.(g.state) ?? [] : [],
+      turnSeats: g.status === 'playing' && g.state ? this.waitingFor() : [],
       moveDeadline: g.status === 'playing' ? g.moveDeadline ?? null : null,
       leaving: Object.fromEntries([...this.leaving].map(([seat, l]) => [seat, l.deadline])),
     };
@@ -1015,7 +1080,7 @@ export class Room {
       status: 'playing',
       view: this.game.view(entry.state, Math.max(entry.at, seenAt), null),
       result: null,
-      turnSeats: this.game.turn?.(entry.state) ?? [],
+      turnSeats: (this.game.waitingFor ?? this.game.turn)?.call(this.game, entry.state) ?? [],
       moveDeadline: null,
       leaving: {},
     };
