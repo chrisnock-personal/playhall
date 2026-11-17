@@ -139,7 +139,7 @@ export const whoDat: GameModule<WhoState, Record<string, never>> = {
       { title: 'A turn', points: [
         'You each have a secret face, shown to you alone. Amber starts.',
         'On your turn, ask one yes/no question about the other player’s face, picked from the list (a hat? glasses? red hair?). The answer comes from their face, so it’s always right.',
-        'The faces the answer rules out flip down on your board by themselves. You can flip any face up or down by hand too.',
+        'The faces the answer rules out flip down on your board by themselves. The answers never flip down the right face. To flip faces yourself, press Flip faces by hand.',
         'Each question can be asked once. Then it’s the other player’s turn.',
       ] },
       { title: 'Naming the face', points: [

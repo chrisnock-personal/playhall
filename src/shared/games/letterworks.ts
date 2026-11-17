@@ -185,7 +185,12 @@ function play(s: LetterworksState, seat: SeatId, tiles: Placement[], isWord?: (w
   const scored = scorePlacement(s.board, tiles);
   if (typeof scored === 'string') return scored;
   const bad = isWord ? scored.words.filter((w) => !isWord(w.word)).map((w) => w.word) : [];
-  if (bad.length) return `${bad.join(', ')} ${bad.length > 1 ? 'aren’t words' : 'isn’t a word'} in the word list`;
+  if (bad.length) {
+    // A word laid to read upwards or right to left: say how words read.
+    const backwards = bad.map((w) => [...w].reverse().join('')).find((w) => isWord!(w));
+    if (backwards) return `Words read across from left to right, or down from top to bottom: your tiles spell ${bad[0]} that way. Lay ${backwards} the other way round.`;
+    return `${bad.join(', ')} ${bad.length > 1 ? 'aren’t words' : 'isn’t a word'} in the word list`;
+  }
   const move = s.moves.length;
   const board = [...s.board];
   for (const t of tiles) board[t.cell] = { letter: t.letter, blank: !!t.blank, move };
@@ -213,6 +218,7 @@ export const letterworks: GameModule<LetterworksState, Record<string, never>> = 
     sections: [
       { title: 'Your turn', points: [
         'Place tiles in one straight line, across or down, so they make a word joined to the tiles already on the board. The first word covers the centre star.',
+        'Words read left to right across, and top to bottom down, never upwards or backwards.',
         'Every word your tiles make, both ways, has to be in the word list. Playhall checks before anything is placed: a word that isn’t allowed costs you nothing, just try again.',
         'Or swap any of your tiles for new ones from the bag (while it holds at least seven), or pass.',
         'After you play, you draw back up to seven tiles.',

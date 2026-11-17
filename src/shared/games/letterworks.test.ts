@@ -134,3 +134,12 @@ test('replays rebuild the board and scores move by move', () => {
   assert.equal(frames[2].turn, 'amber');
   assert.ok(frames.every((f) => f.rack === null), 'no racks in a replay');
 });
+
+test('a word laid to read upwards is refused with how words read', () => {
+  const s = game(['C', 'A', 'T', 'X', 'Y', 'Z', 'Q']);
+  // TAC going down (CAT read upwards), through the centre.
+  const e = err(letterworks.act(s, 'amber', { type: 'play', tiles: down(6, 7, 'TAC') }, 0, ctx()));
+  assert.match(e ?? '', /top to bottom/);
+  assert.match(e ?? '', /Lay CAT the other way round/);
+  assert.ok(ok(letterworks.act(s, 'amber', { type: 'play', tiles: down(6, 7, 'CAT') }, 0, ctx())), 'CAT down is fine');
+});

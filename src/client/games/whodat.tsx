@@ -13,6 +13,9 @@ function WhoStage({ snap, send, receivedAt }: StageProps) {
   const me = v?.you ?? null;
   const myTurn = playing && !!v && v.turn === me;
   const [guessing, setGuessing] = useState(false);
+  // Flipping by hand is something you turn on, so a stray tap (scrolling on a
+  // phone) can't flip faces down (playtest feedback). Answers flip for you.
+  const [flipping, setFlipping] = useState(false);
   useEffect(() => { if (!myTurn) setGuessing(false); }, [myTurn]);
   const name = (seat: string) => (seat === me ? 'You' : snap.seats.find((s) => s.id === seat)?.name ?? seat);
   const open = me && v ? openQuestions(v.asked, me) : [];
@@ -31,15 +34,15 @@ function WhoStage({ snap, send, receivedAt }: StageProps) {
             return (
               <div key={seat} className="wd-board-wrap">
                 {boards.length > 1 && <div className="wd-board-head"><Disc colour={seat} size={14} /> {seat === me ? 'Your board' : `${name(seat)}’s board`}</div>}
-                <div className={`wd-board${guessing && mine ? ' guessing' : ''}`} role="group" aria-label={`${name(seat)}’s faces`}>
+                <div className={`wd-board${guessing && mine ? ' guessing' : ''}${flipping && mine ? ' flipping' : ''}`} role="group" aria-label={`${name(seat)}’s faces`}>
                   {CAST.map((f, i) => (
                     <FaceCard key={f.name} face={f} down={!up[i]}
                       highlight={!!v?.result && (v.secret.amber === i || v.secret.teal === i)}
-                      onClick={mine && playing ? () => {
+                      onClick={mine && playing && (guessing || flipping) ? () => {
                         if (guessing) { act(send, { type: 'guess', face: i }); setGuessing(false); }
                         else act(send, { type: 'flip', face: i, up: !up[i] });
                       } : undefined}
-                      label={guessing && mine ? `Name ${f.name}` : undefined} />
+                      label={guessing && mine ? `Name ${f.name}` : flipping && mine ? `${up[i] ? 'Flip down' : 'Turn back up'} ${f.name}` : undefined} />
                   ))}
                 </div>
               </div>
@@ -67,9 +70,12 @@ function WhoStage({ snap, send, receivedAt }: StageProps) {
                 })}
               </div>
               <div className="wd-row">
-                <button className={`btn small${guessing ? ' primary' : ''}`} disabled={!myTurn} aria-pressed={guessing} onClick={() => setGuessing(!guessing)}>{guessing ? 'Cancel: back to asking' : 'Name the face…'}</button>
+                <button className={`btn small${guessing ? ' primary' : ''}`} disabled={!myTurn} aria-pressed={guessing} onClick={() => { setGuessing(!guessing); setFlipping(false); }}>{guessing ? 'Cancel: back to asking' : 'Name the face…'}</button>
+                <button className={`btn small${flipping ? ' primary' : ''}`} aria-pressed={flipping} onClick={() => { setFlipping(!flipping); setGuessing(false); }}>{flipping ? 'Done flipping' : 'Flip faces by hand'}</button>
                 {guessing && <span className="muted small">Click the face you think it is. Wrong, and you lose.</span>}
+                {flipping && <span className="muted small">Click a face to flip it down, or back up.</span>}
               </div>
+              {v.left[me] === 0 && <p className="wd-note">Every face on your board is flipped down, so one was flipped by hand by mistake: the answers never flip the right face. Use Flip faces by hand to turn faces back up.</p>}
             </div>
           )}
           <div className="wd-box wd-players">

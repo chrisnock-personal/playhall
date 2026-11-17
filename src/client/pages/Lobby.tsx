@@ -24,10 +24,15 @@ export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): v
       .catch((e) => { if (e.status === 401) onSignOut(); else setError(e.message); });
   }, [session.token, onSignOut]);
 
+  // New rooms show up within a few seconds, and at once when you come back
+  // to the tab (playtest feedback: people refreshed to see a room just made).
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 10_000);
-    return () => clearInterval(t);
+    const t = setInterval(refresh, 3_000);
+    const back = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); };
   }, [refresh]);
 
   const shown = (rooms ?? []).filter((r) => filter === 'all' || (r.status !== 'playing' && r.seats.some((s) => !s.userId)));
