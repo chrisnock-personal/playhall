@@ -717,9 +717,9 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .change-password p { margin: 0; }
 
 /* Whose turn: a banner over the stage when the turn changes, and a pill in the top bar while it's yours. */
-.turn-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 30; pointer-events: none; padding: 10px 22px; border-radius: 999px; background: rgba(20, 22, 28, .88); color: #fff; font: 700 18px var(--head); box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: turn-in 1.6s ease forwards; white-space: nowrap; }
-.turn-banner.mine { background: var(--accent); color: var(--on-accent); font-size: 22px; padding: 12px 28px; animation-duration: 2.6s; box-shadow: 0 0 0 4px rgba(240,165,60,.35), 0 10px 30px rgba(0,0,0,.4); }
-@keyframes turn-in { 0% { opacity: 0; transform: translate(-50%, -14px) scale(.96); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.turn-banner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 30; pointer-events: none; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; padding: 16px 36px; border-radius: 999px; background: rgba(20, 22, 28, .9); color: #fff; font: 700 clamp(20px, 5cqw, 30px) var(--head); box-shadow: 0 12px 32px rgba(0,0,0,.4); animation: turn-in 1.6s ease forwards; white-space: nowrap; }
+.turn-banner.mine { background: var(--accent); color: var(--on-accent); font-size: clamp(30px, 9cqw, 54px); padding: 24px 60px; animation-duration: 2.6s; box-shadow: 0 0 0 6px rgba(240,165,60,.35), 0 0 0 100vmax rgba(0,0,0,.18), 0 16px 40px rgba(0,0,0,.45); }
+@keyframes turn-in { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.8); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); } 20% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .turn-banner { animation: none; } }
 .pill.your-turn { background: var(--accent); color: var(--on-accent); font-weight: 700; animation: turn-pulse 2s ease-in-out infinite; }
 @keyframes turn-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,165,60,.5); } 50% { box-shadow: 0 0 0 5px rgba(240,165,60,0); } }
