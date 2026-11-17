@@ -214,6 +214,9 @@ export const chess: GameModule<ChessState, ChessConfig> = {
     }, 0, null));
   },
 
+  // No turn(): the clocks time the game. Whose move it is, for the room:
+  waitingFor: (s) => (s.result ? [] : [s.moves.length % 2 === 0 ? 'white' : 'black']),
+
   view(state, now): ChessView {
     const c = replay(state.moves);
     const turn = sideToMove(c);
