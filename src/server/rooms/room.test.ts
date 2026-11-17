@@ -174,14 +174,14 @@ test('what counts: account holders in a ranked room; not guests, casual rooms or
 test('the move timer: a player who runs out of time loses a two-player game', () => {
   const t = setup({ moveSeconds: 30 });
   t.rec.gameId = 'fourinarow';
-  const room = new Room(t.rec, {
-    now: () => clock, random: Math.random, setTimer: (ms, fn) => { timers.push({ at: clock + ms, fn }); return () => {}; },
-    save: () => {}, chat: () => {}, gameOver: (g) => { results.push(g.result); }, changed: () => {}, kick: () => {},
-  });
   let clock = 0;
   const timers: { at: number; fn: () => void }[] = [];
   const results: unknown[] = [];
   const advance = (ms: number) => { clock += ms; for (const tm of timers.splice(0)) { if (tm.at <= clock) tm.fn(); else timers.push(tm); } };
+  const room = new Room(t.rec, {
+    now: () => clock, random: Math.random, setTimer: (ms, fn) => { timers.push({ at: clock + ms, fn }); return () => {}; },
+    save: () => {}, chat: () => {}, gameOver: (g) => { results.push(g.result); }, changed: () => {}, kick: () => {},
+  });
   for (const u of [host, alex]) room.join(u);
   room.handle(host, { t: 'sit', seat: 'amber' });
   room.handle(alex, { t: 'sit', seat: 'teal' });
@@ -476,4 +476,46 @@ test('watchers on a delay see no table video either', () => {
   room.handle(alex, { t: 'act', action: { type: 'resign' } });
   advance(1000);
   assert.deepEqual(room.mediaRights(priya.id)?.table, { listen: true, talk: true, video: false }, 'it comes back between games (still no watcher camera at the table)');
+});
+
+test('a seated player away 5 minutes between games gives up their seat; back sooner, they keep it', () => {
+  const { room, rec, advance } = setup();
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.leave(alex.id);
+  advance(4 * 60_000);
+  room.join(alex);
+  advance(2 * 60_000);
+  assert.equal(rec.seats.black?.userId, alex.id, 'back within 5 minutes: still seated');
+  room.leave(alex.id);
+  advance(5 * 60_000 + 1);
+  assert.equal(rec.seats.black, null, 'away 5 minutes: the seat is free');
+  assert.equal(rec.seats.white?.userId, host.id);
+});
+
+test('a host away 5 minutes hands the room to someone seated (an account, never a guest)', () => {
+  const { room, rec, advance } = setup();
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.leave(host.id);
+  advance(5 * 60_000 + 1);
+  assert.equal(rec.hostId, alex.id);
+  assert.equal(room.snapshotFor(alex.id).you.host, true);
+  // With only a guest left, nobody takes over until someone with an account comes.
+  const s2 = setup();
+  for (const u of [alex, priya]) s2.room.leave(u.id);
+  s2.room.leave(host.id);
+  s2.advance(5 * 60_000 + 1);
+  assert.equal(s2.rec.hostId, host.id, 'only a guest here: the host stays');
+});
+
+test('a seated player missing when the game starts gets a minute, then the game goes on without them', () => {
+  const { room, rec, over, advance } = setup();
+  room.handle(host, { t: 'sit', seat: 'white' });
+  room.handle(alex, { t: 'sit', seat: 'black' });
+  room.leave(alex.id);
+  room.handle(host, { t: 'start' });
+  assert.equal(rec.game.status, 'playing');
+  advance(61_000);
+  assert.equal(rec.game.status, 'over', 'two players: the one still here wins');
+  assert.equal((over.at(-1) as { winner: string }).winner, 'white');
 });
