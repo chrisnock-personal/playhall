@@ -167,6 +167,11 @@ or less deadwood, laying off done for you, gin and undercut 25, first to
 two lines, full house, shared on the same call). No replays (the calls come
 from the clock) and no turns (`noTurns`). 75-ball and a host pause are still
 to do.
+**Chinese checkers** (#41, 2, 3, 4 or 6 on the 121-hole star: steps and hop
+chains over anyone's marbles; the first to fill the opposite point wins, with
+never-moved blockers counting as filled once all your marbles are out of your
+own point; the rest placed by marbles home; a 200-moves-each safety limit).
+No team play yet. It has a bot.
 
 ## The camera table (phase 2.4)
 
