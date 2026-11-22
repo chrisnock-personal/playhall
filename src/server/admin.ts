@@ -11,6 +11,7 @@ import type { RoomSockets } from './ws';
 import type { CertInfo } from './tls';
 import { getPlatformSettings, updatePlatformSettings } from './platform';
 import { checkModelServer } from './ai';
+import { adminReportRoutes } from './reports';
 import { checkPlatformPatch, type AdminOverview, type AdminUser } from '../shared/platform';
 
 /** The certificate being served and a way to replace it (null when TLS is off). */
@@ -45,6 +46,7 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
   const { auth, db, rooms, sockets, media, tls } = opts;
   const r = Router();
   r.use(auth.requireAdmin);
+  r.use(adminReportRoutes(db));
 
   r.get('/', (_req, res) => {
     let cert: CertInfo | null = null;

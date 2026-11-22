@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, typ
 import { api, ApiError, type Session } from '../api';
 import { AppBar } from '../AppBar';
 import {
-  AI_SECONDS_CHOICES, MOVE_SECONDS_CHOICES, WATCHER_DELAY_CHOICES,
-  type AdminCert, type AdminOverview, type AdminRoom, type AdminUser, type PlatformPatch, type PlatformSettings,
+  AI_SECONDS_CHOICES, MOVE_SECONDS_CHOICES, REPORT_REASONS, WATCHER_DELAY_CHOICES,
+  type AdminCert, type AdminReport, type AdminOverview, type AdminRoom, type AdminUser, type PlatformPatch, type PlatformSettings,
 } from '../../shared/platform';
 import './admin.css';
 
@@ -43,6 +43,7 @@ export function Admin({ session, onSignOut }: { session: Session; onSignOut(): v
             <p className="muted">These apply to everyone on this Playhall. Your own microphone, camera and theme are on the <a href="#/settings">Settings</a> page.</p>
             <SettingsCards session={session} overview={overview} onSettings={(settings) => setOverview({ ...overview, settings })} />
             <CertCard session={session} cert={overview.tls} onCert={(tls) => setOverview({ ...overview, tls })} />
+            <ReportsCard session={session} />
             <UsersCard session={session} envAdmins={overview.envAdmins} />
             <RoomsCard session={session} />
           </>
@@ -378,6 +379,64 @@ function RoomsCard({ session }: { session: Session }) {
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+function ReportsCard({ session }: { session: Session }) {
+  const [data, setData] = useState<{ reports: AdminReport[]; open: number } | null>(null);
+  const [all, setAll] = useState(false);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    api<{ reports: AdminReport[]; open: number }>(`/admin/reports${all ? '?all=1' : ''}`, { token: session.token }).then(setData).catch((e) => setError((e as Error).message));
+  }, [session.token, all]);
+  useEffect(refresh, [refresh]);
+
+  const resolve = async (id: string, resolved: boolean) => {
+    setError(null);
+    try {
+      await api(`/admin/reports/${id}`, { method: 'PUT', token: session.token, body: resolved ? { note: notes[id] ?? '' } : { resolved: false } });
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  return (
+    <section className="settings-card" aria-labelledby="adm-reports">
+      <div className="admin-head">
+        <h2 id="adm-reports">Reports{data?.open ? ` (${data.open} open)` : ''}</h2>
+        <span className="row">
+          <label className="muted small"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show dealt with</label>
+          <button className="btn tiny" onClick={refresh}>Refresh</button>
+        </span>
+      </div>
+      <p className="muted">Players can report a room or a person in it. Each report keeps the room’s recent chat. Hosts can remove people from their own rooms; you can close any room from the Rooms card below.</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {!data ? <p className="muted">Loading…</p> : data.reports.length === 0 ? <p className="muted">{all ? 'No reports yet.' : 'No open reports.'}</p> : data.reports.map((r) => (
+        <div key={r.id} className="admin-report">
+          <div><strong>{r.target ?? 'The room'}</strong> in <a href={`#/r/${r.roomCode}`}>{r.roomName}</a> · {REPORT_REASONS[r.reason]}</div>
+          <div className="meta">Reported by {r.reporter} · {when(r.createdAt)}</div>
+          {r.details && <div>“{r.details}”</div>}
+          {r.chat.length > 0 && (
+            <details>
+              <summary>The room’s chat before the report ({r.chat.length} lines)</summary>
+              {r.chat.map((l, i) => <p key={i} className="chat-line"><span className="muted">{new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {l.channel === 'gallery' ? '(gallery) ' : ''}</span><strong>{l.name}</strong>: {l.text}</p>)}
+            </details>
+          )}
+          {r.resolved ? (
+            <div className="row"><span className="meta">Dealt with by {r.resolved.by} · {when(r.resolved.at)}{r.resolved.note ? `: ${r.resolved.note}` : ''}</span>
+              <button className="btn tiny" onClick={() => resolve(r.id, false)}>Reopen</button></div>
+          ) : (
+            <div className="row">
+              <input placeholder="A note (optional): what you did" value={notes[r.id] ?? ''} maxLength={500} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
+              <button className="btn tiny primary" onClick={() => resolve(r.id, true)}>Mark as dealt with</button>
+            </div>
+          )}
+        </div>
+      ))}
     </section>
   );
 }

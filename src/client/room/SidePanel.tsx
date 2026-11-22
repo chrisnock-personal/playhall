@@ -5,6 +5,7 @@ import type { SidePanelState } from './layout';
 import { Avatar, Icon } from '../ui';
 import { HowToPlay } from '../HowToPlay';
 import { useGames } from '../useGames';
+import { ReportDialog } from './ReportDialog';
 
 export type SideTab = Channel | 'people' | 'game' | 'rules';
 
@@ -121,6 +122,7 @@ function People({ snap, send }: { snap: RoomSnapshot; send(m: ClientMessage): vo
   const others = snap.members.filter((m) => !m.seat && !m.hand && (m.online || m.host));
   const seatLabel = (id: string | null) => snap.seats.find((s) => s.id === id)?.label ?? '';
   const playing = snap.game.status === 'playing';
+  const [reporting, setReporting] = useState<{ userId: string; name: string; host?: boolean } | null | false>(false);
 
   const row = (m: MemberView) => (
     <li key={m.userId} className="person">
@@ -132,6 +134,9 @@ function People({ snap, send }: { snap: RoomSnapshot; send(m: ClientMessage): vo
         </span>
       </div>
       {snap.you.host && m.userId !== snap.you.userId && <HostActions m={m} snap={snap} send={send} playing={playing} />}
+      {m.userId !== snap.you.userId && !m.bot && (
+        <button className="btn tiny ghost report-btn" onClick={() => setReporting({ userId: m.userId, name: m.name, host: m.host })} aria-label={`Report ${m.name}`}>Report</button>
+      )}
       {snap.you.host && m.userId === snap.you.userId && !m.seat && !playing && (
         <SeatPicker snap={snap} onPick={(seat) => send({ t: 'seat', userId: m.userId, seat })} label="Sit as" />
       )}
@@ -150,6 +155,8 @@ function People({ snap, send }: { snap: RoomSnapshot; send(m: ClientMessage): vo
           {snap.room.settings.seatPolicy === 'host' ? 'The host seats players in this room: ask for a seat from the watchers’ strip.' : 'Free seats are open: sit in one from the players panel or the board.'}
         </p>
       )}
+      {!snap.you.host && <button className="btn tiny ghost report-room" onClick={() => setReporting(null)}>Report this room</button>}
+      {reporting !== false && <ReportDialog code={snap.room.code} target={reporting} onClose={() => setReporting(false)} />}
     </div>
   );
 }

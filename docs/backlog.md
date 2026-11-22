@@ -138,3 +138,5 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 | Manor Mystery and Realm Duel | 2026-11-16 | [manor-mystery.md](manor-mystery.md), [creature-duel.md](creature-duel.md) |
 | Letterworks | 2026-11-15 | [letterworks.md](letterworks.md) |
 | How to play for every game | 2026-11-15 | `howToPlay` in each game module |
+
+- **Reports (#21), done 2026-11-22:** players report a room or a person from the People tab (reason, optional words); the report keeps the room's last 30 chat lines; admins see open reports on the Platform page, mark them dealt with (with a note) or reopen them. Later: a badge on the Platform link when reports are open, and an admin action to suspend an account.
