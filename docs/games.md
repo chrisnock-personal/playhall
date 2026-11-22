@@ -172,6 +172,10 @@ chains over anyone's marbles; the first to fill the opposite point wins, with
 never-moved blockers counting as filled once all your marbles are out of your
 own point; the rest placed by marbles home; a 200-moves-each safety limit).
 No team play yet. It has a bot.
+**Roulette** (#44, European single zero, 1-8 players, sessions of 10/15/20
+spins from 1,000 play chips: straight up 35:1, red/black, odd/even, low/high
+1:1, dozens and columns 2:1; everyone bets then presses Done, and the wheel
+spins when all are done). Splits and corners are still to do. It has a bot.
 
 ## The camera table (phase 2.4)
 

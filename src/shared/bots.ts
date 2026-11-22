@@ -8,7 +8,7 @@
 
 import { ship2shoreBot } from './games/ship2shore.bot';
 import { chineseCheckersBot, checkersBot, fourBot, ludoBot, snakesBot, whoDatBot } from './games/board.bots';
-import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot, spadesBot, thirtyOneBot, ginBot, bingoBot } from './games/card.bots';
+import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot, spadesBot, thirtyOneBot, ginBot, bingoBot, rouletteBot } from './games/card.bots';
 import { ship2shoreTalk } from './games/ship2shore.talk';
 
 /** A bot: its seat's view and its seat in, the action it takes out. */
@@ -33,6 +33,7 @@ export const BOTS: Record<string, Bot> = {
   thirtyone: thirtyOneBot,
   ginrummy: ginBot,
   bingo: bingoBot,
+  roulette: rouletteBot,
   chinesecheckers: chineseCheckersBot,
 };
 

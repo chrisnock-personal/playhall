@@ -9,6 +9,7 @@ import { COLOURS, playable, type ClashView, type Colour } from './colourclash';
 import { SIZE, type SeaView } from './seabattle';
 import { plainMove, value as shValue, type PoopView } from './poophead';
 import { rankOf as hRank, type HeartsView } from './hearts';
+import type { RouletteView } from './roulette';
 import { bestMelds as ginBest, worstDiscard as ginWorst, type GinView } from './ginrummy';
 import { handScore as toScore, worstCard as toWorst, type ThirtyOneView } from './thirtyone';
 import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
@@ -293,4 +294,19 @@ export function ginBot(view: unknown, seat: SeatId): unknown | null {
 export function bingoBot(view: unknown): unknown | null {
   const v = view as { auto: boolean; result: unknown; tickets: unknown };
   return v.result || !v.tickets || v.auto ? null : { type: 'auto', on: true };
+}
+
+// ---- Roulette: a favourite kind of bet, a few chips at a time ----
+
+export function rouletteBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as RouletteView;
+  if (v.result || v.ready.includes(seat) || !v.order.includes(seat)) return null;
+  const chips = v.chips[seat];
+  const bets = v.bets[seat] ?? {};
+  if (Object.keys(bets).length || chips < 5) return { type: 'done' };
+  // Each bot keeps to a style, from its seat: colours, dozens, or a lucky number.
+  const style = seat.length % 3;
+  const spot = style === 0 ? (random() < 0.5 ? 'red' : 'black') : style === 1 ? `d${1 + Math.floor(random() * 3)}` : `n${(seat.charCodeAt(0) * 7) % 37}`;
+  const amount = Math.max(5, Math.min(chips, Math.round((chips * (style === 2 ? 0.02 : 0.05)) / 5) * 5));
+  return { type: 'bet', spot, amount };
 }
