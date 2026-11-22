@@ -10,6 +10,7 @@ import { SIZE, type SeaView } from './seabattle';
 import { plainMove, value as shValue, type PoopView } from './poophead';
 import { rankOf as hRank, type HeartsView } from './hearts';
 import type { RouletteView } from './roulette';
+import type { CrapsView } from './craps';
 import { bestMelds as ginBest, worstDiscard as ginWorst, type GinView } from './ginrummy';
 import { handScore as toScore, worstCard as toWorst, type ThirtyOneView } from './thirtyone';
 import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
@@ -309,4 +310,17 @@ export function rouletteBot(view: unknown, seat: SeatId, random: () => number): 
   const spot = style === 0 ? (random() < 0.5 ? 'red' : 'black') : style === 1 ? `d${1 + Math.floor(random() * 3)}` : `n${(seat.charCodeAt(0) * 7) % 37}`;
   const amount = Math.max(5, Math.min(chips, Math.round((chips * (style === 2 ? 0.02 : 0.05)) / 5) * 5));
   return { type: 'bet', spot, amount };
+}
+
+// ---- Craps: the pass line, backed with odds ----
+
+export function crapsBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as CrapsView;
+  if (v.result || v.ready.includes(seat) || !v.order.includes(seat)) return null;
+  const chips = v.chips[seat];
+  const b = v.bets[seat];
+  const unit = Math.max(5, Math.round((chips * 0.04) / 5) * 5);
+  if (v.point === null && !b.pass && chips >= unit) return { type: 'bet', bet: 'pass', amount: unit };
+  if (v.point !== null && b.pass && !b.odds && chips >= b.pass) return { type: 'bet', bet: 'odds', amount: b.pass };
+  return { type: 'done' };
 }
