@@ -724,3 +724,13 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .pill.your-turn { background: var(--accent); color: var(--on-accent); font-weight: 700; animation: turn-pulse 2s ease-in-out infinite; }
 @keyframes turn-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,165,60,.5); } 50% { box-shadow: 0 0 0 5px rgba(240,165,60,0); } }
 @media (prefers-reduced-motion: reduce) { .pill.your-turn { animation: none; } }
+
+/* Chinese checkers */
+.cc-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; }
+.cc-board { flex: 1; min-height: 0; width: 100%; max-width: 640px; background: radial-gradient(circle, #6b4a2c, #3d2817 75%); border-radius: 50%; }
+.cc-players { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 13px; }
+.cc-player { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; }
+.cc-player.to-move { background: var(--accent-soft, rgba(240,165,60,.2)); }
+.cc-dest { animation: cc-pulse 1s ease-in-out infinite; }
+@keyframes cc-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .cc-dest { animation: none; } }

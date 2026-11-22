@@ -1,6 +1,7 @@
 // Bots for the board games (#18): Snakes and Ladders, Ludo, Four in a Row
 // and checkers. Each decides from its own seat's view (see src/shared/bots.ts).
 
+import { bestMove as ccBestMove, type CheckersView as StarView } from './chinesecheckers';
 import type { SeatId } from '../game';
 import type { SnakesView } from './snakes';
 import { HOME, SAFE, square, type LudoView } from './ludo';
@@ -178,4 +179,13 @@ export function whoDatBot(view: unknown, seat: SeatId, random: () => number): un
   const q = bestQuestion(up, openQuestions(v.asked, seat), random);
   if (q) return { type: 'ask', q: q.id };
   return { type: 'guess', face: left.length ? left[Math.floor(random() * left.length)] : 0 };
+}
+
+// ---- Chinese checkers: the move that brings a marble furthest forward ----
+
+export function chineseCheckersBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as StarView;
+  if (v.result || v.order[v.turn] !== seat) return null;
+  const m = ccBestMove(v, seat, random);
+  return m ? { type: 'move', ...m } : null;
 }
