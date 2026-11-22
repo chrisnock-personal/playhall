@@ -59,3 +59,16 @@ button.sh-up.picked { transform: translateY(-8px); }
 .to-hand { display: inline-flex; align-items: center; gap: 4px; }
 .to-hand.lost { color: #ff9b8f; }
 .to-cards { display: inline-flex; gap: 2px; margin-left: 4px; }
+
+/* Gin Rummy */
+.gr-felt { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.gr-arranged { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: 6px; }
+.gr-meld, .gr-dead { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; }
+.gr-meld { background: rgba(111, 211, 160, .18); }
+.gr-dead { background: rgba(255, 155, 143, .14); }
+.gr-laid { outline: 2px dashed #f0a53c; border-radius: 4px; }
+.gr-hand { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.gr-group { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 10px; }
+.gr-group.meld { background: rgba(111, 211, 160, .12); }
+.gr-group.dead { background: rgba(255, 155, 143, .10); }
+.gr-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
