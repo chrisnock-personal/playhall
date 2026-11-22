@@ -151,6 +151,10 @@ spades, shoot the moon, first to 100 ends it) and **Poophead** (2-5, the
 traditional shedding game also known as Palace and by a ruder name: three
 down, three up, three in hand; 2 resets, 7 means lower, 10 and four of a kind
 burn; the last left holding cards is the Poophead). Both have bots.
+**Spades** is in too (#39: 4 players in two pairs, partners across; bid
+tricks or nil, spades are trumps and can't be led until broken; 10 a trick
+bid plus 1 a bag, every 10 bags cost 100, set loses 10 a trick bid, nil
+±100; first pair to 500 wins as a team). No blind nil. It has a bot.
 
 ## The camera table (phase 2.4)
 

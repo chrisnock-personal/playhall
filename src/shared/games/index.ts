@@ -16,6 +16,7 @@ import { ship2shore } from './ship2shore';
 import { whoDat } from './whodat';
 import { poophead } from './poophead';
 import { hearts } from './hearts';
+import { spades } from './spades';
 import { BOTS } from '../bots';
 
 // Every built-in game, by id. Adding a game = writing its module here and its
@@ -38,6 +39,7 @@ export const GAMES: Record<string, GameModule<any, any>> = {
   [whoDat.id]: whoDat,
   [poophead.id]: poophead,
   [hearts.id]: hearts,
+  [spades.id]: spades,
 };
 
 export function gameList() {

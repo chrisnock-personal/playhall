@@ -44,3 +44,5 @@ button.sh-up.picked { transform: translateY(-8px); }
   .ht-seat.left { grid-column: 1; } .ht-seat.top { grid-column: 2; } .ht-seat.right { grid-column: 3; }
   .ht-trick { grid-column: 1 / -1; grid-row: 2; }
 }
+.sp-bids { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sp-bids .btn.small { min-width: 34px; }

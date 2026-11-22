@@ -16,6 +16,7 @@ import { ship2shoreClient } from './ship2shore';
 import { whoDatClient } from './whodat';
 import { poopheadClient } from './poophead';
 import { heartsClient } from './hearts';
+import { spadesClient } from './spades';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -35,4 +36,5 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [whoDatClient.id]: whoDatClient,
   [poopheadClient.id]: poopheadClient,
   [heartsClient.id]: heartsClient,
+  [spadesClient.id]: spadesClient,
 };
