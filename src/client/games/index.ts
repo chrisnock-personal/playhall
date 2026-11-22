@@ -17,6 +17,7 @@ import { whoDatClient } from './whodat';
 import { poopheadClient } from './poophead';
 import { heartsClient } from './hearts';
 import { spadesClient } from './spades';
+import { thirtyOneClient } from './thirtyone';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -37,4 +38,5 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [poopheadClient.id]: poopheadClient,
   [heartsClient.id]: heartsClient,
   [spadesClient.id]: spadesClient,
+  [thirtyOneClient.id]: thirtyOneClient,
 };

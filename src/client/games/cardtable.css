@@ -46,3 +46,16 @@ button.sh-up.picked { transform: translateY(-8px); }
 }
 .sp-bids { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .sp-bids .btn.small { min-width: 34px; }
+
+/* Thirty-One */
+.to-lives { letter-spacing: 2px; font-size: 15px; line-height: 1; color: rgba(255,255,255,.22); }
+.to-lives .on { color: #f0a53c; }
+.pile.to-pile { background: none; border: 0; padding: 4px; border-radius: 10px; color: inherit; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pile.to-pile:disabled { cursor: default; }
+.pile.to-pile:not(:disabled) { box-shadow: 0 0 0 2px #f0a53c; }
+.pile.to-pile:not(:disabled):hover { background: rgba(255,255,255,.06); }
+.to-showdown { align-self: center; background: rgba(0,0,0,.28); border-radius: 12px; padding: 8px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+.to-hands { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.to-hand { display: inline-flex; align-items: center; gap: 4px; }
+.to-hand.lost { color: #ff9b8f; }
+.to-cards { display: inline-flex; gap: 2px; margin-left: 4px; }

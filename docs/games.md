@@ -155,6 +155,10 @@ burn; the last left holding cards is the Poophead). Both have bots.
 tricks or nil, spades are trumps and can't be led until broken; 10 a trick
 bid plus 1 a bag, every 10 bags cost 100, set loses 10 a trick bid, nil
 ±100; first pair to 500 wins as a team). No blind nil. It has a bot.
+**Thirty-One** (#42, also called Scat: 2-8 players, three lives; three cards,
+take from the deck or discard and throw one away, best total in one suit,
+three of a kind 30½; knock for last turns and the lowest hand loses a life,
+ties all lose; 31 costs everyone else a life). It has a bot.
 
 ## The camera table (phase 2.4)
 
