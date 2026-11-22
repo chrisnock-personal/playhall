@@ -9,6 +9,7 @@ import { COLOURS, playable, type ClashView, type Colour } from './colourclash';
 import { SIZE, type SeaView } from './seabattle';
 import { plainMove, value as shValue, type PoopView } from './poophead';
 import { rankOf as hRank, type HeartsView } from './hearts';
+import { handScore as toScore, worstCard as toWorst, type ThirtyOneView } from './thirtyone';
 import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
 import { CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
 
@@ -248,4 +249,23 @@ export function spadesBot(view: unknown, seat: SeatId): unknown | null {
   // Partner on nil and about to take it: overtake if we can.
   if (winner === partner && v.bids[partner] === 0 && winning.length) return { type: 'play', card: low(winning) };
   return { type: 'play', card: low(losing.length ? losing : legal) };
+}
+
+// ---- Thirty-One: keep the best suit, take the discard when it helps, knock at about 25 ----
+
+export function thirtyOneBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+  const v = view as ThirtyOneView;
+  if (v.result || !v.cards || v.turn !== seat) return null;
+  if (v.phase === 'draw') {
+    const now = toScore(v.cards);
+    // Knock a little earlier or later each time, around 25.
+    if (v.canKnock && now >= 24 + Math.floor(random() * 4)) return { type: 'knock' };
+    if (v.discardTop) {
+      const withIt = [...v.cards, v.discardTop];
+      const after = toScore(withIt.filter((c) => c !== toWorst(withIt, v.discardTop)));
+      if (after > now) return { type: 'draw', from: 'discard' };
+    }
+    return { type: 'draw', from: 'deck' };
+  }
+  return { type: 'discard', card: toWorst(v.cards, v.took) };
 }
