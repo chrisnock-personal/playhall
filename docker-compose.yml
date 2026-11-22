@@ -15,7 +15,7 @@ services:
     build:
       context: .
       dockerfile: Containerfile
-    image: localhost/playhall:latest
+    image: ${PLAYHALL_IMAGE:-localhost/playhall:latest}
     environment:
       DATABASE_URL: postgres://playhall:${POSTGRES_PASSWORD}@postgres:5432/playhall
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
