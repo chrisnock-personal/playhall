@@ -67,7 +67,7 @@ function GinStage({ snap, send, receivedAt }: StageProps) {
             <strong>Hand {v!.hand - (v!.result ? 0 : 1)}: {outcomeWords(last, name)}</strong>
             {Object.entries(last.shown).map(([p, x]) => (
               <span key={p} className="to-hand"><Disc colour={p} size={12} /> {name(p)}: {x.points} deadwood{x.laid.length ? `, laid off ${x.laid.length}` : ''}
-                <Arranged melds={x.melds} deadwood={x.deadwood} laid={x.laid} /></span>
+                <Arranged melds={x.melds} deadwood={x.deadwood} laid={Object.values(last.shown).flatMap((y) => y.laid)} /></span>
             ))}
           </div>
         )}
