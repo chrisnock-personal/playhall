@@ -1067,7 +1067,7 @@ export class Room {
       status: g.status,
       view: g.state ? this.game.view(g.state, now, this.seatOf(userId)) : null,
       result: g.result ?? (g.state ? this.game.result(g.state) : null),
-      turnSeats: g.status === 'playing' && g.state ? this.waitingFor() : [],
+      turnSeats: g.status === 'playing' && g.state && !this.game.noTurns ? this.waitingFor() : [],
       moveDeadline: g.status === 'playing' ? g.moveDeadline ?? null : null,
       leaving: Object.fromEntries([...this.leaving].map(([seat, l]) => [seat, l.deadline])),
     };
@@ -1080,7 +1080,7 @@ export class Room {
       status: 'playing',
       view: this.game.view(entry.state, Math.max(entry.at, seenAt), null),
       result: null,
-      turnSeats: (this.game.waitingFor ?? this.game.turn)?.call(this.game, entry.state) ?? [],
+      turnSeats: this.game.noTurns ? [] : (this.game.waitingFor ?? this.game.turn)?.call(this.game, entry.state) ?? [],
       moveDeadline: null,
       leaving: {},
     };
