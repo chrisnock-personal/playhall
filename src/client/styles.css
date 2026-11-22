@@ -734,3 +734,20 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .cc-dest { animation: cc-pulse 1s ease-in-out infinite; }
 @keyframes cc-pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .cc-dest { animation: none; } }
+
+/* Reports (#21) */
+.person .report-btn { margin-left: auto; opacity: .55; }
+.person:hover .report-btn, .person .report-btn:focus-visible { opacity: 1; }
+.report-room { margin-top: 12px; opacity: .7; }
+.report-form { display: flex; flex-direction: column; gap: 12px; }
+.report-form fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.report-form legend { font-weight: 600; margin-bottom: 6px; }
+.report-reason { display: flex; align-items: center; gap: 8px; }
+.report-form textarea { width: 100%; resize: vertical; font: inherit; background: var(--surface-2, #232730); color: var(--text, #eee); border: 1px solid var(--line, #333); border-radius: 8px; padding: 8px; }
+.admin-report { border-top: 1px solid var(--line, #333); padding: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.admin-report .meta { color: var(--muted, #999); font-size: 13px; }
+.admin-report details { font-size: 13px; }
+.admin-report .chat-line { margin: 2px 0; }
+.admin-report .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.admin-report input { flex: 1; min-width: 160px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }

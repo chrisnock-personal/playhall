@@ -199,3 +199,27 @@ export interface AdminRoom {
   locked: boolean;
   updatedAt: string;
 }
+
+/** Reports (#21): why a player reports a room or a person. */
+export const REPORT_REASONS = {
+  rude: 'Rude or unkind',
+  cheating: 'Cheating or spoiling games',
+  spam: 'Spam or flooding the chat',
+  other: 'Something else',
+} as const;
+export type ReportReason = keyof typeof REPORT_REASONS;
+export const REPORT_DETAILS_MAX = 500;
+
+export interface AdminReport {
+  id: string;
+  reporter: string;
+  roomCode: string;
+  roomName: string;
+  /** Who was reported, or null for the room itself. */
+  target: string | null;
+  reason: ReportReason;
+  details: string;
+  chat: { name: string; channel: string; text: string; at: string }[];
+  createdAt: string;
+  resolved: { at: string; by: string; note: string } | null;
+}

@@ -13,6 +13,7 @@ import type { Db } from './db';
 import { cameraToken, mediaToken, proxyHttp, type MediaConfig } from './media';
 import type { Channel } from '../shared/protocol';
 import { adminRoutes, type AdminTls } from './admin';
+import { reportRoute } from './reports';
 import { getPlatformSettings } from './platform';
 import type { PublicPlatform } from '../shared/platform';
 import { MAX_WAV_BYTES, SaidLimiter, saidHandler, transcriptsAllowed, whisperTranscribe, whisperUrl } from './transcripts';
@@ -39,6 +40,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     };
     res.json(body);
   });
+  app.use('/api', reportRoute({ auth, db, rooms }));
   app.use('/api/admin', adminRoutes({ auth, db, rooms, sockets, media, tls: opts.tls ?? null }));
 
 
