@@ -21,6 +21,9 @@ for (const id of Object.keys(BOTS)) {
         let moves = 0;
         for (; moves < 20000 && !game.result(s); moves++) {
           const waiting = (game.waitingFor ?? game.turn)!.call(game, s);
+          // Games on a clock (Bingo's calls) move on by themselves.
+          const due = game.nextDeadline(s);
+          if (!waiting.length && due !== null) { s = game.tick(s, due) ?? s; continue; }
           assert.ok(waiting.length, `${id}: nobody to move`);
           const seat = waiting[0];
           const action = BOTS[id](game.view(s, 0, seat), seat, random);

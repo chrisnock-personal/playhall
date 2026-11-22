@@ -287,3 +287,10 @@ export function ginBot(view: unknown, seat: SeatId): unknown | null {
   const card = ginWorst(v.cards, v.took);
   return { type: 'discard', card, knock: v.knockWith.includes(card) };
 }
+
+// ---- Bingo: just turn auto-mark on ----
+
+export function bingoBot(view: unknown): unknown | null {
+  const v = view as { auto: boolean; result: unknown; tickets: unknown };
+  return v.result || !v.tickets || v.auto ? null : { type: 'auto', on: true };
+}

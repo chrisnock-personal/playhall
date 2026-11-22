@@ -162,6 +162,11 @@ ties all lose; 31 costs everyone else a life). It has a bot.
 **Gin Rummy** (#40, two players: runs and sets arranged for you, knock at 10
 or less deadwood, laying off done for you, gin and undercut 25, first to
 100; no first-upcard ritual, no Oklahoma). It has a bot.
+**Bingo** (#45, 90-ball, up to 8: one or two tickets each, a call every
+4/6/8 s with the traditional calls, mark yourself or auto-mark; one line,
+two lines, full house, shared on the same call). No replays (the calls come
+from the clock) and no turns (`noTurns`). 75-ball and a host pause are still
+to do.
 
 ## The camera table (phase 2.4)
 

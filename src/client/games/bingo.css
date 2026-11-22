@@ -1,0 +1,24 @@
+/* Bingo: the caller, the board of called numbers, and the tickets. */
+.bg-hall { width: 100%; height: 100%; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px; background: radial-gradient(ellipse at top, #3a2350, #1d1430 70%); color: #f4efe6; border-radius: inherit; }
+.bg-caller { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 120px; justify-content: center; }
+.bg-ball { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; font: 700 38px var(--head, system-ui); color: #1a1307; background: radial-gradient(circle at 35% 30%, #fff6dc, #f0a53c 60%, #b36b12); box-shadow: 0 8px 24px rgba(0,0,0,.45); animation: bg-drop .5s cubic-bezier(.3,1.4,.5,1); }
+@keyframes bg-drop { from { transform: translateY(-30px) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.bg-words { font: 600 18px var(--head, system-ui); text-align: center; }
+.bg-count { font-size: 12px; opacity: .75; }
+.bg-board { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; width: min(100%, 420px); }
+.bg-board span { aspect-ratio: 1; display: grid; place-items: center; font-size: 11px; border-radius: 50%; background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); }
+.bg-board span.on { background: #f0a53c; color: #1a1307; font-weight: 700; }
+.bg-board span.last { box-shadow: 0 0 0 3px #fff; }
+.bg-tickets { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; }
+.bg-ticket { display: grid; grid-template-columns: repeat(9, minmax(30px, 46px)); gap: 3px; padding: 8px; background: #f7f1e3; border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.bg-cell { aspect-ratio: 1; display: grid; place-items: center; border-radius: 6px; font: 700 16px var(--head, system-ui); color: #2a2230; background: #fff; border: 1px solid #e2d8c2; position: relative; padding: 0; }
+.bg-cell.blank { background: #c9b9df; border-color: transparent; }
+button.bg-cell { cursor: default; }
+.bg-cell.ready { cursor: pointer; border: 2px solid #f0a53c; animation: bg-ready 1.2s ease-in-out infinite; }
+@keyframes bg-ready { 50% { background: #fff1d6; } }
+.bg-cell.marked::after { content: ''; position: absolute; inset: 12%; border-radius: 50%; background: rgba(214, 51, 108, .55); }
+.bg-cell:disabled { opacity: 1; }
+.bg-prizes { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; font-size: 14px; }
+.bg-prize { background: rgba(255,255,255,.08); padding: 4px 10px; border-radius: 999px; }
+.bg-auto { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .bg-ball, .bg-cell.ready { animation: none; } }

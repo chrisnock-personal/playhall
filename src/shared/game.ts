@@ -99,6 +99,9 @@ export interface GameModule<S = unknown, C = unknown> {
   /** Who the game is waiting on, for computer players (#18): games with their
    *  own clocks, which leave turn() out, give it here. Default: turn(). */
   waitingFor?(state: S): SeatId[];
+  /** The game has no turns (Bingo's calls come on a clock): nobody is shown
+   *  as "to move", even while computer players are waited on. */
+  noTurns?: boolean;
   /** The move timer ran out for `seat`. Without this, in a two-player game
    *  that seat loses; a game for more players should say what happens
    *  (skip the turn, play automatically). */
