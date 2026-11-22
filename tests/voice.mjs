@@ -16,7 +16,7 @@ const open = async (s) => { const c = await b.newContext({ viewport: { width: 12
 const hp = await open({ token: a.token, user: a.user });
 const wp = await open({ token: w.token, user: w.user });
 await hp.getByRole('button', { name: /Join voice: Table/ }).click();
-await wp.getByRole('button', { name: 'Table', exact: true }).click();
+await wp.getByRole('group', { name: 'Voice' }).getByRole('button', { name: 'Table', exact: true }).click();
 for (const p of [hp, wp]) await p.waitForSelector('.voice-dock.on', { timeout: 20000 });
 // Everyone joins muted; unmute to talk.
 for (const p of [hp, wp]) { await p.waitForSelector('.voice-dock.on button[aria-label="Unmute your microphone"]'); await p.click('.voice-dock.on button[aria-label="Unmute your microphone"]'); }
