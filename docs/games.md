@@ -159,6 +159,9 @@ bid plus 1 a bag, every 10 bags cost 100, set loses 10 a trick bid, nil
 take from the deck or discard and throw one away, best total in one suit,
 three of a kind 30½; knock for last turns and the lowest hand loses a life,
 ties all lose; 31 costs everyone else a life). It has a bot.
+**Gin Rummy** (#40, two players: runs and sets arranged for you, knock at 10
+or less deadwood, laying off done for you, gin and undercut 25, first to
+100; no first-upcard ritual, no Oklahoma). It has a bot.
 
 ## The camera table (phase 2.4)
 

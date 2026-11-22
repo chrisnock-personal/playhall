@@ -9,6 +9,7 @@ import { COLOURS, playable, type ClashView, type Colour } from './colourclash';
 import { SIZE, type SeaView } from './seabattle';
 import { plainMove, value as shValue, type PoopView } from './poophead';
 import { rankOf as hRank, type HeartsView } from './hearts';
+import { bestMelds as ginBest, worstDiscard as ginWorst, type GinView } from './ginrummy';
 import { handScore as toScore, worstCard as toWorst, type ThirtyOneView } from './thirtyone';
 import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
 import { CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
@@ -268,4 +269,21 @@ export function thirtyOneBot(view: unknown, seat: SeatId, random: () => number):
     return { type: 'draw', from: 'deck' };
   }
   return { type: 'discard', card: toWorst(v.cards, v.took) };
+}
+
+// ---- Gin Rummy: take the discard when it lowers the deadwood, knock as soon as it can ----
+
+export function ginBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as GinView;
+  if (v.result || !v.cards || v.turn !== seat) return null;
+  if (v.phase === 'draw') {
+    if (v.discardTop) {
+      const withIt = [...v.cards, v.discardTop];
+      const after = ginBest(withIt.filter((c) => c !== ginWorst(withIt, v.discardTop))).points;
+      if (after < v.deadwoodPoints) return { type: 'draw', from: 'discard' };
+    }
+    return { type: 'draw', from: 'deck' };
+  }
+  const card = ginWorst(v.cards, v.took);
+  return { type: 'discard', card, knock: v.knockWith.includes(card) };
 }
