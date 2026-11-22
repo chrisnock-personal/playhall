@@ -1,8 +1,11 @@
 // Whose turn it is (playtest feedback: it wasn't clear). When the turn
-// changes, a banner drops in over the stage for a moment: "Your turn" in the
+// changes, a banner pops up in the middle of the screen for a moment (drawn
+// over the whole page, not inside the board, so a phone scrolled down to the
+// chat still sees it): "Your turn" in the
 // accent colour, or whose turn it is. While it's yours, the tab's title says
 // so too, so a tab in the background shows it.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { RoomSnapshot } from '../../shared/protocol';
 
 export function useMyTurn(snap: RoomSnapshot): boolean {
@@ -38,5 +41,5 @@ export function TurnBanner({ snap }: { snap: RoomSnapshot }) {
   }, [mine]);
 
   if (!shown) return null;
-  return <div key={shown.n} className={`turn-banner${shown.mine ? ' mine' : ''}`} role="status" aria-live="polite">{shown.text}</div>;
+  return createPortal(<div key={shown.n} className={`turn-banner${shown.mine ? ' mine' : ''}`} role="status" aria-live="polite">{shown.text}</div>, document.body);
 }
