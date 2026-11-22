@@ -9,6 +9,7 @@ import { COLOURS, playable, type ClashView, type Colour } from './colourclash';
 import { SIZE, type SeaView } from './seabattle';
 import { plainMove, value as shValue, type PoopView } from './poophead';
 import { rankOf as hRank, type HeartsView } from './hearts';
+import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
 import { CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
 
 // ---- Blackjack: bet a little, then basic strategy ----
@@ -207,4 +208,44 @@ export function heartsBot(view: unknown, seat: SeatId): unknown | null {
   if (legal.includes('QS')) return { type: 'play', card: 'QS' };
   const hearts = legal.filter((c) => c[1] === 'H');
   return { type: 'play', card: hearts.length ? high(hearts) : high(legal) };
+}
+
+// ---- Spades: bid from its cards, help the pair make the contract, avoid bags ----
+
+export function spadesBot(view: unknown, seat: SeatId): unknown | null {
+  const v = view as SpadesView;
+  if (v.result || !v.cards || v.turn !== seat) return null;
+  if (v.phase === 'bid') {
+    const high = v.cards.filter((c) => sRank(c) >= sRank('JS'));
+    const spadeCount = v.cards.filter((c) => c[1] === 'S').length;
+    // Nil with no court cards and few, low spades; otherwise what the cards are worth.
+    if (!high.length && spadeCount <= 2 && v.cards.every((c) => c[1] !== 'S' || sRank(c) < sRank('8S'))) return { type: 'bid', bid: 0 };
+    return { type: 'bid', bid: estimateBid(v.cards) };
+  }
+  const legal = v.legal;
+  if (!legal.length) return null;
+  const low = (xs: string[]) => [...xs].sort((a, b) => (a[1] === 'S' ? 20 : 0) + sRank(a) - ((b[1] === 'S' ? 20 : 0) + sRank(b)))[0];
+  const high = (xs: string[]) => [...xs].sort((a, b) => sRank(b) - sRank(a))[0];
+  const partner = v.partner!;
+  const myNil = v.bids[seat] === 0;
+  const pair = [seat, partner];
+  const contract = pair.reduce((n, p) => n + (v.bids[p] || 0), 0);
+  const counted = pair.reduce((n, p) => n + (v.bids[p] ? v.tricks[p] : 0), 0);
+  const need = !myNil && counted < contract;
+  if (!v.trick.length) {
+    if (myNil) return { type: 'play', card: low(legal) };
+    const aces = legal.filter((c) => c[0] === 'A' && c[1] !== 'S');
+    return { type: 'play', card: need && aces.length ? aces[0] : low(legal) };
+  }
+  const beats = (c: string, w: string) => (c[1] === w[1] ? sRank(c) > sRank(w) : c[1] === 'S');
+  const winner = trickWinner(v.trick);
+  const best = v.trick.find((t) => t.seat === winner)!.card;
+  const winning = legal.filter((c) => beats(c, best));
+  const losing = legal.filter((c) => !beats(c, best));
+  if (myNil) return { type: 'play', card: losing.length ? high(losing) : low(legal) };
+  const partnerHasIt = winner === partner && v.bids[partner] !== 0;
+  if (need && !partnerHasIt && winning.length) return { type: 'play', card: low(winning) };
+  // Partner on nil and about to take it: overtake if we can.
+  if (winner === partner && v.bids[partner] === 0 && winning.length) return { type: 'play', card: low(winning) };
+  return { type: 'play', card: low(losing.length ? losing : legal) };
 }
