@@ -9,6 +9,7 @@ import { HowToPlay } from '../HowToPlay';
 import { useGames, type GameInfo } from '../useGames';
 import { useProgression } from '../useProgression';
 import { LadderCard } from '../LadderCard';
+import type { TournamentSummary } from '../../shared/tournament';
 import type { MyProgression } from '../../shared/progression';
 
 
@@ -18,6 +19,14 @@ export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): v
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
   const games = useGames();
   const prog = useProgression(session);
+  const [ready, setReady] = useState<TournamentSummary[]>([]);
+  useEffect(() => {
+    if (session.user.guest) return;
+    const load = () => api<{ tournaments: TournamentSummary[] }>('/tournaments', { token: session.token }).then((r) => setReady(r.tournaments.filter((t) => t.myRoom))).catch(() => {});
+    load();
+    const timer = setInterval(load, 15_000);
+    return () => clearInterval(timer);
+  }, [session.token, session.user.guest]);
   const [filter, setFilter] = useState<'all' | 'free'>('all');
   const [error, setError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -80,6 +89,9 @@ export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): v
               <button className="btn">Go</button>
             </div>
           </form>
+          {ready.map((t) => (
+            <a key={t.code} className="card tn-go" href={`#/r/${t.myRoom}`}><strong>Your {t.name} game is ready</strong><span>{t.gameName}: go to the game →</span></a>
+          ))}
           {prog && <LadderCard prog={prog} games={games} />}
           {session.user.guest
             ? <div className="card"><h2>Host a room</h2><p className="muted">Hosting needs an account. Sign out and create one: it takes a few seconds.</p></div>

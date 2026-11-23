@@ -7,7 +7,7 @@ import type { Db } from '../db';
 import { GAMES } from '../../shared/games';
 import { seatsIn } from '../../shared/game';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
-import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
+import { Room, RoomError, type RoomRecord, type SeatHolder, type FinishedGame } from './room';
 import { recordGame } from '../stats';
 import { loadProgression, progressionBlock } from '../progression';
 import type { AdminRoom } from '../../shared/platform';
@@ -44,6 +44,8 @@ export interface CreateRoomInput {
   watcherDelay?: number;
   /** Already hashed. */
   passwordHash?: string | null;
+  /** Tournaments (#17): people seated from the start, by seat. */
+  seated?: Record<string, { id: string; name: string }>;
 }
 
 export class RoomManager {
@@ -53,6 +55,9 @@ export class RoomManager {
   private idleTimers = new Map<string, NodeJS.Timeout>();
   private aliveTimer: NodeJS.Timeout;
   private sweepTimer: NodeJS.Timeout;
+
+  /** Told about every finished game (tournaments, #17). */
+  onGameOver: ((ended: FinishedGame) => void) | null = null;
 
   constructor(private db: Db, private onChanged: (room: Room) => void, private onKick: (room: Room, userId: string, reason: string) => void = () => {}) {
     this.aliveTimer = setInterval(() => {
@@ -144,6 +149,7 @@ export class RoomManager {
         ).catch((err) => console.error('[rooms] chat save failed:', err.message));
       },
       gameOver: (ended) => {
+        try { this.onGameOver?.(ended); } catch (err) { console.error('[rooms] game-over listener failed:', (err as Error).message); }
         recordGame(this.db, ended)
           .then((standings) => {
             room.setLastResult(standings);
@@ -224,6 +230,7 @@ export class RoomManager {
     const seats: Record<string, SeatHolder | null> = {};
     for (const s of game.seats) seats[s.id] = null;
     if (input.hostSeat && seatsIn(game, settings.gameConfig).some((s) => s.id === input.hostSeat)) seats[input.hostSeat] = { userId: host.id, name: host.name, guest: false };
+    for (const [seat, p] of Object.entries(input.seated ?? {})) if (seat in seats) seats[seat] = { userId: p.id, name: p.name, guest: false };
     const gameRec: RoomRecord['game'] = { status: 'idle', state: null, startedAt: null, players: null };
 
     for (let attempt = 0; attempt < 5; attempt++) {

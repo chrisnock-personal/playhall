@@ -200,6 +200,16 @@ export class Room {
     this.hooks.changed();
   }
 
+  /** Someone has the room open now. */
+  isHere(userId: string): boolean {
+    return this.present.has(userId);
+  }
+
+  /** A game is being played now. */
+  get playing(): boolean {
+    return this.status === 'playing';
+  }
+
   isBanned(userId: string): boolean {
     return (this.rec.banned ?? []).includes(userId);
   }
