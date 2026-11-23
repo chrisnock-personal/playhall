@@ -1,3 +1,4 @@
+import { DEFAULT_LADDER } from '../shared/progression';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Db } from './db';
@@ -22,6 +23,7 @@ test('the defaults are today’s behaviour', () => {
     signupsAllowed: true, guestsAllowed: true, voiceVideoAllowed: true, transcriptsAllowed: true,
     roomDefaults: { moveSeconds: 0, watcherDelay: 0, ranked: true }, letterworksWordList: 'full',
     aiPlayers: { enabled: false, url: '', model: 'llama3.1:8b', seconds: 15 },
+    progression: DEFAULT_LADDER,
   });
   assert.equal(defaultPlatformSettings({ signupsAllowed: false }).signupsAllowed, false, 'ALLOW_SIGNUP=false is the starting value');
 });

@@ -40,3 +40,12 @@
   .admin-cert { grid-template-columns: 1fr; gap: 2px; }
   .admin-cert dd { margin-bottom: 8px; }
 }
+
+/* Progression ladder editor (#50) */
+.ladder-edit { list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 10px; }
+.ladder-edit li { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ladder-edit-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ladder-edit-head input { width: 70px; }
+.ladder-edit-games { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ladder-game { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--surface-2); font-size: 13px; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

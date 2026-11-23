@@ -14,6 +14,7 @@ import { cameraToken, mediaToken, proxyHttp, type MediaConfig } from './media';
 import type { Channel } from '../shared/protocol';
 import { adminRoutes, type AdminTls } from './admin';
 import { reportRoute } from './reports';
+import { loadProgression, progressionBlock } from './progression';
 import { getPlatformSettings } from './platform';
 import type { PublicPlatform } from '../shared/platform';
 import { MAX_WAV_BYTES, SaidLimiter, saidHandler, transcriptsAllowed, whisperTranscribe, whisperUrl } from './transcripts';
@@ -108,6 +109,9 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
   });
   app.use('/api/auth', auth.routes());
   app.get('/api/games', (_req, res) => { res.json({ games: gameList() }); });
+  app.get('/api/progression', auth.requireUser, async (req, res) => {
+    res.json(req.user!.guest ? { on: false, ladder: getPlatformSettings().progression, progress: null } : await loadProgression(req.user!.id));
+  });
 
   app.get('/api/rooms', auth.requireUser, async (req, res) => {
     res.json({ rooms: await rooms.list(req.user!.id) });
@@ -115,6 +119,11 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
 
   app.post('/api/rooms', auth.requireUser, async (req, res) => {
     const b = req.body ?? {};
+    if (!req.user!.guest) {
+      await loadProgression(req.user!.id);
+      const locked = typeof b.gameId === 'string' ? progressionBlock(req.user!.id, b.gameId) : null;
+      if (locked) { res.status(403).json({ error: locked }); return; }
+    }
     const defaults = getPlatformSettings().roomDefaults;
     const pw = roomPassword(b.password);
     if ('error' in pw) { res.status(400).json({ error: pw.error }); return; }

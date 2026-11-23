@@ -11,6 +11,7 @@ import { RoomManager } from './rooms/manager';
 import { RoomSockets } from './ws';
 import { createApp } from './http';
 import { loadPlatformSettings } from './platform';
+import { initProgression } from './progression';
 import type { AdminTls } from './admin';
 
 async function main(): Promise<void> {
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   await migrate(db, config.migrationsDir);
 
   await loadPlatformSettings(db, { signupsAllowed: config.allowSignup });
+  initProgression(db);
   const auth = new Auth(db, config.jwtSecret, config.adminUsernames);
   await auth.loadAdmins();
   if (await auth.ensureDefaultAdmin()) {

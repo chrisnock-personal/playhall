@@ -12,6 +12,7 @@ import type { CertInfo } from './tls';
 import { getPlatformSettings, updatePlatformSettings } from './platform';
 import { checkModelServer } from './ai';
 import { adminReportRoutes } from './reports';
+import { loadProgression, reloadAllProgression } from './progression';
 import { checkPlatformPatch, type AdminOverview, type AdminUser } from '../shared/platform';
 
 /** The certificate being served and a way to replace it (null when TLS is off). */
@@ -64,6 +65,7 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
     const checked = checkPlatformPatch(req.body);
     if ('error' in checked) { res.status(400).json({ error: checked.error }); return; }
     const settings = await updatePlatformSettings(checked.patch, req.user!.id);
+    if (checked.patch.progression) await reloadAllProgression();
     // Open rooms see the change at once (e.g. the transcripts switch and notice).
     for (const room of rooms.loaded()) sockets.changed(room);
     console.log(`[admin] ${req.user!.name} changed ${Object.keys(checked.patch).join(', ')}`);
@@ -92,15 +94,15 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
   });
 
   r.get('/users', async (_req, res) => {
-    const { rows } = await db.query<{ id: string; username: string; display_name: string; created_at: Date; last_seen_at: Date; played: number }>(
-      `SELECT u.id, u.username, u.display_name, u.created_at, u.last_seen_at,
+    const { rows } = await db.query<{ id: string; username: string; display_name: string; created_at: Date; last_seen_at: Date; played: number; progression: boolean }>(
+      `SELECT u.id, u.username, u.display_name, u.created_at, u.last_seen_at, u.progression,
               (SELECT count(*) FROM game_results g WHERE g.user_id = u.id)::int AS played
          FROM users u WHERE u.kind = 'account'
         ORDER BY u.created_at LIMIT 2000`);
     const users: AdminUser[] = rows.map((u) => ({
       id: u.id, username: u.username, name: u.display_name,
       createdAt: new Date(u.created_at).toISOString(), lastSeenAt: new Date(u.last_seen_at).toISOString(),
-      admin: auth.isAdmin(u.id), envAdmin: auth.envAdmins.has(u.username), played: u.played,
+      admin: auth.isAdmin(u.id), envAdmin: auth.envAdmins.has(u.username), played: u.played, progression: u.progression,
     }));
     res.json({ users });
   });
@@ -122,6 +124,21 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
     auth.setAdmin(id, makeAdmin || target!.envAdmin);
     console.log(`[admin] ${req.user!.name} ${makeAdmin ? 'made' : 'removed'} admin ${id}`);
     res.json({ admin: auth.isAdmin(id) });
+  });
+
+  r.put('/users/:id/progression', async (req, res) => {
+    const id = String(req.params.id);
+    const on = req.body?.progression;
+    if (typeof on !== 'boolean') { res.status(400).json({ error: 'Say whether the account should be on the ladder' }); return; }
+    if (!UUID.test(id)) { res.status(404).json({ error: 'No such account' }); return; }
+    if (on && auth.isAdmin(id)) { res.status(400).json({ error: 'Admins can’t be put on the ladder' }); return; }
+    const { rowCount } = await db.query(`UPDATE users SET progression = $2 WHERE id = $1 AND kind = 'account'`, [id, on]);
+    if (!rowCount) { res.status(404).json({ error: 'No such account' }); return; }
+    await loadProgression(id);
+    // Open rooms recheck what this player may do.
+    for (const room of rooms.loaded()) sockets.changed(room);
+    console.log(`[admin] ${req.user!.name} ${on ? 'put' : 'took'} ${id} ${on ? 'on' : 'off'} the progression ladder`);
+    res.json({ progression: on });
   });
 
   r.get('/rooms', async (_req, res) => {

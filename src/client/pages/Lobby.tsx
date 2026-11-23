@@ -7,6 +7,9 @@ import { Avatar } from '../ui';
 import { AppBar } from '../AppBar';
 import { HowToPlay } from '../HowToPlay';
 import { useGames, type GameInfo } from '../useGames';
+import { useProgression } from '../useProgression';
+import { LadderCard } from '../LadderCard';
+import type { MyProgression } from '../../shared/progression';
 
 
 const STATUS: Record<RoomSummary['status'], string> = { idle: 'Waiting', playing: 'In play', over: 'Between games' };
@@ -14,6 +17,7 @@ const STATUS: Record<RoomSummary['status'], string> = { idle: 'Waiting', playing
 export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): void }) {
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
   const games = useGames();
+  const prog = useProgression(session);
   const [filter, setFilter] = useState<'all' | 'free'>('all');
   const [error, setError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -76,9 +80,10 @@ export function Lobby({ session, onSignOut }: { session: Session; onSignOut(): v
               <button className="btn">Go</button>
             </div>
           </form>
+          {prog && <LadderCard prog={prog} games={games} />}
           {session.user.guest
             ? <div className="card"><h2>Host a room</h2><p className="muted">Hosting needs an account. Sign out and create one: it takes a few seconds.</p></div>
-            : <NewRoom session={session} games={games} />}
+            : <NewRoom session={session} games={games} prog={prog} />}
         </aside>
       </main>
     </div>
@@ -115,9 +120,15 @@ function RoomCard({ room }: { room: RoomSummary }) {
   );
 }
 
-function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
+function NewRoom({ session, games, prog }: { session: Session; games: GameInfo[]; prog: MyProgression | null }) {
   const [name, setName] = useState('');
   const [gameId, setGameId] = useState('chess');
+  // On the ladder: only open games can be hosted (#50).
+  const open = prog?.on && prog.progress ? new Set(prog.progress.allowed) : null;
+  const tierOf = (id: string) => (prog?.ladder.tiers.findIndex((t) => t.games.includes(id)) ?? -1) + 1;
+  useEffect(() => {
+    if (open && !open.has(gameId) && prog?.progress?.allowed[0]) setGameId(prog.progress.allowed[0]);
+  }, [prog]); // eslint-disable-line react-hooks/exhaustive-deps
   const [config, setConfig] = useState<unknown>(null);
   const [listed, setListed] = useState(true);
   const [play, setPlay] = useState(true);
@@ -158,9 +169,9 @@ function NewRoom({ session, games }: { session: Session; games: GameInfo[] }) {
         <legend>Game</legend>
         {games.map((g) => (
           <div key={g.id}>
-            <label className={`game-pick${g.id === gameId ? ' on' : ''}`}>
-              <input type="radio" name="game" value={g.id} checked={g.id === gameId} onChange={() => { setGameId(g.id); setConfig(null); }} />
-              <span className="game-pick-head"><strong>{g.name}</strong><span className="muted">{g.minPlayers === g.seats.length ? g.seats.length : `${g.minPlayers}-${g.seats.length}`} players</span></span>
+            <label className={`game-pick${g.id === gameId ? ' on' : ''}${open && !open.has(g.id) ? ' locked' : ''}`}>
+              <input type="radio" name="game" value={g.id} checked={g.id === gameId} disabled={!!open && !open.has(g.id)} onChange={() => { setGameId(g.id); setConfig(null); }} />
+              <span className="game-pick-head"><strong>{open && !open.has(g.id) ? '🔒 ' : ''}{g.name}</strong>{open && !open.has(g.id) && <span className="muted">{tierOf(g.id) ? `tier ${tierOf(g.id)}` : 'not on your ladder'}</span>}<span className="muted">{g.minPlayers === g.seats.length ? g.seats.length : `${g.minPlayers}-${g.seats.length}`} players</span></span>
               <span className="muted">{g.description}</span>
             </label>
             {g.id === gameId && g.howToPlay && (

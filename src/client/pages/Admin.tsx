@@ -7,6 +7,8 @@ import {
   AI_SECONDS_CHOICES, MOVE_SECONDS_CHOICES, REPORT_REASONS, WATCHER_DELAY_CHOICES,
   type AdminCert, type AdminReport, type AdminOverview, type AdminRoom, type AdminUser, type PlatformPatch, type PlatformSettings,
 } from '../../shared/platform';
+import { useGames } from '../useGames';
+import { DEFAULT_LADDER, MAX_TIERS, type Ladder } from '../../shared/progression';
 import './admin.css';
 
 const MOVE_LABEL: Record<number, string> = { 0: 'No limit', 15: '15 seconds a move', 30: '30 seconds a move', 60: '1 minute a move', 120: '2 minutes a move', 300: '5 minutes a move' };
@@ -43,6 +45,7 @@ export function Admin({ session, onSignOut }: { session: Session; onSignOut(): v
             <p className="muted">These apply to everyone on this Playhall. Your own microphone, camera and theme are on the <a href="#/settings">Settings</a> page.</p>
             <SettingsCards session={session} overview={overview} onSettings={(settings) => setOverview({ ...overview, settings })} />
             <CertCard session={session} cert={overview.tls} onCert={(tls) => setOverview({ ...overview, tls })} />
+            <LadderEditor session={session} ladder={overview.settings.progression} onSettings={(settings) => setOverview({ ...overview, settings })} />
             <ReportsCard session={session} />
             <UsersCard session={session} envAdmins={overview.envAdmins} />
             <RoomsCard session={session} />
@@ -264,6 +267,16 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
   }, [session.token]);
   useEffect(refresh, [refresh]);
 
+  const setLadder = async (u: AdminUser, progression: boolean) => {
+    setError(null);
+    try {
+      await api(`/admin/users/${u.id}/progression`, { method: 'PUT', token: session.token, body: { progression } });
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const setAdmin = async (u: AdminUser, admin: boolean) => {
     setError(null);
     setConfirm(null);
@@ -287,7 +300,7 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
       {!users ? <p className="muted">Loading…</p> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Name</th><th>Username</th><th>Joined</th><th className="num">Games</th><th>Admin</th></tr></thead>
+            <thead><tr><th>Name</th><th>Username</th><th>Joined</th><th className="num">Games</th><th>Ladder</th><th>Admin</th></tr></thead>
             <tbody>
               {shown.map((u) => (
                 <tr key={u.id}>
@@ -295,6 +308,13 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
                   <td className="admin-mono">{u.username}</td>
                   <td>{day(u.createdAt)}</td>
                   <td className="num">{u.played}</td>
+                  <td>
+                    {u.admin ? <span className="muted">–</span> : (
+                      <label className="check" title="On the ladder, they can play and host only the games they've unlocked">
+                        <input type="checkbox" checked={u.progression} onChange={(e) => setLadder(u, e.target.checked)} aria-label={`${u.name} on the progression ladder`} /> {u.progression ? 'On' : 'Off'}
+                      </label>
+                    )}
+                  </td>
                   <td>
                     {u.envAdmin ? <span className="pill">Admin (server setting)</span>
                       : !u.admin ? <button className="btn tiny" onClick={() => setAdmin(u, true)}>Make admin</button>
@@ -308,7 +328,7 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
                   </td>
                 </tr>
               ))}
-              {shown.length === 0 && <tr><td colSpan={5} className="muted">No accounts match.</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={6} className="muted">No accounts match.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -437,6 +457,82 @@ function ReportsCard({ session }: { session: Session }) {
           )}
         </div>
       ))}
+    </section>
+  );
+}
+
+// ---- progression (#50) ---------------------------------------------------
+
+function LadderEditor({ session, ladder, onSettings }: { session: Session; ladder: Ladder; onSettings(s: PlatformSettings): void }) {
+  const games = useGames();
+  const [draft, setDraft] = useState<Ladder>(ladder);
+  const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setDraft(ladder); }, [ladder]);
+  const name = (id: string) => games.find((g) => g.id === id)?.name ?? id;
+  const placed = new Set(draft.tiers.flatMap((t) => t.games));
+  const off = games.map((g) => g.id).filter((id) => !placed.has(id));
+  const changed = JSON.stringify(draft) !== JSON.stringify(ladder);
+
+  /** Move a game to tier `to` (an index), or off the ladder (-1). */
+  const move = (id: string, to: number) => setDraft({
+    tiers: draft.tiers.map((t, i) => ({ ...t, games: i === to ? [...t.games.filter((g) => g !== id), id] : t.games.filter((g) => g !== id) })),
+  });
+  const setWins = (i: number, wins: number) => setDraft({ tiers: draft.tiers.map((t, k) => (k === i ? { ...t, wins } : t)) });
+  const addTier = () => setDraft({ tiers: [...draft.tiers, { games: [], wins: (draft.tiers.at(-1)?.wins ?? 0) + 10 }] });
+  const dropTier = () => setDraft({ tiers: draft.tiers.slice(0, -1) });
+
+  const save = async (next: Ladder) => {
+    setBusy(true); setStatus(null);
+    try {
+      const r = await api<{ settings: PlatformSettings }>('/admin/settings', { method: 'PUT', token: session.token, body: { progression: next } });
+      onSettings(r.settings);
+      setStatus({ text: 'Saved' });
+    } catch (e) {
+      setStatus({ text: (e as Error).message, error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const mover = (id: string, at: number) => (
+    <select className="mini-select" value={at} aria-label={`Move ${name(id)}`} onChange={(e) => move(id, Number(e.target.value))}>
+      {draft.tiers.map((_, i) => <option key={i} value={i}>Tier {i + 1}</option>)}
+      <option value={-1}>Off the ladder</option>
+    </select>
+  );
+
+  return (
+    <section className="settings-card" aria-labelledby="adm-ladder">
+      <h2 id="adm-ladder">Progression ladder</h2>
+      <p className="muted">For players you put on the ladder (in Accounts below): they can play and host only the games in their open tiers, and watch any room. Everyone starts with tier 1; wins in the open games (against people or computer players) open the next tier. Players not on the ladder can play everything.</p>
+      <ol className="ladder-edit">
+        {draft.tiers.map((t, i) => (
+          <li key={i}>
+            <div className="ladder-edit-head">
+              <strong>Tier {i + 1}</strong>
+              {i < draft.tiers.length - 1
+                ? <label className="muted small">Wins to open tier {i + 2}: <input type="number" min={1} max={200} value={t.wins} onChange={(e) => setWins(i, Number(e.target.value))} /></label>
+                : <span className="muted small">The top tier</span>}
+            </div>
+            <div className="ladder-edit-games">
+              {t.games.length ? t.games.map((id) => <span key={id} className="ladder-game">{name(id)} {mover(id, i)}</span>) : <span className="muted small">No games yet: move some here.</span>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {off.length > 0 && (
+        <div className="ladder-edit-games"><span className="muted small">Not on the ladder (locked for players on it):</span>
+          {off.map((id) => <span key={id} className="ladder-game">{name(id)} {mover(id, -1)}</span>)}
+        </div>
+      )}
+      <div className="row admin-actions">
+        <button className="btn small" disabled={draft.tiers.length >= MAX_TIERS} onClick={addTier}>Add a tier</button>
+        <button className="btn small" disabled={draft.tiers.length <= 1} onClick={dropTier}>Remove the top tier</button>
+        <button className="btn small" onClick={() => setDraft(structuredClone(DEFAULT_LADDER))}>Start from the suggested ladder</button>
+        <button className="btn small primary" disabled={!changed || busy} onClick={() => save(draft)}>Save the ladder</button>
+      </div>
+      {status && <p className={status.error ? 'form-error' : 'admin-saved'} role="status">{status.text}</p>}
     </section>
   );
 }

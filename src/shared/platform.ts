@@ -1,3 +1,5 @@
+import { GAMES } from './games';
+import { DEFAULT_LADDER, checkLadder, type Ladder } from './progression';
 // Platform settings: the admin's choices for the whole Playhall (not one
 // person's, not one room's). Kept in the database (platform_settings), read
 // by the server from a cache, changed on the admin page (#/admin).
@@ -40,6 +42,8 @@ export interface PlatformSettings {
   roomDefaults: RoomDefaults;
   letterworksWordList: WordList;
   aiPlayers: AiPlayersSettings;
+  /** Progression (#50): the ladder of games for players an admin puts on it. */
+  progression: Ladder;
 }
 
 /** Today's behaviour: what applies until an admin changes something. */
@@ -52,6 +56,7 @@ export function defaultPlatformSettings(env: { signupsAllowed?: boolean } = {}):
     roomDefaults: { moveSeconds: 0, watcherDelay: 0, ranked: true },
     letterworksWordList: 'full',
     aiPlayers: { enabled: false, url: '', model: 'llama3.1:8b', seconds: 15 },
+    progression: structuredClone(DEFAULT_LADDER),
   };
 }
 
@@ -106,6 +111,10 @@ export function checkPlatformPatch(v: unknown): { patch: PlatformPatch } | { err
         } else return { error: `Unknown AI setting: ${k}` };
       }
       patch.aiPlayers = ai;
+    } else if (key === 'progression') {
+      const r = checkLadder(value, Object.keys(GAMES));
+      if ('error' in r) return r;
+      patch.progression = r.ladder;
     } else return { error: `Unknown setting: ${key}` };
   }
   return { patch };
@@ -183,6 +192,8 @@ export interface AdminUser {
   /** Admin through ADMIN_USERNAMES: can't be removed from the page. */
   envAdmin: boolean;
   played: number;
+  /** On the progression ladder (#50). */
+  progression: boolean;
 }
 
 export interface AdminRoom {

@@ -8,7 +8,7 @@ const alex: RoomUser = { id: 'a', name: 'Alex', guest: false };
 const priya: RoomUser = { id: 'p', name: 'Priya', guest: false };
 const guest: RoomUser = { id: 'g', name: 'Kai', guest: true };
 
-function setup(settings: Partial<RoomSettings> = {}) {
+function setup(settings: Partial<RoomSettings> = {}, canPlay?: RoomHooks['canPlay']) {
   let now = 1_000_000;
   const timers: { at: number; fn: () => void; live: boolean }[] = [];
   const over: unknown[] = [];
@@ -23,6 +23,7 @@ function setup(settings: Partial<RoomSettings> = {}) {
     gameOver: (g) => { over.push(g.result); finished.push(g); },
     changed: () => {},
     kick: (id) => { kicked.push(id); },
+    canPlay,
   };
   const rec: RoomRecord = {
     id: 'r1', code: 'ABC123', name: 'Test', gameId: 'chess', hostId: host.id, hostName: host.name,
@@ -518,4 +519,14 @@ test('a seated player missing when the game starts gets a minute, then the game 
   advance(61_000);
   assert.equal(rec.game.status, 'over', 'two players: the one still here wins');
   assert.equal((over.at(-1) as { winner: string }).winner, 'white');
+});
+
+test('progression (#50): a game not open on someone’s ladder can’t be played or hosted, but can be watched', () => {
+  const { room, rec } = setup({}, (userId, gameId) => (userId === alex.id && gameId === 'chess' ? 'Chess isn’t open on your ladder yet' : null));
+  assert.throws(() => room.handle(alex, { t: 'sit', seat: 'black' }), /ladder/);
+  assert.throws(() => room.handle(host, { t: 'seat', userId: alex.id, seat: 'black' }), /ladder/);
+  assert.throws(() => room.handle(host, { t: 'makeHost', userId: alex.id }), /can’t host/);
+  room.handle(priya, { t: 'sit', seat: 'black' });
+  assert.equal(rec.seats.black?.userId, priya.id);
+  assert.equal(room.snapshotFor(alex.id).you.seat, null, 'alex is still in the room, watching');
 });

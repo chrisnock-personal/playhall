@@ -92,6 +92,8 @@ export interface RoomHooks {
   aiAsk?(system: string, user: string): Promise<string | null>;
   /** A random, unguessable id (the table camera's). */
   newId?(): string;
+  /** Progression (#50): why this person can't play this game, or null. */
+  canPlay?(userId: string, gameId: string): string | null;
 }
 
 /** How long a player who drops out mid-game has to come back. */
@@ -247,7 +249,7 @@ export class Room {
     this.hostAway = this.hooks.setTimer(HOST_AWAY_MS, () => {
       this.hostAway = null;
       if (this.present.has(this.rec.hostId)) return;
-      const here = [...this.present.values()].map((p) => p.user).filter((u) => !u.guest && !isBotId(u.id));
+      const here = [...this.present.values()].map((p) => p.user).filter((u) => !u.guest && !isBotId(u.id) && !this.hooks.canPlay?.(u.id, this.rec.gameId));
       const next = here.find((u) => this.seatOf(u.id)) ?? here[0];
       if (!next) { this.startHostAway(); return; }
       const was = this.rec.hostName;
@@ -428,8 +430,10 @@ export class Room {
     return seatsIn(this.game, this.rec.settings.gameConfig);
   }
 
-  private checkCanPlay(user: { guest: boolean }): void {
+  private checkCanPlay(user: { id?: string; guest: boolean }): void {
     if (user.guest && !this.rec.settings.guestsCanPlay) throw new RoomError('Guests can watch but not play in this room');
+    const locked = user.id ? this.hooks.canPlay?.(user.id, this.rec.gameId) : null;
+    if (locked) throw new RoomError(locked);
   }
 
   private place(holder: SeatHolder, seat: SeatId): void {
@@ -783,7 +787,7 @@ export class Room {
     for (const seat of free) {
       const nextId = this.queue.find((id) => {
         const p = this.present.get(id);
-        return p && (!p.user.guest || this.rec.settings.guestsCanPlay);
+        return p && (!p.user.guest || this.rec.settings.guestsCanPlay) && !this.hooks.canPlay?.(id, this.rec.gameId);
       });
       if (!nextId) break;
       const next = this.present.get(nextId)!.user;
@@ -951,6 +955,7 @@ export class Room {
     const p = this.present.get(userId);
     if (!p) throw new RoomError('They’re not in the room');
     if (p.user.guest) throw new RoomError('Guests can’t host: they need an account');
+    if (this.hooks.canPlay?.(userId, this.rec.gameId)) throw new RoomError(`${p.user.name} can’t host this game yet: it isn’t open on their ladder`);
     this.rec.hostId = userId;
     this.rec.hostName = p.user.name;
     this.system(`${p.user.name} is now the host`);
