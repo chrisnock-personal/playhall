@@ -72,3 +72,18 @@ button.sh-up.picked { transform: translateY(-8px); }
 .gr-group.meld { background: rgba(111, 211, 160, .12); }
 .gr-group.dead { background: rgba(255, 155, 143, .10); }
 .gr-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+
+/* Bridge */
+.br-auction { display: grid; grid-template-columns: repeat(4, 44px); gap: 2px 6px; background: rgba(0,0,0,.35); padding: 8px 10px; border-radius: 10px; font-size: 13px; text-align: center; }
+.br-auction-head { font-weight: 700; opacity: .7; }
+.br-call.red { color: #ff8a80; }
+.br-call.next { color: #f0a53c; font-weight: 700; }
+.ht-last.br-center { background: none; padding: 0; }
+.br-dummy .hand-row { flex-wrap: wrap; max-width: 330px; }
+.br-box { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.br-level { display: inline-flex; gap: 2px; }
+.br-bid { min-width: 36px; }
+.br-bid.red { color: #d64545; }
+.br-total td { font-weight: 700; border-top: 2px solid var(--line); }
+.br-hands { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+.br-mini { display: flex; flex-wrap: wrap; gap: 2px; }

@@ -12,6 +12,7 @@ import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poophead
 import { chessBot } from './games/chess.bot';
 import { letterworksBot } from './games/letterworks.bot';
 import { manorBot } from './games/manormystery.bot';
+import { bridgeBot } from './games/bridge.bot';
 import { ship2shoreTalk } from './games/ship2shore.talk';
 
 /** A bot: its seat's view and its seat in, the action it takes out. */
@@ -41,6 +42,7 @@ export const BOTS: Record<string, Bot> = {
   chess: chessBot,
   letterworks: letterworksBot,
   manormystery: manorBot,
+  bridge: bridgeBot,
   roulette: rouletteBot,
   craps: crapsBot,
   chinesecheckers: chineseCheckersBot,

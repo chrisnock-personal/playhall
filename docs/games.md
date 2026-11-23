@@ -176,6 +176,13 @@ No team play yet. It has a bot.
 spins from 1,000 play chips: straight up 35:1, red/black, odd/even, low/high
 1:1, dozens and columns 2:1; everyone bets then presses Done, and the wheel
 spins when all are done). Splits and corners are still to do. It has a bot.
+**Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
+Violet against East-West Teal and Rose; the auction with doubles and
+redoubles and each call explained in words; dummy face up after the opening
+lead and played by the declarer; Chicago scoring over four deals with the
+usual contract scoring; both partners score the win). No rubber scoring or
+claims yet. Bots bid a simple natural system and play by rules of thumb (in
+simulation they make about 57% of their contracts).
 **Craps** (#43, 1-8 players, sessions of 20/30/40 rolls from 1,000 play
 chips: pass and don't pass before the come-out, odds up to 2x behind pass at
 true odds, the one-roll field with 2 and 12 double; the shooter passes on a
