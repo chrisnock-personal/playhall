@@ -180,3 +180,10 @@ export interface TournamentSummary {
   /** Your game that's ready now, if any. */
   myRoom: string | null;
 }
+
+/** A player's past or current tournament, for their stats page. */
+export interface PlayerTournament {
+  code: string; name: string; gameName: string; format: Format; status: TournamentView['status'];
+  /** Where they finished (or are now), and out of how many. */
+  place: number; of: number; won: boolean;
+}
