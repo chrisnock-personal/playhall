@@ -122,6 +122,7 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
   const [t, setT] = useState<TournamentView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [perm, setPerm] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'));
   const load = useCallback(() => {
     api<{ tournament: TournamentView }>(`/tournaments/${code}`, { token: session.token }).then((r) => setT(r.tournament)).catch((e) => setError((e as Error).message));
   }, [code, session.token]);
@@ -142,7 +143,6 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
   const name = (id: string | null) => (id ? t.players.find((p) => p.id === id)?.name ?? '?' : '');
   const current = t.rounds.length - 1;
   const myMatch = t.status === 'running' ? t.rounds[current]?.find((m) => !m.result && m.b && (m.a === me || m.b === me)) : undefined;
-  const [perm, setPerm] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'));
   const share = async () => { try { await navigator.clipboard.writeText(location.href); setCopied(true); } catch { /* shown in the address bar anyway */ } };
 
   return (
@@ -183,6 +183,8 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
           {organiser && <p className="hint">Players are seeded at random when you start. Share the link so people can enter.</p>}
         </section>
       )}
+
+      {t.rounds.length > 0 && t.config.format === 'knockout' && <Bracket t={t} me={me} />}
 
       {t.rounds.length > 0 && (
         <section className="tn-rounds">
@@ -241,4 +243,47 @@ function knockoutName(i: number, players: number): string {
   const all = Math.ceil(Math.log2(Math.max(2, players)));
   const left = all - i;
   return left === 1 ? 'The final' : left === 2 ? 'Semi-finals' : left === 3 ? 'Quarter-finals' : `Round ${i + 1}`;
+}
+
+/** A knockout drawn as a bracket (#61): rounds in columns, pairs joined to the match they feed, later rounds shown before they're played. */
+function Bracket({ t, me }: { t: TournamentView; me: string }) {
+  const total = Math.ceil(Math.log2(Math.max(2, t.players.length)));
+  const name = (id: string | null) => (id ? t.players.find((p) => p.id === id)?.name ?? '?' : '');
+  const cols = Array.from({ length: total }, (_, i) => {
+    const size = 2 ** (total - i - 1);
+    return Array.from({ length: size }, (_, k) => t.rounds[i]?.[k] ?? null);
+  });
+  const line = (m: TournamentView['rounds'][number][number] | null, side: 'a' | 'b', i: number, k: number) => {
+    if (!m) return <span className="muted">{i === 0 ? '' : `Winner of match ${2 * k + (side === 'a' ? 1 : 2)}`}</span>;
+    const id = side === 'a' ? m.a : m.b;
+    if (!id) return <span className="muted">bye</span>;
+    const won = m.result === side;
+    return <span className={`${won ? 'won' : ''}${id === me ? ' me' : ''}`}>{name(id)}{won ? ' ✓' : ''}</span>;
+  };
+  return (
+    <section className="card tn-bracket-card" aria-label="The bracket">
+      <h2>The bracket</h2>
+      <div className="tn-bracket">
+        {cols.map((col, i) => (
+          <div key={i} className="tn-col">
+            <div className="tn-col-head">{knockoutName(i, t.players.length)}</div>
+            <div className="tn-col-body">
+              {Array.from({ length: Math.ceil(col.length / 2) }, (_, p) => (
+                <div key={p} className={`tn-pair${i < cols.length - 1 && col.length > 1 ? ' joined' : ''}`}>
+                  {col.slice(p * 2, p * 2 + 2).map((m, j) => (
+                    <div key={j} className={`tn-slot${m?.room && !m.result ? ' live' : ''}`}>
+                      {line(m, 'a', i, p * 2 + j)}
+                      {line(m, 'b', i, p * 2 + j)}
+                      {m?.room && <a className="tn-slot-link" href={`#/r/${m.room}`} aria-label="Open the game">{m.result ? 'Room' : 'Watch'}</a>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {t.winner && <div className="tn-col tn-champion"><div className="tn-col-head">Winner</div><div className="tn-col-body"><div className="tn-slot"><span className="won">🏆 {t.winner.name}</span></div></div></div>}
+      </div>
+    </section>
+  );
 }

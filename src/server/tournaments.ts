@@ -12,7 +12,7 @@ import { GAMES } from '../shared/games';
 import { progressionBlock } from './progression';
 import {
   FORMATS, finished, pairRound, standings, suggestedSwissRounds, winnerOf,
-  type Format, type Round, type TPlayer, type TournamentConfig, type TournamentSummary, type TournamentView,
+  type Format, type PlayerTournament, type Round, type TPlayer, type TournamentConfig, type TournamentSummary, type TournamentView,
 } from '../shared/tournament';
 
 export const MAX_PLAYERS = 64;
@@ -235,6 +235,19 @@ export class Tournaments {
     };
   }
 
+  /** The tournaments `userId` entered, newest first, with where they finished. */
+  async history(userId: string): Promise<PlayerTournament[]> {
+    const { rows } = await this.db.query<{ code: string; name: string; game_id: string; config: TournamentConfig; status: T['status']; data: Partial<T> }>(
+      `SELECT code, name, game_id, config, status, data FROM tournaments
+        WHERE status <> 'signup' AND data->'players' @> jsonb_build_array(jsonb_build_object('id', $1::text))
+        ORDER BY created_at DESC LIMIT 20`, [userId]);
+    return rows.map((r) => {
+      const table = standings(r.config.format, r.data.players ?? [], r.data.rounds ?? []);
+      const place = table.findIndex((x) => x.id === userId) + 1;
+      return { code: r.code, name: r.name, gameName: GAMES[r.game_id]?.name ?? r.game_id, format: r.config.format, status: r.status, place, of: table.length, won: r.status === 'done' && place === 1 };
+    });
+  }
+
   summaries(userId: string): TournamentSummary[] {
     return [...this.all.values()]
       .filter((t) => t.config.open || t.organiser.id === userId || t.players.some((p) => p.id === userId))
@@ -258,6 +271,11 @@ export function tournamentRoutes(opts: { auth: Auth; tournaments: Tournaments })
 
   r.get('/tournaments/games', auth.requireUser, (_req, res) => {
     res.json({ games: tournamentGames().map((g) => ({ id: g.id, name: g.name })), suggestedSwissRounds: suggestedSwissRounds(8) });
+  });
+  r.get('/players/:id/tournaments', auth.requireUser, async (req, res) => {
+    const id = String(req.params.id);
+    if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(404).json({ error: 'No such player' }); return; }
+    res.json({ tournaments: await tournaments.history(id) });
   });
   r.get('/tournaments', auth.requireUser, (req, res) => { res.json({ tournaments: tournaments.summaries(req.user!.id) }); });
   r.post('/tournaments', auth.requireUser, async (req, res) => {

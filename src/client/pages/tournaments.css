@@ -26,3 +26,22 @@
 .pill.signup { background: var(--accent-soft); color: var(--accent); }
 .pill.running { background: rgba(63,179,162,.2); color: #3fb3a2; }
 .pill.done { background: var(--surface-2); }
+.stats-tournaments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.stats-tournaments li { display: flex; flex-direction: column; gap: 2px; }
+.tn-won { color: var(--accent); font-weight: 700; }
+
+/* The bracket (#61) */
+.tn-bracket { display: flex; gap: 28px; overflow-x: auto; padding: 4px 2px 8px; }
+.tn-col { display: flex; flex-direction: column; min-width: 170px; }
+.tn-col-head { font: 600 12px var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+.tn-col-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 10px; }
+.tn-pair { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 10px; position: relative; }
+.tn-pair.joined::after { content: ''; position: absolute; right: -15px; top: 25%; bottom: 25%; border: 2px solid var(--line); border-left: 0; border-radius: 0 6px 6px 0; }
+.tn-pair.joined .tn-slot::after { content: ''; position: absolute; right: -15px; top: 50%; width: 15px; border-top: 2px solid var(--line); }
+.tn-col + .tn-col .tn-slot::before { content: ''; position: absolute; left: -13px; top: 50%; width: 13px; border-top: 2px solid var(--line); }
+.tn-slot { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); font-size: 14px; }
+.tn-slot.live { border-color: var(--accent); }
+.tn-slot .won { font-weight: 700; }
+.tn-slot .me { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+.tn-slot-link { position: absolute; right: 6px; top: 6px; font-size: 11px; }
+.tn-champion .tn-slot { border-color: var(--accent); }

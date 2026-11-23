@@ -1,3 +1,4 @@
+import { FORMATS, type PlayerTournament } from '../../shared/tournament';
 import { useEffect, useState } from 'react';
 import { api, type Session } from '../api';
 import type { Period, PlayerStatsResponse } from '../../shared/protocol';
@@ -161,10 +162,36 @@ export function PlayerStats({ session, onSignOut, userId }: { session: Session; 
                 ))}
                 <span className="hint">Won–drawn–lost, {periodWord}.</span>
               </div>
+              <PastTournaments session={session} userId={userId} />
             </aside>
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+const ORDINAL = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+
+/** Tournaments this player entered (#61), with where they finished. */
+function PastTournaments({ session, userId }: { session: Session; userId: string }) {
+  const [list, setList] = useState<PlayerTournament[] | null>(null);
+  useEffect(() => {
+    api<{ tournaments: PlayerTournament[] }>(`/players/${userId}/tournaments`, { token: session.token }).then((r) => setList(r.tournaments)).catch(() => setList([]));
+  }, [session.token, userId]);
+  if (!list || !list.length) return null;
+  return (
+    <div className="card">
+      <h2>Tournaments</h2>
+      <ul className="stats-tournaments">
+        {list.map((t) => (
+          <li key={t.code}>
+            <a href={`#/tournaments/${t.code}`}><strong>{t.name}</strong></a>
+            <span className="muted small">{t.gameName} · {FORMATS[t.format]}</span>
+            <span className={t.won ? 'tn-won' : ''}>{t.won ? '🏆 Won' : t.status === 'done' ? `${ORDINAL(t.place)} of ${t.of}` : `${ORDINAL(t.place)} of ${t.of} so far`}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
