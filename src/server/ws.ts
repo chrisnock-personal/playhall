@@ -3,6 +3,7 @@
 // One connection per open room tab. Every change in a room sends each connection its own snapshot (what a
 // player may see differs from a watcher), coalesced to one send per tick.
 
+import { loadProgression } from './progression';
 import type { IncomingMessage, Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Auth } from './auth';
@@ -68,6 +69,9 @@ export class RoomSockets {
       return;
     }
 
+    // Progression (#50): know which games this player has opened before they take a seat.
+    if (!user.guest) await loadProgression(user.id).catch(() => undefined);
+    if (ws.readyState !== ws.OPEN) return;
     const conn: Conn = { ws, user, alive: true };
     let set = this.conns.get(room);
     if (!set) { set = new Set(); this.conns.set(room, set); }

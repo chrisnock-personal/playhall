@@ -9,6 +9,7 @@ import { seatsIn } from '../../shared/game';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
 import { Room, RoomError, type RoomRecord, type SeatHolder } from './room';
 import { recordGame } from '../stats';
+import { loadProgression, progressionBlock } from '../progression';
 import type { AdminRoom } from '../../shared/platform';
 import { transcriptsAllowed } from '../transcripts';
 import { aiAvailable, askModel } from '../ai';
@@ -144,7 +145,11 @@ export class RoomManager {
       },
       gameOver: (ended) => {
         recordGame(this.db, ended)
-          .then((standings) => room.setLastResult(standings))
+          .then((standings) => {
+            room.setLastResult(standings);
+            // Wins may open the next tier of someone's ladder.
+            for (const h of Object.values(ended.players)) if (!h.bot) loadProgression(h.userId).catch(() => undefined);
+          })
           .catch((err) => console.error('[rooms] saving the result failed:', err.message));
       },
       kick: (userId, reason) => this.onKick(room, userId, reason),
@@ -152,6 +157,7 @@ export class RoomManager {
       aiAvailable,
       aiAsk: askModel,
       newId: () => crypto.randomBytes(18).toString('base64url'),
+      canPlay: progressionBlock,
       changed: () => {
         if (room) this.onChanged(room);
         if (room) this.checkIdle(room);

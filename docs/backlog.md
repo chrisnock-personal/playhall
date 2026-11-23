@@ -140,3 +140,5 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 | How to play for every game | 2026-11-15 | `howToPlay` in each game module |
 
 - **Reports (#21), done 2026-11-22:** players report a room or a person from the People tab (reason, optional words); the report keeps the room's last 30 chat lines; admins see open reports on the Platform page, mark them dealt with (with a note) or reopen them. Later: a badge on the Platform link when reports are open, and an admin action to suspend an account.
+
+- **Progression (#50), done 2026-11-23:** an admin puts an account on the ladder (Accounts card); the admin orders games into tiers with the wins needed to open the next (Progression ladder card; a suggested four-tier ladder to start from). A player on the ladder can play and host only the open tiers' games and watch any room; wins in open games (bot games too) open the next tier; the lobby shows their ladder and locks the rest. Admins can't be put on it. Later: hide the Sit here buttons for locked players, and a note in the room when a tier opens.

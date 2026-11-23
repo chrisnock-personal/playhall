@@ -751,3 +751,12 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .admin-report .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .admin-report input { flex: 1; min-width: 160px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* Progression (#50) */
+.ladder-card .ladder-bar { height: 10px; border-radius: 999px; background: var(--surface-2, #232730); overflow: hidden; margin: 6px 0; }
+.ladder-card .ladder-bar span { display: block; height: 100%; background: var(--accent, #f0a53c); border-radius: inherit; transition: width .4s ease; }
+.ladder-tiers { margin: 10px 0 6px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.ladder-tiers li { display: grid; grid-template-columns: 70px 1fr; gap: 6px; }
+.ladder-tiers li.locked { opacity: .55; }
+.ladder-tier { font-weight: 700; }
+.game-pick.locked { opacity: .5; cursor: not-allowed; }
