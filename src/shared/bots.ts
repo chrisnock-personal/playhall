@@ -9,10 +9,15 @@
 import { ship2shoreBot } from './games/ship2shore.bot';
 import { chineseCheckersBot, checkersBot, fourBot, ludoBot, snakesBot, whoDatBot } from './games/board.bots';
 import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot, spadesBot, thirtyOneBot, ginBot, bingoBot, rouletteBot, crapsBot } from './games/card.bots';
+import { chessBot } from './games/chess.bot';
+import { letterworksBot } from './games/letterworks.bot';
+import { manorBot } from './games/manormystery.bot';
 import { ship2shoreTalk } from './games/ship2shore.talk';
 
 /** A bot: its seat's view and its seat in, the action it takes out. */
-export type Bot = (view: unknown, seat: string, random: () => number) => unknown | null;
+/** Word checks for bots of word games (on the server's word list). */
+export interface BotWords { isWord(word: string): boolean; isPrefix(start: string): boolean }
+export type Bot = (view: unknown, seat: string, random: () => number, words?: BotWords) => unknown | null;
 
 /** The games that have bots, by game id. */
 export const BOTS: Record<string, Bot> = {
@@ -33,6 +38,9 @@ export const BOTS: Record<string, Bot> = {
   thirtyone: thirtyOneBot,
   ginrummy: ginBot,
   bingo: bingoBot,
+  chess: chessBot,
+  letterworks: letterworksBot,
+  manormystery: manorBot,
   roulette: rouletteBot,
   craps: crapsBot,
   chinesecheckers: chineseCheckersBot,

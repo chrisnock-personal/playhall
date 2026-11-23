@@ -73,6 +73,8 @@ export interface RoomHooks {
   random(): number;
   /** Word games: is this word in the word list? */
   isWord?(word: string): boolean;
+  /** Could more letters make this a word? (The Letterworks computer player.) */
+  isPrefix?(start: string): boolean;
   setTimer(ms: number, fn: () => void): () => void;
   /** The record changed and should be saved. */
   save(rec: RoomRecord): void;
@@ -875,7 +877,8 @@ export class Room {
   /** The rule bot's move for `seat`, or the out-of-time move if it's refused. */
   private ruleMove(seat: SeatId): void {
     const now = this.hooks.now();
-    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), seat, () => this.hooks.random());
+    const words = this.hooks.isWord && this.hooks.isPrefix ? { isWord: this.hooks.isWord, isPrefix: this.hooks.isPrefix } : undefined;
+    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), seat, () => this.hooks.random(), words);
     const r = action === null ? null : this.game.act(this.rec.game.state, seat, action, now, this.context());
     if (r && !('error' in r)) { this.accept(r, seat); return; }
     if (this.game.timeout) {
