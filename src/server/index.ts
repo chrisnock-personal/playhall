@@ -10,6 +10,7 @@ import { Auth } from './auth';
 import { RoomManager } from './rooms/manager';
 import { RoomSockets } from './ws';
 import { createApp } from './http';
+import { Tournaments } from './tournaments';
 import { loadPlatformSettings } from './platform';
 import { initProgression } from './progression';
 import type { AdminTls } from './admin';
@@ -58,7 +59,9 @@ async function main(): Promise<void> {
       return info;
     },
   } : null;
-  const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir, media, tls });
+  const tournaments = new Tournaments(db, rooms);
+  await tournaments.load();
+  const app = createApp({ auth, rooms, sockets, db, staticDir: config.staticDir, media, tls, tournaments });
   let server: http.Server;
   if (config.tls) {
     const pair = await ensureCert(config.tlsDir, config.tlsHosts);

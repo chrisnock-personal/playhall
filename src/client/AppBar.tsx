@@ -2,10 +2,11 @@ import type { Session } from './api';
 import { Avatar, Logo } from './ui';
 import { useTheme, type Theme } from './theme';
 
-export type Section = 'rooms' | 'leaderboard' | 'stats' | 'settings' | 'admin';
+export type Section = 'rooms' | 'tournaments' | 'leaderboard' | 'stats' | 'settings' | 'admin';
 
 const LINKS: [Section, string, string][] = [
   ['rooms', 'Rooms', '#/'],
+  ['tournaments', 'Tournaments', '#/tournaments'],
   ['leaderboard', 'Leaderboards', '#/leaderboard'],
   ['stats', 'My stats', '#/stats'],
   ['settings', 'Settings', '#/settings'],

@@ -1,3 +1,4 @@
+import { TournamentsPage } from './pages/Tournaments';
 import { useEffect, useState } from 'react';
 import { ChangePassword } from './ChangePassword';
 import { Settings } from './pages/Settings';
@@ -67,6 +68,10 @@ export function App() {
   if (roomCode) return <RoomPage key={roomCode} code={roomCode} session={session} onSignOut={signOut} />;
   const replayId = /^#\/replay\/(\d+)/.exec(hash)?.[1];
   if (replayId) return <Replay key={replayId} session={session} onSignOut={signOut} id={replayId} />;
+  if (hash.startsWith('#/tournaments')) {
+    const code = /^#\/tournaments\/([A-Z0-9]+)/i.exec(hash)?.[1] ?? null;
+    return <TournamentsPage key={code ?? 'list'} session={session} onSignOut={signOut} code={code} />;
+  }
   if (hash.startsWith('#/leaderboard')) return <Leaderboard session={session} onSignOut={signOut} />;
   if (hash.startsWith('#/admin')) return <Admin session={session} onSignOut={signOut} />;
   if (hash.startsWith('#/settings')) return <Settings session={session} onSignOut={signOut} />;
