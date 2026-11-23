@@ -94,15 +94,15 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
   });
 
   r.get('/users', async (_req, res) => {
-    const { rows } = await db.query<{ id: string; username: string; display_name: string; created_at: Date; last_seen_at: Date; played: number; progression: boolean }>(
-      `SELECT u.id, u.username, u.display_name, u.created_at, u.last_seen_at, u.progression,
+    const { rows } = await db.query<{ id: string; username: string; display_name: string; created_at: Date; last_seen_at: Date; played: number; progression: boolean; suspended_reason: string | null }>(
+      `SELECT u.id, u.username, u.display_name, u.created_at, u.last_seen_at, u.progression, u.suspended_reason,
               (SELECT count(*) FROM game_results g WHERE g.user_id = u.id)::int AS played
          FROM users u WHERE u.kind = 'account'
         ORDER BY u.created_at LIMIT 2000`);
     const users: AdminUser[] = rows.map((u) => ({
       id: u.id, username: u.username, name: u.display_name,
       createdAt: new Date(u.created_at).toISOString(), lastSeenAt: new Date(u.last_seen_at).toISOString(),
-      admin: auth.isAdmin(u.id), envAdmin: auth.envAdmins.has(u.username), played: u.played, progression: u.progression,
+      admin: auth.isAdmin(u.id), envAdmin: auth.envAdmins.has(u.username), played: u.played, progression: u.progression, suspended: u.suspended_reason,
     }));
     res.json({ users });
   });
@@ -139,6 +139,27 @@ export function adminRoutes(opts: { auth: Auth; db: Db; rooms: RoomManager; sock
     for (const room of rooms.loaded()) sockets.changed(room);
     console.log(`[admin] ${req.user!.name} ${on ? 'put' : 'took'} ${id} ${on ? 'on' : 'off'} the progression ladder`);
     res.json({ progression: on });
+  });
+
+  r.put('/users/:id/suspend', async (req, res) => {
+    const id = String(req.params.id);
+    const raw = req.body?.reason;
+    if (raw !== null && typeof raw !== 'string') { res.status(400).json({ error: 'Give a reason, or null to lift it' }); return; }
+    const reason = raw === null ? null : raw.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, 200);
+    if (!UUID.test(id)) { res.status(404).json({ error: 'No such account' }); return; }
+    if (id === req.user!.id) { res.status(400).json({ error: 'You can’t suspend yourself' }); return; }
+    if (reason !== null && auth.isAdmin(id)) { res.status(400).json({ error: 'Remove them as an admin first' }); return; }
+    const { rowCount } = await db.query(`UPDATE users SET suspended_reason = $2 WHERE id = $1 AND kind = 'account'`, [id, reason]);
+    if (!rowCount) { res.status(404).json({ error: 'No such account' }); return; }
+    auth.setSuspended(id, reason);
+    if (reason !== null) sockets.closeUser(id, 'Your account was suspended');
+    console.log(`[admin] ${req.user!.name} ${reason === null ? 'lifted the suspension of' : 'suspended'} ${id}`);
+    res.json({ suspended: reason });
+  });
+
+  r.get('/reports/count', async (_req, res) => {
+    const { rows } = await db.query<{ n: number }>('SELECT count(*)::int AS n FROM reports WHERE resolved_at IS NULL');
+    res.json({ open: rows[0].n });
   });
 
   r.get('/rooms', async (_req, res) => {

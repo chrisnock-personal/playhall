@@ -9,7 +9,7 @@ import { seatsIn } from '../../shared/game';
 import { DEFAULT_SETTINGS, type ChatLine, type RoomSettings, type RoomSummary, type SessionUser } from '../../shared/protocol';
 import { Room, RoomError, type RoomRecord, type SeatHolder, type FinishedGame } from './room';
 import { recordGame } from '../stats';
-import { loadProgression, progressionBlock } from '../progression';
+import { newTierAfterGame, progressionBlock } from '../progression';
 import type { AdminRoom } from '../../shared/platform';
 import { transcriptsAllowed } from '../transcripts';
 import { aiAvailable, askModel } from '../ai';
@@ -154,7 +154,12 @@ export class RoomManager {
           .then((standings) => {
             room.setLastResult(standings);
             // Wins may open the next tier of someone's ladder.
-            for (const h of Object.values(ended.players)) if (!h.bot) loadProgression(h.userId).catch(() => undefined);
+            for (const h of Object.values(ended.players)) {
+              if (h.bot) continue;
+              newTierAfterGame(h.userId).then((opened) => {
+                if (opened) room.announce(`🎉 ${h.name} unlocked tier ${opened.tier} of their ladder: ${opened.games.join(', ')}`);
+              }).catch(() => undefined);
+            }
           })
           .catch((err) => console.error('[rooms] saving the result failed:', err.message));
       },

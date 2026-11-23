@@ -12,7 +12,7 @@ export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video
 }) {
   const { snap, send } = stage;
   const filled = snap.seats.filter((s) => s.userId).length;
-  const canSit = (seatFree: boolean) => seatFree && snap.game.status !== 'playing' && !snap.you.seat
+  const canSit = (seatFree: boolean) => seatFree && snap.game.status !== 'playing' && !snap.you.seat && !snap.you.locked
     && (snap.room.settings.seatPolicy === 'open' || snap.you.host);
   // Players' cameras are in the table channel; anyone who may see it gets them.
   const anyVideo = voice.feeds.some((f) => f.channel === 'table');

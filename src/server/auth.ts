@@ -27,6 +27,8 @@ export class Auth {
   /** Ids of every admin account, from the database and ADMIN_USERNAMES, so
    *  checking a session needs no query. Kept current by setAdmin(). */
   private admins = new Set<string>();
+  /** Suspended accounts (#51), with the reason they're shown. */
+  private suspended = new Map<string, string>();
   /** Accounts that must choose a new password first (the default admin). */
   private mustChange = new Set<string>();
 
@@ -41,6 +43,18 @@ export class Auth {
     this.admins = new Set(rows.map((r) => r.id));
     const { rows: mc } = await this.db.query<{ id: string }>(`SELECT id FROM users WHERE must_change_password`);
     this.mustChange = new Set(mc.map((r) => r.id));
+    const { rows: su } = await this.db.query<{ id: string; suspended_reason: string }>(`SELECT id, suspended_reason FROM users WHERE suspended_reason IS NOT NULL`);
+    this.suspended = new Map(su.map((r) => [r.id, r.suspended_reason]));
+  }
+
+  /** Why an account is suspended, or null. */
+  suspension(userId: string): string | null {
+    return this.suspended.get(userId) ?? null;
+  }
+
+  /** Update the cache after suspended_reason changed (null lifts it). */
+  setSuspended(userId: string, reason: string | null): void {
+    if (reason === null) this.suspended.delete(userId); else this.suspended.set(userId, reason);
   }
 
   /** A fresh install with no admin gets one: username "admin", password
@@ -84,6 +98,8 @@ export class Auth {
     try {
       const p = jwt.verify(token, this.secret) as jwt.JwtPayload & { name: string; guest: boolean; scope?: string };
       if (!p.sub || typeof p.name !== 'string' || p.scope) return null;
+      // A suspended account's sessions stop working at once.
+      if (this.suspended.has(p.sub)) return null;
       return { id: p.sub, name: p.name, guest: !!p.guest, admin: !p.guest && this.admins.has(p.sub), ...(this.mustChange.has(p.sub) ? { mustChangePassword: true } : {}) };
     } catch {
       return null;
@@ -188,6 +204,8 @@ export class Auth {
       // doesn't reveal which usernames exist.
       const ok = await bcrypt.compare(password, row?.password_hash ?? DUMMY_HASH);
       if (!row || !ok) { res.status(401).json({ error: 'Wrong username or password' }); return; }
+      const why = this.suspended.get(row.id);
+      if (why !== undefined) { res.status(403).json({ error: `This account is suspended${why ? `: ${why}` : ''}. Ask an admin.` }); return; }
       await this.db.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [row.id]);
       const user = { id: row.id, name: row.display_name, guest: false, admin: this.admins.has(row.id), ...(this.mustChange.has(row.id) ? { mustChangePassword: true } : {}) };
       res.json({ token: this.sign(user), user });

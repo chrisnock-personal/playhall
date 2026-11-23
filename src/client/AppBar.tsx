@@ -1,4 +1,5 @@
-import type { Session } from './api';
+import { useEffect, useState } from 'react';
+import { api, type Session } from './api';
 import { Avatar, Logo } from './ui';
 import { useTheme, type Theme } from './theme';
 
@@ -14,13 +15,30 @@ const LINKS: [Section, string, string][] = [
 // Only admins see this one.
 const ADMIN_LINK: [Section, string, string] = ['admin', 'Platform', '#/admin'];
 
+/** Admins: how many reports are waiting (#51), checked every minute. */
+function useOpenReports(session: Session): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!session.user.admin) return;
+    let live = true;
+    const load = () => api<{ open: number }>('/admin/reports/count', { token: session.token }).then((r) => { if (live) setN(r.open); }).catch(() => {});
+    load();
+    const timer = setInterval(load, 60_000);
+    return () => { live = false; clearInterval(timer); };
+  }, [session.token, session.user.admin]);
+  return n;
+}
+
 export function AppBar({ session, onSignOut, active }: { session: Session; onSignOut(): void; active: Section | null }) {
+  const reports = useOpenReports(session);
   return (
     <header className="appbar">
       <a href="#/" className="logo-link" aria-label="Playhall: rooms"><Logo /></a>
       <nav className="appnav" aria-label="Main">
         {[...LINKS, ...(session.user.admin ? [ADMIN_LINK] : [])].map(([id, label, href]) => (
-          <a key={id} href={href} className={active === id ? 'on' : ''} aria-current={active === id ? 'page' : undefined}>{label}</a>
+          <a key={id} href={href} className={active === id ? 'on' : ''} aria-current={active === id ? 'page' : undefined}>
+            {label}{id === 'admin' && reports > 0 && <span className="nav-badge" aria-label={`${reports} open ${reports === 1 ? 'report' : 'reports'}`}>{reports}</span>}
+          </a>
         ))}
       </nav>
       <div className="appbar-right">

@@ -10,7 +10,9 @@ export function GalleryStrip({ state, onSet, snap, send, handUp, voice, video }:
 }) {
   const watchers = snap.members.filter((m) => !m.seat && m.online);
   const watching = !snap.you.seat;
-  const handBtn = watching && (
+  const handBtn = watching && snap.you.locked ? (
+    <span className="pill locked-note" title={snap.you.locked}>🔒 Not open on your ladder yet: you can watch</span>
+  ) : watching && (
     <button className={`btn small${handUp ? ' on' : ''}`} onClick={() => send({ t: 'hand', up: !handUp })}>
       <Icon name="hand" size={16} />{handUp ? 'Seat requested' : 'Ask for a seat'}
     </button>

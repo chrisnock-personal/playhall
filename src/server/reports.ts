@@ -52,11 +52,11 @@ export function reportRoute(opts: { auth: Auth; db: Db; rooms: RoomManager }): R
 }
 
 interface ReportRow {
-  id: string; reporter: string; room_code: string; room_name: string; target_name: string | null; reason: ReportReason; details: string;
+  id: string; reporter: string; room_code: string; room_name: string; target_id: string | null; target_name: string | null; reason: ReportReason; details: string;
   chat: AdminReport['chat']; created_at: Date; resolved_at: Date | null; resolved_by: string | null; note: string | null;
 }
 const toReport = (r: ReportRow): AdminReport => ({
-  id: r.id, reporter: r.reporter, roomCode: r.room_code, roomName: r.room_name, target: r.target_name, reason: r.reason, details: r.details,
+  id: r.id, reporter: r.reporter, roomCode: r.room_code, roomName: r.room_name, target: r.target_name, targetId: r.target_id, reason: r.reason, details: r.details,
   chat: r.chat, createdAt: new Date(r.created_at).toISOString(),
   resolved: r.resolved_at ? { at: new Date(r.resolved_at).toISOString(), by: r.resolved_by ?? '', note: r.note ?? '' } : null,
 });

@@ -11,6 +11,8 @@ import { ladderProgress, type MyProgression } from '../shared/progression';
 let db: Db | null = null;
 /** Players on the ladder: the games they may play. Players not here are free. */
 const allowed = new Map<string, Set<string>>();
+/** How many tiers each player on the ladder had open, last time we looked. */
+const openTiers = new Map<string, number>();
 
 export function initProgression(d: Db): void { db = d; }
 
@@ -19,12 +21,23 @@ export async function loadProgression(userId: string): Promise<MyProgression> {
   const ladder = getPlatformSettings().progression;
   if (!db) return { on: false, ladder, progress: null };
   const { rows } = await db.query<{ progression: boolean }>('SELECT progression FROM users WHERE id = $1', [userId]);
-  if (!rows[0]?.progression) { allowed.delete(userId); return { on: false, ladder, progress: null }; }
+  if (!rows[0]?.progression) { allowed.delete(userId); openTiers.delete(userId); return { on: false, ladder, progress: null }; }
   const { rows: wins } = await db.query<{ game_id: string; n: number }>(
     `SELECT game_id, count(*)::int AS n FROM game_results WHERE user_id = $1 AND outcome = 'win' GROUP BY game_id`, [userId]);
   const progress = ladderProgress(ladder, Object.fromEntries(wins.map((w) => [w.game_id, w.n])));
   allowed.set(userId, new Set(progress.allowed));
+  openTiers.set(userId, progress.open);
   return { on: true, ladder, progress };
+}
+
+/** After a game: work out `userId`'s ladder again, and say which tier they just
+ *  opened (its number and games), or null. */
+export async function newTierAfterGame(userId: string): Promise<{ tier: number; games: string[] } | null> {
+  const before = openTiers.get(userId);
+  const now = await loadProgression(userId);
+  if (!now.progress || before === undefined || now.progress.open <= before) return null;
+  const tier = now.progress.open;
+  return { tier, games: now.ladder.tiers[tier - 1].games.map((g) => GAMES[g]?.name ?? g) };
 }
 
 /** Why `userId` can't play or host `gameId`, or null when they can. */

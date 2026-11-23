@@ -54,7 +54,7 @@ function PlayerStrip({ props, side }: { props: StageProps; side: ChessSide }) {
   const seat = snap.seats.find((s) => s.id === side)!;
   const view = snap.game.view as ChessView | null;
   const member = snap.members.find((m) => m.userId === seat.userId);
-  const canSit = !seat.userId && snap.game.status !== 'playing' && !snap.you.seat
+  const canSit = !seat.userId && snap.game.status !== 'playing' && !snap.you.seat && !snap.you.locked
     && (snap.room.settings.seatPolicy === 'open' || snap.you.host);
   const toMove = snap.game.status === 'playing' && view?.turn === side;
   return (

@@ -119,6 +119,11 @@ export class RoomSockets {
     for (const c of [...(set ?? [])]) if (c.user.id === userId) { set!.delete(c); c.ws.close(4409, reason.slice(0, 120)); }
   }
 
+  /** Disconnect someone from every room (their account was suspended). */
+  closeUser(userId: string, reason: string): void {
+    for (const set of this.conns.values()) for (const c of [...set]) if (c.user.id === userId) { set.delete(c); c.ws.close(4401, reason.slice(0, 120)); }
+  }
+
   /** Disconnect everyone from a room that has been closed. */
   closeRoom(room: Room, byAdmin = false): void {
     for (const c of this.conns.get(room) ?? []) c.ws.close(byAdmin ? 4411 : 4410, byAdmin ? 'An admin closed this room' : 'The host closed this room');
