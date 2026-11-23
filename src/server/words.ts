@@ -20,3 +20,15 @@ export function isWord(word: string): boolean {
   words ??= load();
   return words.has(word.toUpperCase());
 }
+
+let prefixes: Set<string> | null = null;
+
+/** Could more letters make this a word? (For the Letterworks computer player; built on first use.) */
+export function isPrefix(start: string): boolean {
+  if (!prefixes) {
+    words ??= load();
+    prefixes = new Set();
+    for (const w of words) for (let i = 1; i <= w.length; i++) prefixes.add(w.slice(0, i));
+  }
+  return prefixes.has(start.toUpperCase());
+}

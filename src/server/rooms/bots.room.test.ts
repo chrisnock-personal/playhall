@@ -97,8 +97,9 @@ test('a bot whose answer is refused falls back to the out-of-time move', () => {
 });
 
 test('games without bots refuse them', () => {
-  const { room } = setup('chess');
-  assert.throws(() => room.handle(host, { t: 'addBot', seat: 'black' }), (e: unknown) => e instanceof RoomError && /no computer players/.test(e.message));
+  // The camera table (a real board game over a camera) is the one game without them.
+  const { room } = setup('cameratable');
+  assert.throws(() => room.handle(host, { t: 'addBot', seat: 'p2' }), (e: unknown) => e instanceof RoomError && /no computer players/.test(e.message));
 });
 
 const settle = () => new Promise((r) => setImmediate(r));
