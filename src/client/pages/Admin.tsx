@@ -277,6 +277,18 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
     }
   };
 
+  const [suspending, setSuspending] = useState<{ id: string; reason: string } | null>(null);
+  const suspend = async (u: AdminUser, reason: string | null) => {
+    setError(null);
+    try {
+      await api(`/admin/users/${u.id}/suspend`, { method: 'PUT', token: session.token, body: { reason } });
+      setSuspending(null);
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const setAdmin = async (u: AdminUser, admin: boolean) => {
     setError(null);
     setConfirm(null);
@@ -300,7 +312,7 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
       {!users ? <p className="muted">Loading…</p> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Name</th><th>Username</th><th>Joined</th><th className="num">Games</th><th>Ladder</th><th>Admin</th></tr></thead>
+            <thead><tr><th>Name</th><th>Username</th><th>Joined</th><th className="num">Games</th><th>Ladder</th><th>Admin</th><th>Suspend</th></tr></thead>
             <tbody>
               {shown.map((u) => (
                 <tr key={u.id}>
@@ -326,9 +338,20 @@ function UsersCard({ session, envAdmins }: { session: Session; envAdmins: string
                         </span>
                       ) : <span className="admin-confirm"><span className="pill role-player">Admin</span><button className="btn tiny" onClick={() => setConfirm(u.id)}>Remove</button></span>}
                   </td>
+                  <td>
+                    {u.suspended !== null ? (
+                      <span className="admin-confirm"><span className="pill warn" title={u.suspended}>Suspended</span><button className="btn tiny" onClick={() => suspend(u, null)}>Lift</button></span>
+                    ) : u.admin || u.id === session.user.id ? <span className="muted">–</span> : suspending?.id === u.id ? (
+                      <span className="admin-confirm">
+                        <input value={suspending.reason} maxLength={200} placeholder="Why (they’ll see it)" onChange={(e) => setSuspending({ id: u.id, reason: e.target.value })} />
+                        <button className="btn tiny danger" onClick={() => suspend(u, suspending.reason)}>Suspend</button>
+                        <button className="btn tiny" onClick={() => setSuspending(null)}>Cancel</button>
+                      </span>
+                    ) : <button className="btn tiny" onClick={() => setSuspending({ id: u.id, reason: '' })}>Suspend</button>}
+                  </td>
                 </tr>
               ))}
-              {shown.length === 0 && <tr><td colSpan={6} className="muted">No accounts match.</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={7} className="muted">No accounts match.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -453,6 +476,14 @@ function ReportsCard({ session }: { session: Session }) {
             <div className="row">
               <input placeholder="A note (optional): what you did" value={notes[r.id] ?? ''} maxLength={500} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
               <button className="btn tiny primary" onClick={() => resolve(r.id, true)}>Mark as dealt with</button>
+              {r.targetId && <button className="btn tiny danger" onClick={async () => {
+                setError(null);
+                try {
+                  await api(`/admin/users/${r.targetId}/suspend`, { method: 'PUT', token: session.token, body: { reason: notes[r.id] || REPORT_REASONS[r.reason] } });
+                  await api(`/admin/reports/${r.id}`, { method: 'PUT', token: session.token, body: { note: `Suspended ${r.target}${notes[r.id] ? `: ${notes[r.id]}` : ''}` } });
+                  refresh();
+                } catch (e) { setError((e as Error).message); }
+              }}>Suspend {r.target}</button>}
             </div>
           )}
         </div>

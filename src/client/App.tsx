@@ -1,3 +1,4 @@
+import { useTournamentAlerts } from './useTournamentAlerts';
 import { TournamentsPage } from './pages/Tournaments';
 import { useEffect, useState } from 'react';
 import { ChangePassword } from './ChangePassword';
@@ -48,6 +49,8 @@ export function App() {
       });
     }).catch(() => {});
   }, [token]);
+
+  useTournamentAlerts(session?.token, !!session?.user.guest);
 
   const camera = /^#\/camera\/([A-Za-z0-9]+)\?k=([^&]+)/.exec(hash);
   if (camera) {

@@ -142,6 +142,8 @@ export interface RoomSnapshot {
     delay: number;
     /** Voice and video rights in each channel (the server enforces them). */
     media: Record<Channel, MediaRight>;
+    /** Progression (#50): why this person can't play this room's game, or null. */
+    locked?: string | null;
   };
   serverNow: number;
 }

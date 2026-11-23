@@ -289,6 +289,12 @@ export class Room {
   }
 
   /** Standings after the last game, filled in once the results are saved. */
+  /** A line in the table chat from Playhall itself (a tier opened, say). */
+  announce(text: string): void {
+    this.system(text);
+    this.hooks.changed();
+  }
+
   setLastResult(r: LastResult | null): void {
     this.lastResult = r;
     this.hooks.changed();
@@ -1144,6 +1150,7 @@ export class Room {
         canWrite: this.canWrite(userId),
         delay: this.delayFor(userId),
         media: this.mediaRights(userId) ?? { table: NO_MEDIA, gallery: NO_MEDIA },
+        locked: this.hooks.canPlay?.(userId, this.rec.gameId) ?? null,
       },
       serverNow: now,
     };

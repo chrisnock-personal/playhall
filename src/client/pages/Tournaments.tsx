@@ -7,6 +7,7 @@ import { Avatar, Crown } from '../ui';
 import { GAME_CLIENTS } from '../games';
 import { useGames } from '../useGames';
 import { FORMATS, suggestedSwissRounds, type Format, type TournamentSummary, type TournamentView } from '../../shared/tournament';
+import { askToNotify } from '../useTournamentAlerts';
 import './tournaments.css';
 
 const STATUS: Record<TournamentView['status'], string> = { signup: 'Taking entries', running: 'Under way', done: 'Finished' };
@@ -141,6 +142,7 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
   const name = (id: string | null) => (id ? t.players.find((p) => p.id === id)?.name ?? '?' : '');
   const current = t.rounds.length - 1;
   const myMatch = t.status === 'running' ? t.rounds[current]?.find((m) => !m.result && m.b && (m.a === me || m.b === me)) : undefined;
+  const [perm, setPerm] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'));
   const share = async () => { try { await navigator.clipboard.writeText(location.href); setCopied(true); } catch { /* shown in the address bar anyway */ } };
 
   return (
@@ -151,7 +153,11 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
           <h1>{t.name}</h1>
           <p className="muted">{t.gameName} · {FORMATS[t.config.format]}{t.config.format === 'swiss' ? `, ${t.config.rounds} rounds` : ''} · run by {t.organiser.name} · <span className={`pill ${t.status}`}>{STATUS[t.status]}</span></p>
         </div>
-        <button className="btn small" onClick={share}>{copied ? 'Link copied' : 'Copy the link'}</button>
+        <span className="row">
+          {entered && t.status !== 'done' && perm === 'default' && <button className="btn small" onClick={async () => setPerm(await askToNotify())}>Tell me when my game is ready</button>}
+          {entered && t.status !== 'done' && perm === 'granted' && <span className="muted small">You’ll get a notification when your game is ready.</span>}
+          <button className="btn small" onClick={share}>{copied ? 'Link copied' : 'Copy the link'}</button>
+        </span>
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
 

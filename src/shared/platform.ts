@@ -194,6 +194,8 @@ export interface AdminUser {
   played: number;
   /** On the progression ladder (#50). */
   progression: boolean;
+  /** Suspended by an admin (#51): the reason, or null. */
+  suspended: string | null;
 }
 
 export interface AdminRoom {
@@ -228,6 +230,7 @@ export interface AdminReport {
   roomName: string;
   /** Who was reported, or null for the room itself. */
   target: string | null;
+  targetId: string | null;
   reason: ReportReason;
   details: string;
   chat: { name: string; channel: string; text: string; at: string }[];

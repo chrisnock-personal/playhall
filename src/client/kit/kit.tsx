@@ -184,7 +184,7 @@ export function PlayerStrip({ snap, send, seatId, toMove, extra, receivedAt }: {
 }) {
   const seat = snap.seats.find((s) => s.id === seatId)!;
   const member = snap.members.find((m) => m.userId === seat.userId);
-  const canSit = !seat.userId && snap.game.status !== 'playing' && !snap.you.seat
+  const canSit = !seat.userId && snap.game.status !== 'playing' && !snap.you.seat && !snap.you.locked
     && (snap.room.settings.seatPolicy === 'open' || snap.you.host);
   const bots = !!useGames().find((g) => g.id === snap.room.gameId)?.bots;
   const canAddBot = bots && !seat.userId && snap.game.status !== 'playing' && snap.you.host;
