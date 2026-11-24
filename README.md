@@ -127,6 +127,30 @@ certificate and any intermediates, PEM) and `server.key` in that volume and
 send the app `SIGHUP` (`podman-compose kill -s HUP app`). Either way it checks
 the pair and swaps it in with no restart.
 
+### Windows and macOS
+
+Install Docker Desktop (or Podman Desktop with its Compose support), start it,
+and run these from a terminal in this folder:
+
+```sh
+cp .env.example .env    # Windows PowerShell: copy .env.example .env
+# fill in POSTGRES_PASSWORD and JWT_SECRET (at least 32 random characters)
+docker compose build
+docker compose up -d --force-recreate
+```
+
+With Podman Desktop, use `podman compose` (or `podman-compose`) in place of
+`docker compose`. As on Linux, open https://localhost:8450 and accept the
+self-signed certificate once; from another device, use the machine's LAN
+address and put it in `TLS_HOSTS` before the first run. To swap in a real
+certificate later, use `docker compose kill -s HUP app` (or the Podman
+equivalent).
+
+Voice and video are optional: set the LiveKit values in `.env`, including
+`LIVEKIT_NODE_IP` (the address browsers reach this machine on), then start with
+`docker compose --profile media up -d --force-recreate`. Open TCP 7881 and UDP
+7882 if the machine's firewall blocks them.
+
 **Platform settings.** Admins get a "Platform" link in the top bar
 (`#/admin`): sign-ups and guests on or off, voice and video on or off, the
 defaults for new rooms, the HTTPS certificate, making other accounts admins,
