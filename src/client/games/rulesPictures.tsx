@@ -9,6 +9,7 @@ import { FaceCard } from './whodat-art';
 import { ManorCard } from './manormystery-art';
 import { VALUES } from '../../shared/games/letterworks';
 import { CAST } from '../../shared/games/whodat';
+import { REDS } from '../../shared/games/roulette';
 
 const Fig = ({ children, caption }: { children: ReactNode; caption: string }) => (
   <div className="rp"><div className="rp-art">{children}</div><span className="rp-caption">{caption}</span></div>
@@ -145,7 +146,7 @@ const WhoFaces: FC = () => (
 
 const PoopheadCards: FC = () => (
   <Fig caption="A 2 goes on anything and resets the pile, a 7 caps the next card at 7, a 10 burns the pile — and so do four of a kind.">
-    <Cards codes={['2H', '7S', '10D', 'QS']} width={44} />
+    <Cards codes={['2H', '7S', 'TD', 'QS']} width={44} />
   </Fig>
 );
 
@@ -172,7 +173,7 @@ const RouletteBets: FC = () => {
       <svg viewBox="0 0 230 120" width="240" role="img" aria-label="Part of a roulette table with zero, numbers, a dozen, red and a split bet">
         <rect x="4" y="4" width="222" height="112" rx="8" fill="#254a35" />
         {nums.map((n, i) => <g key={n}>
-          <rect x={8 + i * 16} y="8" width="15" height="24" rx="2" fill={n === 0 ? '#1b7a45' : n % 2 ? '#b52b2b' : '#1b1e24'} />
+          <rect x={8 + i * 16} y="8" width="15" height="24" rx="2" fill={n === 0 ? '#1b7a45' : REDS.has(n) ? '#b52b2b' : '#1b1e24'} />
           <text x={8 + i * 16 + 7.5} y="24" fontSize="11" textAnchor="middle" fill="#fff">{n}</text>
         </g>)}
         <rect x="8" y="38" width="104" height="22" rx="3" fill="#1b1e24" /><text x="60" y="52" fontSize="10" textAnchor="middle" fill="#fff">1st 12 — 2 to 1</text>
