@@ -357,7 +357,11 @@ export class Room {
    *  Watchers and free-for-alls never get one. */
   private teamChatFor(userId: string): { channel: TextChannel; label: string } | null {
     if (!this.rec.game.state) return null;
-    return this.game.teamChat?.(this.rec.game.state, this.seatOf(userId)) ?? null;
+    // Only someone who played that seat in this game: after it ends, a
+    // newcomer sitting there mustn't read the side's lines from it.
+    const seat = this.seatOf(userId);
+    if (!seat || this.rec.game.players?.[seat]?.userId !== userId) return null;
+    return this.game.teamChat?.(this.rec.game.state, seat) ?? null;
   }
 
   canRead(userId: string): TextChannel[] {

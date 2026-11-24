@@ -73,3 +73,18 @@ test('a new game cannot read the last game’s lines on the same side', () => {
   assert.ok(!snap.chat.some((l) => l.text === 'old plan'));
   assert.ok(snap.chat.some((l) => l.text === 'new plan'));
 });
+
+test('after the game, a newcomer in a side’s seat can’t read that side’s chat', () => {
+  const { room, rec } = setup(true);
+  room.handle(users.v, { t: 'chat', channel: 'team-0', text: 'sun secret' });
+  room.handle(users.v, { t: 'act', action: { type: 'resign' } });
+  room.handle(users.h, { t: 'act', action: { type: 'resign' } });
+  assert.equal(rec.game.status, 'over');
+  assert.ok(room.snapshotFor(users.h.id).chat.some((l) => l.text === 'sun secret'), 'the team that played still reads it');
+  if (rec.seats.violet) room.handle(users.v, { t: 'stand' });
+  room.handle(users.w, { t: 'sit', seat: 'violet' });
+  const snap = room.snapshotFor(users.w.id);
+  assert.equal(snap.you.teamChat, null);
+  assert.ok(!snap.chat.some((l) => l.text === 'sun secret'));
+  assert.throws(() => room.handle(users.w, { t: 'chat', channel: 'team-0', text: 'hi' }), /No such chat/);
+});
