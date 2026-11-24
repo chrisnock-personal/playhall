@@ -49,7 +49,7 @@ const FULL = (() => { const d: string[] = []; for (const s of 'SHDC') for (const
 
 /** The chance its hand wins at a showdown against `opponents` random hands,
  *  by dealing out the rest of the board many times. */
-function equity(hole: string[], board: string[], opponents: number, random: () => number, trials = 200): number {
+export function equity(hole: string[], board: string[], opponents: number, random: () => number, trials = 200): number {
   const known = new Set([...hole, ...board]);
   const rest = FULL.filter((c) => !known.has(c));
   let score = 0;
