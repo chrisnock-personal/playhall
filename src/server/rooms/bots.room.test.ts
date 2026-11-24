@@ -168,3 +168,19 @@ test('bot levels (#62): the host picks gentle or strong where the game has them;
   assert.equal(other.rec.seats.teal?.level, undefined);
   assert.match(other.rec.seats.teal?.name ?? '', /\(bot\)$/);
 });
+
+test('practice (#57): gentle bots fill the seats the game needs, at least one opponent', () => {
+  const four = setup('fourinarow');
+  four.room.handle(host, { t: 'sit', seat: 'amber' });
+  four.room.fillWithBots();
+  assert.equal(four.rec.seats.teal?.bot, true);
+  assert.equal(four.rec.seats.teal?.level, 'gentle');
+  const hearts = setup('hearts');
+  hearts.room.handle(host, { t: 'sit', seat: 'amber' });
+  hearts.room.fillWithBots();
+  assert.equal(Object.values(hearts.rec.seats).filter((h) => h?.bot).length, 3, 'Hearts needs four');
+  const poker = setup('poker');
+  poker.room.handle(host, { t: 'sit', seat: 'amber' });
+  poker.room.fillWithBots();
+  assert.equal(Object.values(poker.rec.seats).filter((h) => h?.bot).length, 1, 'Hold’em starts with two');
+});

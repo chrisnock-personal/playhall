@@ -54,3 +54,7 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [bridgeClient.id]: bridgeClient,
   [realmBattleClient.id]: realmBattleClient,
 };
+
+// Pictures for the rules (#57).
+import RULES_PICTURES from './rulesPictures';
+for (const [id, pics] of Object.entries(RULES_PICTURES)) if (GAME_CLIENTS[id]) GAME_CLIENTS[id].rulesPictures = pics;

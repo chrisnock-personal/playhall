@@ -5,6 +5,9 @@ import type { GameResult, SeatId } from './game';
 export type Channel = 'table' | 'gallery';
 
 export interface RoomSettings {
+  /** A practice room (#57): one person learning a game against gentle bots,
+   *  with the coach showing; private and casual. */
+  practice?: boolean;
   /** Shown in the lobby to everyone, or only reachable by invite link. */
   listed: boolean;
   /** open: anyone may take a free seat; host: only the host seats people
@@ -38,6 +41,7 @@ export interface RoomSettings {
 }
 
 export const DEFAULT_SETTINGS: Omit<RoomSettings, 'gameConfig'> = {
+  practice: false,
   listed: true,
   seatPolicy: 'open',
   guestsCanPlay: true,

@@ -846,6 +846,18 @@ export class Room {
     this.touch();
   }
 
+  /** A practice room (#57): gentle bots in every free seat the game needs
+   *  (at least one opponent), never more than its seats. */
+  fillWithBots(level: 'gentle' | 'fair' | 'strong' = 'gentle'): void {
+    if (!BOTS[this.rec.gameId]) return;
+    const seats = this.seatDefs.map((s) => s.id);
+    const want = Math.min(seats.length, Math.max(2, this.minPlayers));
+    for (const seat of seats) {
+      if (Object.values(this.rec.seats).filter(Boolean).length >= want) break;
+      if (!this.rec.seats[seat]) this.addBot(seat, false, level);
+    }
+  }
+
   /** If the game is waiting for a bot, have it move after a short pause, so
    *  people can follow what it did. One move at a time; each move schedules
    *  the next. */
