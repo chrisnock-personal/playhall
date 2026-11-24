@@ -25,6 +25,7 @@ import { roulette } from './roulette';
 import { craps } from './craps';
 import { bridge } from './bridge';
 import { realmBattle } from './realmbattle';
+import { clueWords } from './cluewords';
 import { BOTS } from '../bots';
 
 // Every built-in game, by id. Adding a game = writing its module here and its
@@ -56,6 +57,7 @@ export const GAMES: Record<string, GameModule<any, any>> = {
   [craps.id]: craps,
   [bridge.id]: bridge,
   [realmBattle.id]: realmBattle,
+  [clueWords.id]: clueWords,
 };
 
 export function gameList() {
