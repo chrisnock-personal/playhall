@@ -26,6 +26,7 @@ import { crapsClient } from './craps';
 import { bridgeClient } from './bridge';
 import { realmBattleClient } from './realmbattle';
 import { clueWordsClient } from './cluewords';
+import { whatAmIClient } from './whatami';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -55,6 +56,7 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [bridgeClient.id]: bridgeClient,
   [realmBattleClient.id]: realmBattleClient,
   [clueWordsClient.id]: clueWordsClient,
+  [whatAmIClient.id]: whatAmIClient,
 };
 
 // Pictures for the rules (#57).

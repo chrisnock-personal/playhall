@@ -33,8 +33,9 @@ Our own takes on three party genres, with our own names, words and cards:
 clue-givers who see the key, one-word-and-number clues, a spy that loses the
 game and replays; no team chat, which could only carry answers). Still open: a fill-in-the-blank
 game (working name Fill the Blank: a family deck by default, an adult deck a
-host can choose), and **What Am I?** (everyone sees your word but you; ask
-the table yes/no questions).
+host can choose), and **What Am I?** is in (2026-11-24: everyone sees your word
+but you; ask the table yes/no questions, then guess — with family word
+categories, host-added words and ranked guesses).
 
 ### Landgrab (2026-11-16, #49)
 
@@ -172,3 +173,12 @@ Under our own names and artwork, like the others ([games.md](games.md)).
   watchers see the key, guessers only see revealed identities, there's no
   team chat (it could only carry answers), and replays show the watcher's view. Later: bots and AI,
   picture mode and host word lists.
+
+- **What Am I? (#48), done 2026-11-24:** a 3-8 player talking game. Everyone
+  sees your word but you; on your turn you ask a short question, the others
+  answer yes, no or maybe with buttons and talk it over at the table, and you
+  guess when ready. One turn each; a correct guess takes a place by how few
+  questions it took, with shared places on ties. The host picks a family word
+  category (animals, food, jobs, story characters or a mix) and can add their
+  own words. Watchers see every word, and replays show the watcher's view.
+  Later: bots, AI and an adult deck.

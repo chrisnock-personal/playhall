@@ -192,6 +192,14 @@ revealing a neutral or enemy word passes the turn, and the spy loses at once.
 Clue-givers and watchers see the key, guessers see only the words; no team chat,
 as it could only carry answers from clue-giver to guesser). No bots, AI, picture mode or custom word lists
 yet. Both team mates score the win.
+**What Am I?** (#48, 3-8 players, a talking party game: everyone sees your word
+but you. On your turn you ask a short question, the others answer yes, no or
+maybe with buttons and talk it over at the table, then you guess. Each player
+has one turn; a correct guess takes a place by how few questions it took (a wrong
+guess counts as one), with
+a shared place on a tie. Watchers see every word. The host picks a family word
+category or adds their own words; no bots or AI yet). It has replays and a
+rules picture.
 **Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
 Violet against East-West Teal and Rose; the auction with doubles and
 redoubles and each call explained in words; dummy face up after the opening
