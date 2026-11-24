@@ -28,8 +28,10 @@ the server.
 
 ### Party games (2026-11-16, #46, #47, #48)
 
-Our own takes on three party genres, with our own names, words and cards: a
-team word-association game (working name Clue Words), a fill-in-the-blank
+Our own takes on three party genres, with our own names, words and cards:
+**Clue Words** is in (2026-11-24: a 5×5 team word game for four, two
+clue-givers who see the key, one-word-and-number clues, a spy that loses the
+game and replays; no team chat, which could only carry answers). Still open: a fill-in-the-blank
 game (working name Fill the Blank: a family deck by default, an adult deck a
 host can choose), and **What Am I?** is in (2026-11-24: everyone sees your word
 but you; ask the table yes/no questions, then guess — with family word
@@ -161,6 +163,16 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 - **Pictures in the rules (#69), done 2026-11-24:** the remaining built-in games now have pictures in How to play — chess's pieces, Snakes and Ladders, Ludo, Sea Battle, Blackjack, Colour Clash, Hold'em hand rankings, Manor Mystery's notebook, Who Dat, Poophead's special cards, Chinese checkers' hop chain, Roulette's bets, Bridge's auction, Realm Battle and Ship2Shore's order headings. Every built-in game has one now.
 
 - **Realm Battle teams (#68), part done 2026-11-24:** in team games Mend heals and Shield covers (for that fight) whoever on the side is most hurt by share of Health, the creature itself included and kept on a tie; free-for-all keeps Realm Duel's abilities. Each side also has a private text chat tab, filtered by the room so the other team and watchers can't read it, and so the next side to take those seats can't read the last game's lines. Still to do from #68: team voice and the 30-creature pool/draft shared with Realm Duel.
+
+- **Clue Words (#46), done 2026-11-24:** our own four-player team word game.
+  Amber and Violet (Sun) play Teal and Rose (Moon) on a 5×5 board of nine Sun
+  words, eight Moon words, seven neutral and one spy; one clue-giver per side
+  sees the key and gives one word with a number, and their guesser reveals up
+  to one more word than that before stopping or passing the turn. Finding
+  every word wins for the team; the spy loses instantly. Clue-givers and
+  watchers see the key, guessers only see revealed identities, there's no
+  team chat (it could only carry answers), and replays show the watcher's view. Later: bots and AI,
+  picture mode and host word lists.
 
 - **What Am I? (#48), done 2026-11-24:** a 3-8 player talking game. Everyone
   sees your word but you; on your turn you ask a short question, the others

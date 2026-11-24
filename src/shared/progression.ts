@@ -19,7 +19,7 @@ export const DEFAULT_LADDER: Ladder = {
     { games: ['fourinarow', 'snakes', 'ludo', 'colourclash', 'whodat', 'bingo'], wins: 3 },
     { games: ['checkers', 'seabattle', 'hearts', 'poophead', 'thirtyone', 'chinesecheckers'], wins: 8 },
     { games: ['chess', 'letterworks', 'spades', 'ginrummy', 'blackjack', 'whatami'], wins: 15 },
-    { games: ['poker', 'roulette', 'craps', 'bridge', 'realmduel', 'realmbattle', 'manormystery', 'ship2shore', 'cameratable'], wins: 25 },
+    { games: ['poker', 'roulette', 'craps', 'bridge', 'realmduel', 'realmbattle', 'cluewords', 'manormystery', 'ship2shore', 'cameratable'], wins: 25 },
   ],
 };
 

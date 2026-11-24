@@ -230,6 +230,38 @@ const WhatWords: FC = () => (
   </Fig>
 );
 
+const ClueBoard: FC = () => {
+  // The key a clue-giver sees: nine Sun, eight Moon, seven neutral, one spy.
+  const kinds = [
+    ['S', 'M', 'N', 'S', 'M'],
+    ['N', 'S', 'M', 'N', 'S'],
+    ['M', 'N', 'S', 'M', 'N'],
+    ['S', 'M', 'N', 'S', 'M'],
+    ['S', 'S', 'M', 'N', 'X'],
+  ];
+  const words = [
+    'HARBOUR', 'PARROT', 'SNOW', 'CAMERA', 'LEMON',
+    'BUTTON', 'DRAGON', 'MAP', 'FROG', 'KITE',
+    'GUITAR', 'ISLAND', 'CANDLE', 'SHIP', 'ORANGE',
+    'TIGER', 'GLOBE', 'HONEY', 'PIRATE', 'TREE',
+    'WHALE', 'PUZZLE', 'MUSIC', 'STORM', 'KEY',
+  ];
+  const fill: Record<string, string> = { S: '#f2c14e', M: '#6fb1e6', N: '#bdb5a5', X: '#d66b6b' };
+  return (
+    <Fig caption="The key: nine Sun words, eight Moon words, seven neutral and one spy. Only clue-givers and watchers see the colours.">
+      <svg viewBox="0 0 200 200" width="180" role="img" aria-label="A five by five Clue Words board with Sun, Moon, neutral and spy words">
+        {kinds.flatMap((row, r) => row.map((k, c) => (
+          <g key={`${r}-${c}`}>
+            <rect x={c * 40 + 1} y={r * 40 + 1} width={38} height={38} rx={4} fill={fill[k]} />
+            <text x={c * 40 + 20} y={r * 40 + 17} textAnchor="middle" fontSize={7} fill={k === 'X' ? '#fff' : '#30271c'}>{words[r * 5 + c]}</text>
+            <text x={c * 40 + 20} y={r * 40 + 31} textAnchor="middle" fontSize={7} fill={k === 'X' ? '#fff' : '#30271c'}>{k === 'S' ? 'SUN' : k === 'M' ? 'MOON' : k === 'N' ? '—' : 'SPY'}</text>
+          </g>
+        )))}
+      </svg>
+    </Fig>
+  );
+};
+
 const PICTURES: Record<string, Record<string, FC>> = {
   chess: { 'How the pieces move': ChessMoves },
   fourinarow: { 'How a game ends': FourInARow },
@@ -274,6 +306,7 @@ const PICTURES: Record<string, Record<string, FC>> = {
   craps: { 'The rolls': () => <Fig caption="A 7 or 11 on the come-out roll is a natural: the pass line wins."><span className="rp-dice"><Die value={5} size={44} /><Die value={2} size={44} /></span></Fig> },
   bridge: { 'The auction': BridgeBid },
   realmbattle: { 'A round': BattleRound },
+  cluewords: { 'The board': ClueBoard },
   whatami: { 'The word': WhatWords },
 };
 
