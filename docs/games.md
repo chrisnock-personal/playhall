@@ -183,6 +183,15 @@ fighters strike in Agility order; a fallen target's hit goes to another enemy
 at random; team mates see each other's picks and hands). Bots focus on the
 team's target. In team games Mend heals the most wounded ally and Shield covers
 one, with a private team chat tab; free-for-all keeps Realm Duel's abilities.
+**Clue Words** (#46, our own four-player team word game: Amber and Violet are
+Sun, Teal and Rose are Moon. One clue-giver on each side sees the key to the
+5×5 board (nine Sun words, eight Moon words, seven neutral and one spy) and
+gives one word and a number; their guesser reveals up to one more word than
+that number, stopping when they like. Finding every word wins for the side;
+revealing a neutral or enemy word passes the turn, and the spy loses at once.
+Clue-givers and watchers see the key, guessers see only the words, and each side
+has a private team chat tab). No bots, AI, picture mode or custom word lists
+yet. Both team mates score the win.
 **Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
 Violet against East-West Teal and Rose; the auction with doubles and
 redoubles and each call explained in words; dummy face up after the opening
