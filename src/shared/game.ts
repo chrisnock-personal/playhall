@@ -11,6 +11,10 @@ export type SeatId = string;
  *  stays on the two open channels; `Channel` in protocol.ts is those two. */
 export type TextChannel = 'table' | 'gallery' | `team-${number}`;
 
+/** A player's private team channel. `readOnly`: they read it but can't write
+ *  (Clue Words' clue-giver, who may give nothing but the clue). */
+export interface TeamChat { channel: TextChannel; label: string; readOnly?: boolean }
+
 export interface SeatDef {
   id: SeatId;
   label: string;
@@ -131,7 +135,7 @@ export interface GameModule<S = unknown, C = unknown> {
   view(state: S, now: number, viewer: SeatId | null): unknown;
   /** A game with teams can give each side a private text channel. The room
    *  uses this to allow and filter chat; watchers and free-for-alls get null. */
-  teamChat?(state: S, viewer: SeatId | null): { channel: TextChannel; label: string } | null;
+  teamChat?(state: S, viewer: SeatId | null): TeamChat | null;
 }
 
 /** The seats in use for a (raw) config. */

@@ -49,6 +49,9 @@ export interface WhatAmIState {
   question: string | null;
   answers: Partial<Record<SeatId, Answer>>;
   roundQuestions: number;
+  /** Whether this turn's asker has guessed since their last answers: one
+   *  guess per question. Missing in older saves = no. */
+  guessed?: boolean;
   /** Correct guesses: the number of questions it took. */
   correct: Partial<Record<SeatId, number>>;
   /** Words their owner has learned (at the end of their turn, or at the end). */
@@ -69,6 +72,8 @@ export interface WhatAmIView {
   question: string | null;
   answers: Partial<Record<SeatId, Answer>>;
   roundQuestions: number;
+  /** The asker has used this question's one guess. */
+  guessed: boolean;
   correct: Partial<Record<SeatId, number>>;
   points: Record<SeatId, number>;
   /** Who the move timer is waiting on. */
@@ -148,7 +153,7 @@ function nextTurn(s: WhatAmIState, revealed: boolean, ctx: { names?: Record<Seat
   const round = s.round + 1;
   const guesser = s.order[round - 1];
   return {
-    ...withReveal, round, guesser, phase: 'question', question: null, answers: {}, roundQuestions: 0,
+    ...withReveal, round, guesser, phase: 'question', question: null, answers: {}, roundQuestions: 0, guessed: false,
     log: [...withReveal.log, `${nameOf(ctx, guesser)}'s turn: everyone but them can see their word.`],
   };
 }
@@ -157,7 +162,7 @@ function afterAnswers(s: WhatAmIState, ctx: { names?: Record<SeatId, string> }):
   const answers = s.order.filter((p) => p !== s.guesser)
     .map((p) => `${nameOf(ctx, p)}: ${ANSWER_LABEL[s.answers[p] ?? 'maybe']}`).join(', ');
   return {
-    ...s, phase: 'question', question: null, answers: {}, roundQuestions: s.roundQuestions + 1,
+    ...s, phase: 'question', question: null, answers: {}, roundQuestions: s.roundQuestions + 1, guessed: false,
     log: [...s.log, `Q${s.roundQuestions + 1} — ${answers}`],
   };
 }
@@ -175,7 +180,7 @@ export const whatAmI = withHistory<WhatAmIState, WhatAmIConfig>({
       ] },
       { title: 'Asking and answering', points: [
         'On your turn, type one short question and the other players answer yes, no or maybe with buttons. Talk it over in table chat or voice as well.',
-        'After everyone has answered, ask another question or guess your word. A wrong guess counts as a question. Spaces and hyphens in a guess don’t matter.',
+        'After everyone has answered, ask another question or guess your word. You get one guess per question: a wrong guess costs nothing, but you ask again before your next one. Spaces and hyphens in a guess don’t matter.',
         'If the move timer runs out, your turn is skipped and your word is revealed to you.',
       ] },
       { title: 'Scores', points: [
@@ -242,12 +247,13 @@ export const whatAmI = withHistory<WhatAmIState, WhatAmIConfig>({
     if (a.type === 'guess') {
       if (seat !== s.guesser) return { error: 'Only the player with the hidden word can guess' };
       if (s.phase !== 'question' || !s.roundQuestions) return { error: 'Ask a question first' };
+      if (s.guessed) return { error: 'One guess per question: ask another question first' };
       const word = typeof a.word === 'string' ? a.word.trim().toUpperCase().replace(/\s+/g, ' ') : '';
       if (!word || word.length > 24) return { error: 'Guess one word' };
       if (letters(word) !== letters(s.words[seat])) {
-        // A wrong guess counts as a question, or guessing every word in the
-        // category after one question would always win.
-        return { state: { ...s, roundQuestions: s.roundQuestions + 1, log: [...s.log, `${nameOf(ctx, seat)} guesses ${word} — no. That counts as a question.`] } };
+        // Wrong guesses are free, but one per question: otherwise guessing
+        // every word in the category after one question would always win.
+        return { state: { ...s, guessed: true, log: [...s.log, `${nameOf(ctx, seat)} guesses ${word} — no.`] } };
       }
       return { state: nextTurn({
         ...s, correct: { ...s.correct, [seat]: s.roundQuestions },
@@ -286,7 +292,7 @@ export const whatAmI = withHistory<WhatAmIState, WhatAmIConfig>({
     return {
       you: seated ? viewer : null, order: s.order, words, phase: over ? 'over' : s.phase,
       round: s.round, guesser: over ? null : s.guesser, question: s.question, answers: s.answers,
-      roundQuestions: s.roundQuestions, correct: s.correct, points, due: due(s), log: s.log, result: s.result,
+      roundQuestions: s.roundQuestions, guessed: !!s.guessed, correct: s.correct, points, due: due(s), log: s.log, result: s.result,
     };
   },
 }, { keys: ['text', 'answer', 'word'] });

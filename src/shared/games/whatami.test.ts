@@ -79,10 +79,14 @@ test('questions, answers and guesses follow the turn', () => {
 
   s = apply(s, 'amber', { type: 'guess', word: 'NOT THE WORD' }, ctx);
   assert.equal(s.correct.amber, undefined, 'a wrong guess does not score');
-  assert.equal(s.roundQuestions, 2, 'a wrong guess counts as a question');
+  assert.equal(s.roundQuestions, 1, 'a wrong guess is free');
   assert.equal(s.round, 1);
+  assert.ok('error' in whatAmI.act(s, 'amber', { type: 'guess', word: s.words.amber }, 0, ctx), 'one guess per question');
+  assert.equal(viewOf(s, 'amber').guessed, true, 'the asker sees their guess is used');
+  s = apply(s, 'amber', { type: 'question', text: 'Is it big?' }, ctx);
+  for (const p of ['teal', 'violet', 'rose']) s = apply(s, p, { type: 'answer', answer: 'no' }, ctx);
   s = apply(s, 'amber', { type: 'guess', word: s.words.amber.toLowerCase() }, ctx);
-  assert.equal(s.correct.amber, 2, 'one question and one wrong guess');
+  assert.equal(s.correct.amber, 2, 'two questions; the wrong guess cost nothing');
   assert.equal(s.round, 2);
   assert.equal(s.guesser, 'teal');
   assert.equal(s.phase, 'question');
