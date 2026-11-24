@@ -176,6 +176,12 @@ No team play yet. It has a bot.
 spins from 1,000 play chips: straight up 35:1, red/black, odd/even, low/high
 1:1, dozens and columns 2:1; everyone bets then presses Done, and the wheel
 spins when all are done). Splits and corners are still to do. It has a bot.
+**Realm Battle** (#34, Realm Duel's creatures for more: 2 against 2 or 3 against
+3, Sun (Amber, Violet, Lime) against Moon (Teal, Rose, Blue), or a
+free-for-all for 3-4; everyone picks a creature, a style and a target; all
+fighters strike in Agility order; a fallen target's hit goes to another enemy
+at random; team mates see each other's picks and hands). Bots focus on the
+team's target. Team abilities (healing or shielding an ally) still to do.
 **Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
 Violet against East-West Teal and Rose; the auction with doubles and
 redoubles and each call explained in words; dummy face up after the opening

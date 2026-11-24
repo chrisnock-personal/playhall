@@ -8,7 +8,7 @@
 
 import { ship2shoreBot } from './games/ship2shore.bot';
 import { chineseCheckersBot, checkersBot, fourBot, ludoBot, snakesBot, whoDatBot } from './games/board.bots';
-import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot, spadesBot, thirtyOneBot, ginBot, bingoBot, rouletteBot, crapsBot } from './games/card.bots';
+import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot, spadesBot, thirtyOneBot, ginBot, bingoBot, rouletteBot, crapsBot, realmBattleBot } from './games/card.bots';
 import { chessBot } from './games/chess.bot';
 import { letterworksBot } from './games/letterworks.bot';
 import { manorBot } from './games/manormystery.bot';
@@ -50,6 +50,7 @@ export const BOTS: Record<string, Bot> = {
   bridge: bridgeBot,
   roulette: rouletteBot,
   craps: crapsBot,
+  realmbattle: realmBattleBot,
   chinesecheckers: chineseCheckersBot,
 };
 

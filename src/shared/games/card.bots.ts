@@ -14,7 +14,8 @@ import type { CrapsView } from './craps';
 import { bestMelds as ginBest, worstDiscard as ginWorst, type GinView } from './ginrummy';
 import { handScore as toScore, worstCard as toWorst, type ThirtyOneView } from './thirtyone';
 import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
-import { CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
+import { BEATS as RD_BEATS, CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
+import type { BattleView } from './realmbattle';
 
 // ---- Blackjack: bet a little, then basic strategy ----
 
@@ -323,4 +324,28 @@ export function crapsBot(view: unknown, seat: SeatId): unknown | null {
   if (v.point === null && !b.pass && chips >= unit) return { type: 'bet', bet: 'pass', amount: unit };
   if (v.point !== null && b.pass && !b.odds && chips >= b.pass) return { type: 'bet', bet: 'odds', amount: b.pass };
   return { type: 'done' };
+}
+
+// ---- Realm Battle: focus on the team's target, with a creature that beats it ----
+
+export function realmBattleBot(view: unknown, seat: SeatId, random: () => number = Math.random): unknown | null {
+  const v = view as BattleView;
+  if (v.result || !v.you || v.locked[seat] || v.out.includes(seat)) return null;
+  const mine = (v.hands[seat] ?? []).map((f, i) => ({ f, i })).filter((x) => x.f && x.f.hp > 0);
+  if (!mine.length) return null;
+  const foes = v.order.filter((p) => v.team[p] !== v.team[seat] && !v.out.includes(p));
+  if (!foes.length) return null;
+  // Gang up: the enemy a team mate has already picked, else the one with the least left.
+  const left = (p: string) => (v.hands[p] ?? []).reduce((n, f) => n + (f ? (f.hp > 0 ? f.hp : 0) : 25), 0);
+  const mates = Object.entries(v.teamChoices).filter(([p]) => p !== seat).map(([, c]) => c.target).filter((t) => foes.includes(t));
+  // No team mate's pick to follow (or a free-for-all): one of the weaker enemies, at random, so nobody is always picked on.
+  const ranked = [...foes].sort((a, b) => left(a) - left(b));
+  const ffa = v.mode === 'ffa';
+  const weak = ffa ? ranked : ranked.filter((p) => left(p) <= left(ranked[0]) + 15);
+  const target = mates[0] ?? weak[Math.floor(random() * weak.length)];
+  // A creature whose element beats one the target has shown, else the healthiest.
+  const shown = (v.hands[target] ?? []).filter((f) => f && f.hp > 0).map((f) => CREATURES[f!.kind].element);
+  const beats = mine.filter((x) => shown.includes(RD_BEATS[CREATURES[x.f!.kind].element]));
+  const pick = (beats.length ? beats : mine).sort((a, b) => b.f!.hp - a.f!.hp)[0];
+  return { type: 'choose', creature: pick.i, style: bestStyle(CREATURES[pick.f!.kind]), target };
 }

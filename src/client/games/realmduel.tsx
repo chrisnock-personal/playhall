@@ -109,7 +109,7 @@ function CreatureArt({ kind }: { kind: CreatureId }) {
 }
 
 /** The violet back with the logo's arch (the playing cards' back is amber). */
-function CardBack() {
+export function CardBack() {
   return (
     <svg className="rd-back" viewBox="0 0 70 100" role="img" aria-label="A face-down creature">
       <rect x="1" y="1" width="68" height="98" rx="7" fill="#2A2140" stroke="#9B7BE0" strokeWidth="2" />

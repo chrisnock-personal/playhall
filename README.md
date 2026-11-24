@@ -7,10 +7,10 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Twenty-four games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Twenty-five games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Hearts, Spades, Thirty-One, Gin Rummy, Bingo, Chinese checkers, Roulette, Craps, Bridge, Poophead (the
 shedding game also known as Palace), Letterworks (a crossword tile game),
-Realm Duel (a creature card duel), Manor Mystery (a country-house murder
+Realm Duel (a creature card duel) and Realm Battle (its team version), Manor Mystery (a country-house murder
 mystery), Ship2Shore (a WW2 hidden-role game for 5-11) and Who Dat? (a
 guess-the-face game for two), drawn from
 one shared kit of boards, pieces, cards, chips and dice
