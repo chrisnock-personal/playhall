@@ -21,7 +21,7 @@ function WhatAmIStage({ snap, send, receivedAt }: StageProps) {
   const asker = v.guesser;
   const isAsker = !!me && me === asker;
   const canAsk = playing && isAsker && v.phase === 'question';
-  const canGuess = canAsk && v.roundQuestions > 0;
+  const canGuess = canAsk && v.roundQuestions > 0 && !v.guessed;
   const canAnswer = !!me && playing && v.phase === 'answers' && me !== asker && !v.answers[me];
   const waiting = v.due.length;
 
@@ -83,6 +83,7 @@ function WhatAmIStage({ snap, send, receivedAt }: StageProps) {
           </form>}
         </>}
         {canAsk && v.roundQuestions === 0 && <p className="hint">Ask at least one question before guessing.</p>}
+        {canAsk && v.guessed && <p className="hint">Not that one. Ask another question before your next guess.</p>}
         {isAsker && v.phase === 'answers' && <p className="hint">Wait for everyone to answer, then ask again or guess.</p>}
 
         <GameActions snap={snap} send={send} />

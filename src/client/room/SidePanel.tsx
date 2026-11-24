@@ -67,7 +67,7 @@ export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
 function chatHint(channel: TextChannel, snap: RoomSnapshot): string {
   const playing = snap.game.status === 'playing';
   if (channel === 'gallery') return 'Everyone watching. ' + (snap.room.settings.hideGalleryFromPlayers ? 'Players can’t read this while a game is on.' : 'Players can read this too.');
-  if (channel === snap.you.teamChat?.channel) return `Only your team (${snap.you.teamChat.label}) can read this. The other side and the watchers can’t.`;
+  if (channel === snap.you.teamChat?.channel) return `Only your team (${snap.you.teamChat.label}) can read this. The other side and the watchers can’t.${snap.you.teamChat.readOnly ? ' You can read it but not write here.' : ''}`;
   if (snap.you.seat) return 'Everyone can read the table.' + (snap.room.settings.hideGalleryFromPlayers && playing ? ' The gallery is hidden from you until the game ends.' : '');
   return snap.you.canWrite.includes('table') ? 'The players’ conversation. Everyone can read it.' : 'The players’ conversation. Watchers can read it but not write here during play.';
 }

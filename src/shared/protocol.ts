@@ -1,6 +1,6 @@
 // Messages between the browser and the room over the WebSocket (/ws), and
 // the snapshot of a room each person is sent after every change.
-import type { GameResult, SeatId, TextChannel } from './game';
+import type { GameResult, SeatId, TeamChat, TextChannel } from './game';
 
 export type { TextChannel } from './game';
 /** Voice and video channels. Team channels are text only. */
@@ -145,7 +145,7 @@ export interface RoomSnapshot {
     canRead: TextChannel[];
     canWrite: TextChannel[];
     /** This player's private team chat, when the game has teams (Realm Battle). */
-    teamChat: { channel: TextChannel; label: string } | null;
+    teamChat: TeamChat | null;
     /** Seconds behind live that this person sees the game (watchers only). */
     delay: number;
     /** Voice and video rights in each channel (the server enforces them). */
