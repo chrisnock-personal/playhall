@@ -31,7 +31,7 @@ the server.
 Our own takes on three party genres, with our own names, words and cards:
 **Clue Words** is in (2026-11-24: a 5×5 team word game for four, two
 clue-givers who see the key, one-word-and-number clues, a spy that loses the
-game and replays; no team chat, which could only carry answers). Still open: a fill-in-the-blank
+game, a team chat the clue-giver reads but can't write, and replays). Still open: a fill-in-the-blank
 game (working name Fill the Blank: a family deck by default, an adult deck a
 host can choose), and **What Am I?** is in (2026-11-24: everyone sees your word
 but you; ask the table yes/no questions, then guess — with family word
@@ -170,8 +170,8 @@ Under our own names and artwork, like the others ([games.md](games.md)).
   sees the key and gives one word with a number, and their guesser reveals up
   to one more word than that before stopping or passing the turn. Finding
   every word wins for the team; the spy loses instantly. Clue-givers and
-  watchers see the key, guessers only see revealed identities, there's no
-  team chat (it could only carry answers), and replays show the watcher's view. Later: bots and AI,
+  watchers see the key, guessers only see revealed identities, each side's
+  team chat is read-only for its clue-giver, and replays show the watcher's view. Later: bots and AI,
   picture mode and host word lists.
 
 - **What Am I? (#48), done 2026-11-24:** a 3-8 player talking game. Everyone

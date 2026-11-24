@@ -9,7 +9,7 @@ import { GAMES } from '../../shared/games';
 import { BOTS, BOT_ID_PREFIX, BOT_TALK, LEVELLED, botName, isBotId } from '../../shared/bots';
 import { AI_GAMES, aiPrompt, aiReplyPrompt, readAnswer, readSay } from '../../shared/ai';
 import { placingsOf } from '../../shared/scoring';
-import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId, type TextChannel } from '../../shared/game';
+import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId, type TeamChat, type TextChannel } from '../../shared/game';
 import type {
   Channel, ChatLine, ClientMessage, GameStatus, LastResult, MediaRight, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
 } from '../../shared/protocol';
@@ -355,7 +355,7 @@ export class Room {
 
   /** A game with teams can offer its players one private text channel (#68).
    *  Watchers and free-for-alls never get one. */
-  private teamChatFor(userId: string): { channel: TextChannel; label: string } | null {
+  private teamChatFor(userId: string): TeamChat | null {
     if (!this.rec.game.state) return null;
     // Only someone who played that seat in this game: after it ends, a
     // newcomer sitting there mustn't read the side's lines from it.
@@ -375,7 +375,7 @@ export class Room {
   canWrite(userId: string): TextChannel[] {
     const seated = this.seatOf(userId) !== null;
     const team = this.teamChatFor(userId);
-    if (seated) return team ? ['table', team.channel] : ['table'];
+    if (seated) return team && !team.readOnly ? ['table', team.channel] : ['table'];
     const table = this.isHost(userId) || this.rec.settings.watchersWriteTable || this.status !== 'playing';
     return table ? ['table', 'gallery'] : ['gallery'];
   }
@@ -521,7 +521,7 @@ export class Room {
     if (channel !== 'table' && channel !== 'gallery' && channel !== team) throw new RoomError('No such chat');
     if (!this.canWrite(user.id).includes(channel)) {
       throw new RoomError(channel === 'table' ? 'Watchers can’t write at the table during play'
-        : channel === 'gallery' ? 'Players can’t write in the gallery' : 'Only your team can write here');
+        : channel === 'gallery' ? 'Players can’t write in the gallery' : 'You can read this team chat but not write in it');
     }
     const body = typeof text === 'string' ? text.trim() : '';
     if (!body) return;

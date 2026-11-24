@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS } from '../../shared/protocol';
 import type { ClueWordsView } from '../../shared/games/cluewords';
 
 // The room gives each Clue Words side its own chat tab and its own view of the
-// board; a watcher sees the key. There's no team chat.
+// board; a watcher sees the key; a clue-giver reads its team chat but can't write.
 const users = {
   h: { id: 'h', name: 'Sam', guest: false },
   a: { id: 'a', name: 'Alex', guest: false },
@@ -40,8 +40,14 @@ test('the room starts a Clue Words game with a key only its clue-givers can see'
   assert.ok(boardOf(room, 'w').cards.every((c) => c.kind !== null), 'a watcher sees the key');
 });
 
-test('no team chat: a clue-giver can’t pass answers to the guesser in private', () => {
+test('team chat: guessers write, their clue-giver only reads, the other side and watchers see nothing', () => {
   const room = setup();
-  for (const id of ['h', 'v', 'a', 'r', 'w'] as const) assert.equal(room.snapshotFor(users[id].id).you.teamChat, null);
-  assert.throws(() => room.handle(users.h, { t: 'chat', channel: 'team-0', text: 'pick TIGER' }), /No such chat/);
+  assert.throws(() => room.handle(users.h, { t: 'chat', channel: 'team-0', text: 'pick TIGER' }), /read this team chat but not write/);
+  assert.ok(!room.snapshotFor(users.h.id).you.canWrite.includes('team-0'));
+  room.handle(users.v, { t: 'chat', channel: 'team-0', text: 'maybe TIGER?' });
+  assert.ok(room.snapshotFor(users.h.id).chat.some((l) => l.text === 'maybe TIGER?'), 'the clue-giver reads the guesser');
+  assert.ok(!room.snapshotFor(users.a.id).chat.some((l) => l.text === 'maybe TIGER?'), 'the other side doesn’t');
+  assert.ok(!room.snapshotFor(users.w.id).chat.some((l) => l.text === 'maybe TIGER?'), 'nor do watchers');
+  assert.throws(() => room.handle(users.a, { t: 'chat', channel: 'team-0', text: 'x' }), /No such chat/);
+  assert.equal(room.snapshotFor(users.w.id).you.teamChat, null);
 });

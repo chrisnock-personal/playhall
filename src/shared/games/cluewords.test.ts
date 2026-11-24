@@ -139,8 +139,13 @@ test('only clue-givers and watchers see the key; revealed words show their side'
   assert.equal(viewOf(s, 'teal').target[1], targetOf(1));
 });
 
-test('there is no team chat: the clue-giver would only use it to give answers away', () => {
-  assert.equal(clueWords.teamChat, undefined);
+test('each side has a team chat; its clue-giver can read but not write', () => {
+  const s = clueWords.create({}, 0, context());
+  assert.deepEqual(clueWords.teamChat!(s, 'amber'), { channel: 'team-0', label: 'Sun team', readOnly: true });
+  assert.deepEqual(clueWords.teamChat!(s, 'violet'), { channel: 'team-0', label: 'Sun team' });
+  assert.deepEqual(clueWords.teamChat!(s, 'teal'), { channel: 'team-1', label: 'Moon team', readOnly: true });
+  assert.deepEqual(clueWords.teamChat!(s, 'rose'), { channel: 'team-1', label: 'Moon team' });
+  assert.equal(clueWords.teamChat!(s, null), null);
 });
 
 test('a clue can’t be a word still hidden on the board', () => {

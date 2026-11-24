@@ -3,7 +3,7 @@
 // and guessers who can only see the words. Give one word and a number, then
 // find your side's words before the other side does. Touching the spy loses.
 
-import type { GameResult, SeatDef, SeatId } from '../game';
+import type { GameResult, SeatDef, SeatId, TeamChat } from '../game';
 import { randInt, withHistory, type GameHistory } from './history';
 
 export type CwTeam = 0 | 1;
@@ -103,7 +103,7 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
       { title: 'The board', points: [
         'Twenty-five words are laid out in a five-by-five grid: nine for the Sun team, eight for the Moon team, seven neutral, and one spy.',
         'One player on each side is the clue-giver. Clue-givers (and watchers) see which word is which; everyone sees the words themselves.',
-        'The clue-giver gives only the clue: no hints in chat or voice. There’s no private team chat, since its only use would be the clue-giver telling the guesser the answers.',
+        'Your side has a private team chat tab where the guessers can think aloud. The clue-giver can read it but not write in it, and gives nothing but the clue: no hints in chat or voice.',
       ] },
       { title: 'A turn', points: [
         'The clue-giver says one word and a number: the word is about that many of their side’s words on the board.',
@@ -218,5 +218,13 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
       lines: s.lines,
       result: s.result,
     };
+  },
+
+  /** Each side's private chat; its clue-giver reads it but can't write, so
+   *  it can't carry the answers to the guessers. */
+  teamChat(s, viewer): TeamChat | null {
+    if (!viewer || !s.order.includes(viewer)) return null;
+    const t = s.team[viewer];
+    return { channel: `team-${t}`, label: `${TEAM_NAMES[t]} team`, ...(viewer === s.spymaster[t] ? { readOnly: true } : {}) };
   },
 }, { keys: ['word', 'count', 'card'] });
