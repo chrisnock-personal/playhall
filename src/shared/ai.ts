@@ -7,6 +7,8 @@
 
 import type { SeatId } from './game';
 import { ship2shoreAi } from './games/ship2shore.ai';
+import { pokerAi } from './games/poker.ai';
+import { manorAi } from './games/manormystery.ai';
 
 export interface AiOption { label: string; action: unknown }
 
@@ -28,6 +30,8 @@ export interface AiGame {
 /** The games AI players can play, by game id. */
 export const AI_GAMES: Record<string, AiGame> = {
   ship2shore: ship2shoreAi,
+  poker: pokerAi,
+  manormystery: manorAi,
 };
 
 /** What the model answers. */
