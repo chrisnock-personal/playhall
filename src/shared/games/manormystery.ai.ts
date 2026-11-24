@@ -5,7 +5,7 @@
 // rule bot. An accusation is offered only once the deduction is certain, so
 // the model can't throw the game away on a guess.
 
-import { CARDS, OBJECTS, SUSPECTS, type CardId, type ManorView } from './manormystery';
+import { CARDS, OBJECTS, SUSPECTS, describeSuggestion, type CardId, type ManorAction, type ManorView } from './manormystery';
 import { deduce } from './manormystery.bot';
 import type { AiGame, AiOption } from '../ai';
 import type { SeatId } from '../game';
@@ -56,9 +56,19 @@ export const manorAi: AiGame = {
   describe,
   options,
   question: (view) => ((view as ManorView).pending ? 'You have been asked to show one of these cards to the player who suggested them (only they will see it).' : 'Your turn: make a suggestion (or accuse, if you are certain).'),
-  // No table talk: the suggestions are in the game's log already, and a model
-  // announcing one suggestion while making another only confuses people.
+  // The model doesn't write its own table talk: asked to suggest and talk in
+  // one answer, it announced one suggestion while choosing another. The line
+  // below is written from the choice instead, so it can't mislead the table.
   canTalk: () => false,
+  describeChoice: (view, seat, action) => {
+    const v = view as ManorView;
+    const a = action as ManorAction;
+    if (a.type === 'suggest') return `I’m suggesting ${describeSuggestion({ suspect: a.suspect, object: a.object, room: v.positions[seat] })}.`;
+    if (a.type === 'accuse') return `I’m accusing ${describeSuggestion(a)}.`;
+    // A shown card is private to the suggester: say only that one is coming.
+    if (a.type === 'show') return 'I’ll show you one of those.';
+    return null;
+  },
   // The model picks suggestions, which card to show, and when to accuse; the rule bot moves and ends turns.
   modelDecides: (view) => {
     const v = view as ManorView;

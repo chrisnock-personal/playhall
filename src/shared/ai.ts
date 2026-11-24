@@ -21,6 +21,10 @@ export interface AiGame {
   options(view: unknown, seat: SeatId, names: Record<SeatId, string>): AiOption[];
   /** Whether this seat may say something at the table now. */
   canTalk(view: unknown, seat: SeatId): boolean;
+  /** A line about the chosen move, written after the choice so it can't
+   *  disagree with it. Games where the model would otherwise announce one
+   *  move and make another use this instead of a `say` in the model's answer. */
+  describeChoice?(view: unknown, seat: SeatId, action: unknown, names: Record<SeatId, string>): string | null;
   /** Whether the model makes this decision. Moves that are arithmetic (which
    *  order takes the ship nearer your port) are better left to the rule bot,
    *  which never gets the sums wrong. Default: every decision. */

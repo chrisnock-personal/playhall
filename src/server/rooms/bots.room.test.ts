@@ -6,6 +6,7 @@ import { Room, RoomError, type RoomHooks, type RoomRecord, type RoomUser } from 
 import { DEFAULT_SETTINGS } from '../../shared/protocol';
 import { BOTS, isBotId } from '../../shared/bots';
 import type { ShipView } from '../../shared/games/ship2shore';
+import { describeSuggestion, type ManorState } from '../../shared/games/manormystery';
 
 const host: RoomUser = { id: 'h', name: 'Sam', guest: false };
 const alex: RoomUser = { id: 'a', name: 'Alex', guest: false };
@@ -130,6 +131,24 @@ test('AI players: off unless the server has them; the model picks the social mov
   quiet.room.handle(host, { t: 'start' });
   for (let i = 0; i < 3000 && quiet.rec.game.status === 'playing'; i++) { quiet.advance(2000); await settle(); }
   assert.equal(quiet.rec.game.status, 'over', 'the game ended without the model');
+});
+
+test('Manor Mystery AI: table talk is written from the choice, not the model’s own words', async () => {
+  const { room, rec, lines, advance } = setup('manormystery', {
+    ask: async () => '{"thought":"t","choice":1,"say":"Lady Vane with the rope in the cellar, mark my words."}',
+  });
+  for (const seat of ['amber', 'teal', 'violet', 'rose', 'lime']) room.handle(host, { t: 'addBot', seat });
+  room.handle(host, { t: 'addBot', seat: 'blue', ai: true });
+  room.handle(host, { t: 'start' });
+  const said = () => lines.find((l) => l.startsWith('I’m suggesting '));
+  for (let i = 0; i < 3000 && rec.game.status === 'playing' && !said(); i++) { advance(2000); await settle(); }
+
+  const line = said();
+  assert.ok(line, 'the AI described its suggestion at the table');
+  const suggestions = (rec.game.state as ManorState).log.filter((e) => e.kind === 'suggest' && e.seat === 'blue');
+  assert.ok(suggestions.length > 0, 'the AI made a suggestion');
+  assert.ok(suggestions.some((e) => e.kind === 'suggest' && `I’m suggesting ${describeSuggestion(e)}.` === line), `the line matches a suggestion it made: ${line}`);
+  assert.ok(!lines.includes('Lady Vane with the rope in the cellar, mark my words.'), 'the model’s own line is ignored');
 });
 
 test('bots and AI players answer when someone asks what orders they had', async () => {
