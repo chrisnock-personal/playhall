@@ -68,13 +68,19 @@ await p.until(() => p.errors.some((e) => /Watchers/.test(e)), 'table refused for
 assert.ok(!a.snap.chat.some((l) => l.text === 'gallery secret'), 'player must not see the gallery during play');
 
 const moves = [[h, 'f2', 'f3'], [a, 'e7', 'e5'], [h, 'g2', 'g4'], [a, 'd8', 'h4']];
-for (const [c, from, to] of moves) {
-  const n = c.snap.game.view.san.length;
+// Each move waits until every connection has seen it. Reading the count from
+// the mover's own snapshot raced: a snapshot one move behind let the next move
+// go out before the last was applied, it was refused as out of turn, and the
+// game never reached checkmate.
+for (const [i, [c, from, to]] of moves.entries()) {
+  const before = c.errors.length;
   c.send({ t: 'act', action: { type: 'move', from, to } });
-  await p.until((s) => s.game.view.san.length === n + 1 || s.game.status === 'over', `move ${from}${to}`);
+  // A refusal ends the wait at once, so it fails here with its own message.
+  await c.until((s) => s.game.view.san.length === i + 1 || c.errors.length > before, `move ${from}${to}`);
+  assert.deepEqual(c.errors.slice(before), [], `move ${from}${to} refused`);
+  await Promise.all([h, a, p].map((x) => x.until((s) => s.game.view.san.length === i + 1, `move ${from}${to} seen by all`)));
 }
-// The end of a game waits on saving it and the results: give a busy CI machine time.
-const end = await p.until((s) => s.game.status === 'over', 'game over', 15000);
+const end = await p.until((s) => s.game.status === 'over', 'game over');
 assert.deepEqual(end.game.result, { winner: 'black', reason: 'checkmate' });
 const after = await a.until((s) => s.chat.some((l) => l.text === 'gallery secret'), 'gallery visible after the game');
 assert.ok(after.chat.some((l) => /won by checkmate/.test(l.text)));
