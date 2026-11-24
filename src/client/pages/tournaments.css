@@ -46,3 +46,12 @@
 .tn-slot-link { position: absolute; right: 6px; top: 6px; font-size: 11px; }
 .tn-champion .tn-slot { border-color: var(--accent); }
 .tn-org { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .tn-withdraw { margin-left: 8px; }
+
+/* Tables and pair entries (#59) */
+.tn-table-result { display: flex; flex-direction: column; gap: 4px; }
+.tn-place { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.tn-place b { min-width: 34px; color: var(--accent); }
+.tn-place small { color: var(--muted); }
+.tn-partner { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.tn-partner input { max-width: 320px; }
+.tn-partner-list { display: flex; flex-wrap: wrap; gap: 4px; }
