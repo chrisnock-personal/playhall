@@ -25,6 +25,8 @@ interface T {
   players: TPlayer[]; seeds: string[]; rounds: Round[];
   /** Room code → when a player who hasn't turned up loses by forfeit. */
   deadlines: Record<string, number>;
+  /** Players the organiser withdrew (#60): they lose their remaining matches. */
+  withdrawn: string[];
   createdAt: string;
 }
 
@@ -67,7 +69,7 @@ export class Tournaments {
     for (const r of rows) {
       this.all.set(r.code, {
         id: r.id, code: r.code, name: r.name, gameId: r.game_id, organiser: { id: r.organiser_id, name: r.organiser }, config: r.config, status: r.status,
-        players: r.data.players ?? [], seeds: r.data.seeds ?? [], rounds: r.data.rounds ?? [], deadlines: r.data.deadlines ?? {}, createdAt: new Date(r.created_at).toISOString(),
+        players: r.data.players ?? [], seeds: r.data.seeds ?? [], rounds: r.data.rounds ?? [], deadlines: r.data.deadlines ?? {}, withdrawn: r.data.withdrawn ?? [], createdAt: new Date(r.created_at).toISOString(),
       });
     }
   }
@@ -76,7 +78,7 @@ export class Tournaments {
 
   private async save(t: T): Promise<void> {
     await this.db.query('UPDATE tournaments SET status = $2, data = $3, updated_at = now() WHERE id = $1',
-      [t.id, t.status, JSON.stringify({ players: t.players, seeds: t.seeds, rounds: t.rounds, deadlines: t.deadlines })]);
+      [t.id, t.status, JSON.stringify({ players: t.players, seeds: t.seeds, rounds: t.rounds, deadlines: t.deadlines, withdrawn: t.withdrawn })]);
   }
 
   async create(user: TPlayer, input: Record<string, unknown>): Promise<T> {
@@ -88,7 +90,7 @@ export class Tournaments {
         const { rows } = await this.db.query<{ id: string; created_at: Date }>(
           `INSERT INTO tournaments (code, name, game_id, organiser_id, organiser, config) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
           [code, c.name, c.gameId, user.id, user.name, JSON.stringify(c.config)]);
-        const t: T = { id: rows[0].id, code, name: c.name, gameId: c.gameId, organiser: user, config: c.config, status: 'signup', players: [], seeds: [], rounds: [], deadlines: {}, createdAt: new Date(rows[0].created_at).toISOString() };
+        const t: T = { id: rows[0].id, code, name: c.name, gameId: c.gameId, organiser: user, config: c.config, status: 'signup', players: [], seeds: [], rounds: [], deadlines: {}, withdrawn: [], createdAt: new Date(rows[0].created_at).toISOString() };
         this.all.set(code, t);
         await this.save(t);
         return t;
@@ -102,13 +104,16 @@ export class Tournaments {
   get(code: string): T | undefined { return this.all.get(code.toUpperCase()); }
 
   async enter(user: TPlayer, t: T, on: boolean): Promise<void> {
-    if (t.status !== 'signup') throw new Error('Entries are closed: the tournament has started');
+    // Swiss takes late entries before round 2 (#60): they start on no points.
+    const late = t.status === 'running' && t.config.format === 'swiss' && t.rounds.length === 1;
+    if (t.status !== 'signup' && !(late && on)) throw new Error('Entries are closed: the tournament has started');
     const blocked = progressionBlock(user.id, t.gameId);
     if (on && blocked) throw new Error(blocked);
     if (on) {
       if (t.players.some((p) => p.id === user.id)) return;
       if (t.players.length >= MAX_PLAYERS) throw new Error(`The tournament is full (${MAX_PLAYERS} players)`);
       t.players.push(user);
+      if (late) t.seeds.push(user.id);
     } else t.players = t.players.filter((p) => p.id !== user.id);
     await this.save(t);
   }
@@ -135,6 +140,9 @@ export class Tournaments {
     const n = t.rounds.length;
     for (const m of t.rounds[n - 1]) {
       if (!m.b || m.room || m.result) continue;
+      // A withdrawn player loses without playing.
+      const outA = t.withdrawn.includes(m.a), outB = t.withdrawn.includes(m.b);
+      if (outA || outB) { m.result = outA && outB ? 'none' : outA ? 'b' : 'a'; m.how = 'forfeit'; continue; }
       const a = this.player(t, m.a), b = this.player(t, m.b);
       const room = await this.rooms.create({ id: a.id, name: a.name, guest: false, admin: false }, {
         name: `${t.name}: round ${n}, ${a.name} v ${b.name}`.slice(0, 60), gameId: t.gameId, listed: true, seatPolicy: 'host', ranked: true,
@@ -155,7 +163,34 @@ export class Tournaments {
     } else {
       t.rounds.push(pairRound(t.config.format, t.seeds, t.rounds));
       await this.openRound(t);
+      // A round settled entirely by withdrawals moves straight on.
+      if (t.rounds[t.rounds.length - 1].every((m) => m.result && m.result !== 'draw')) return this.advance(t);
     }
+    await this.save(t);
+  }
+
+  /** Organiser (#60): withdraw a player; they lose their current and later matches. */
+  async withdraw(user: TPlayer, t: T, playerId: string): Promise<void> {
+    if (t.organiser.id !== user.id) throw new Error('Only the organiser can do that');
+    if (t.status !== 'running') throw new Error('Only once it’s under way (before that, they can withdraw themselves)');
+    if (!t.players.some((p) => p.id === playerId)) throw new Error('No such player');
+    if (!t.withdrawn.includes(playerId)) t.withdrawn.push(playerId);
+    // Swiss: no more pairings for them.
+    if (t.config.format === 'swiss') t.seeds = t.seeds.filter((id) => id !== playerId);
+    for (const m of t.rounds[t.rounds.length - 1]) {
+      if (m.result || !m.b || (m.a !== playerId && m.b !== playerId)) continue;
+      m.result = m.a === playerId ? 'b' : 'a';
+      m.how = 'forfeit';
+      if (m.room) delete t.deadlines[m.room];
+    }
+    await this.advance(t);
+    await this.save(t);
+  }
+
+  /** Organiser (#60): everyone in the current round gets more time to turn up. */
+  async moreTime(user: TPlayer, t: T, minutes = 10): Promise<void> {
+    if (t.organiser.id !== user.id) throw new Error('Only the organiser can do that');
+    for (const k of Object.keys(t.deadlines)) t.deadlines[k] = Math.max(t.deadlines[k], Date.now()) + minutes * 60_000;
     await this.save(t);
   }
 
@@ -213,8 +248,9 @@ export class Tournaments {
         const room = await this.rooms.get(m.room);
         if (!room || room.playing) { delete t.deadlines[m.room]; continue; }
         const aHere = room.isHere(m.a), bHere = room.isHere(m.b);
-        if (aHere === bHere) continue; // Both or neither: wait for them, or for the organiser.
-        m.result = aHere ? 'a' : 'b';
+        if (aHere && bHere) continue; // Both there: they just haven't started yet.
+        // Neither there (#60): both lose in Swiss and round robin; in a knockout the higher seed goes through.
+        m.result = aHere ? 'a' : bHere ? 'b' : t.config.format === 'knockout' ? 'a' : 'none';
         m.how = 'forfeit';
         delete t.deadlines[m.room];
         changed = true;
@@ -230,7 +266,7 @@ export class Tournaments {
     return {
       code: t.code, name: t.name, gameId: t.gameId, gameName: game?.name ?? t.gameId, organiser: t.organiser, config: t.config, status: t.status,
       players: t.players, rounds: t.rounds.map((r) => r.map((m) => ({ ...m, deadline: m.room && !m.result ? t.deadlines[m.room] ?? null : null }))),
-      standings: tbl, winner: done ? this.player(t, t.config.format === 'knockout' ? winnerOf(t.rounds[t.rounds.length - 1][0])! : tbl[0].id) : null,
+      withdrawn: t.withdrawn, standings: tbl, winner: done ? this.player(t, t.config.format === 'knockout' ? winnerOf(t.rounds[t.rounds.length - 1][0])! : tbl[0].id) : null,
       createdAt: t.createdAt,
     };
   }
@@ -303,6 +339,16 @@ export function tournamentRoutes(opts: { auth: Auth; tournaments: Tournaments })
     if (!t) { res.status(404).json({ error: 'No such tournament' }); return; }
     const b = req.body ?? {};
     try { await tournaments.award(who(req), t, Number(b.round), Number(b.index), b.result); res.json({ tournament: tournaments.view(t) }); } catch (err) { fail(res, err); }
+  });
+  r.post('/tournaments/:code/withdraw', auth.requireUser, async (req, res) => {
+    const t = tournaments.get(String(req.params.code));
+    if (!t) { res.status(404).json({ error: 'No such tournament' }); return; }
+    try { await tournaments.withdraw(who(req), t, String(req.body?.playerId ?? '')); res.json({ tournament: tournaments.view(t) }); } catch (err) { fail(res, err); }
+  });
+  r.post('/tournaments/:code/more-time', auth.requireUser, async (req, res) => {
+    const t = tournaments.get(String(req.params.code));
+    if (!t) { res.status(404).json({ error: 'No such tournament' }); return; }
+    try { await tournaments.moreTime(who(req), t); res.json({ tournament: tournaments.view(t) }); } catch (err) { fail(res, err); }
   });
   return r;
 }

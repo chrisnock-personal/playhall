@@ -45,7 +45,13 @@ export function pointHoles(i: number): Hole[] {
 const tipOf = (i: number) => pointHoles(i).reduce((a, b) => (cube(b)[POINTS[i][0]] * POINTS[i][1] > cube(a)[POINTS[i][0]] * POINTS[i][1] ? b : a));
 export const distance = (a: Hole, b: Hole) => { const p = cube(a), q = cube(b); return Math.max(...p.map((v, i) => Math.abs(v - q[i]))); };
 
+export interface CheckersConfig { teams: boolean }
+
 export interface CheckersState {
+  /** Team play (#54): partners in opposite points; both must finish. */
+  teams?: boolean;
+  /** Team play: players who have filled their point and wait for their partner. */
+  done?: SeatId[];
   order: SeatId[];
   /** Each player's start point (an index into the star's points). */
   home: Record<SeatId, number>;
@@ -111,7 +117,15 @@ function placings(s: CheckersState, first: SeatId | null): SeatId[][] {
   return [...(first ? [[first]] : []), ...counts.map((c) => rest.filter((p) => homeCount(s, p) === c))];
 }
 
-export const chineseCheckers = withHistory<CheckersState, Record<string, never>>({
+/** Team play: your partner is the player in the point opposite yours. */
+export const partnerIn = (s: { order: SeatId[]; home: Record<SeatId, number> }, p: SeatId) => s.order.find((q) => s.home[q] === (s.home[p] + 3) % 6) ?? null;
+/** The next player to move after index `i`, skipping anyone who has finished. */
+const nextTurn = (s: CheckersState, i: number) => {
+  for (let k = 1; k <= s.order.length; k++) { const j = (i + k) % s.order.length; if (!s.done?.includes(s.order[j])) return j; }
+  return (i + 1) % s.order.length;
+};
+
+export const chineseCheckers = withHistory<CheckersState, CheckersConfig>({
   id: 'chinesecheckers',
   name: 'Chinese checkers',
   description: 'For 2, 3, 4 or 6. Race your ten marbles across the star, hopping over anyone’s.',
@@ -127,24 +141,26 @@ export const chineseCheckers = withHistory<CheckersState, Record<string, never>>
         'The first to fill the opposite point wins. A marble that has never left its own point can’t block you: once all of yours are out of your own point, it counts as filled.',
         'Everyone else is placed by how many marbles they have home.',
         'Two players use opposite points; three use every other point; four use two pairs of opposite points; six use them all.',
+        'Team play (four or six players, if the host turns it on): partners sit in opposite points. When you’ve filled your point you wait; your team wins when your partner has filled theirs too.',
         'If the room has a move timer and you run out of time, a move is made for you.',
       ] },
     ],
   },
   seats: SEATS.map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) })),
   minPlayers: 2,
-  defaultConfig: {},
-  parseConfig: () => ({}),
-  describeConfig: () => 'The star board',
+  defaultConfig: { teams: false },
+  parseConfig: (raw) => ({ teams: !!(raw as Partial<CheckersConfig> | null)?.teams }),
+  describeConfig: (c) => (c.teams ? 'The star board · teams' : 'The star board'),
 
-  create(_c, _now, ctx) {
+  create(c, _now, ctx) {
     const order = SEATS.filter((p) => ctx.seats.includes(p));
     const layout = LAYOUTS[order.length] ?? (order.length === 5 ? LAYOUTS[6] : undefined);
     if (!layout) throw new Error('Chinese checkers is for 2, 3, 4 or 6 players');
     const home = Object.fromEntries(order.map((p, i) => [p, layout[i]]));
     const board: Record<Hole, SeatId> = {};
     for (const p of order) for (const h of pointHoles(home[p])) board[h] = p;
-    return { order, home, board, moved: [], turn: 0, moves: 0, last: null, result: null };
+    const teams = !!c?.teams && (order.length === 4 || order.length === 6);
+    return { order, home, board, moved: [], turn: 0, moves: 0, last: null, result: null, ...(teams ? { teams: true, done: [] } : {}) };
   },
 
   act(s, seat, raw) {
@@ -169,8 +185,19 @@ export const chineseCheckers = withHistory<CheckersState, Record<string, never>>
     board[a.to] = seat;
     const inStart = pointHoles(s.home[seat]).includes(a.to);
     const moved = [...s.moved.filter((h) => h !== a.from), ...(inStart && !s.moved.includes(a.from) ? [] : [a.to])];
-    const next: CheckersState = { ...s, board, moved, moves: s.moves + 1, last: { seat, from: a.from, to: a.to, path }, turn: (s.turn + 1) % s.order.length };
-    if (finished(next, seat)) return { state: { ...next, result: { winner: seat, placings: placings(next, seat), reason: 'filled the opposite point' } } };
+    let next: CheckersState = { ...s, board, moved, moves: s.moves + 1, last: { seat, from: a.from, to: a.to, path }, turn: nextTurn(s, s.turn) };
+    if (finished(next, seat)) {
+      if (!s.teams) return { state: { ...next, result: { winner: seat, placings: placings(next, seat), reason: 'filled the opposite point' } } };
+      const partner = partnerIn(s, seat);
+      const done = [...(s.done ?? []), seat];
+      if (partner && done.includes(partner)) {
+        const team = [seat, partner];
+        const rest = placings(next, null).map((g) => g.filter((p) => !team.includes(p))).filter((g) => g.length);
+        return { state: { ...next, done, result: { winner: null, placings: [team, ...rest], reason: 'both partners filled their points', teamWin: true } } };
+      }
+      next = { ...next, done };
+      next = { ...next, turn: nextTurn(next, s.turn) };
+    }
     if (next.moves >= MOVE_LIMIT * s.order.length) {
       const pl = placings(next, null);
       return { state: { ...next, result: { winner: pl[0].length === 1 ? pl[0][0] : null, placings: pl, reason: 'the most marbles home when the moves ran out' } } };
@@ -181,7 +208,7 @@ export const chineseCheckers = withHistory<CheckersState, Record<string, never>>
   turn: (s) => (s.result ? [] : [s.order[s.turn]]),
   timeout(s, seat, now, ctx) {
     const m = bestMove(s, seat);
-    if (!m) return { ...s, turn: (s.turn + 1) % s.order.length };
+    if (!m) return { ...s, turn: nextTurn(s, s.turn) };
     const r = this.act(s, seat, { type: 'move', ...m }, now, ctx);
     return 'error' in r ? s : r.state;
   },

@@ -45,3 +45,4 @@
 .tn-slot .me { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
 .tn-slot-link { position: absolute; right: 6px; top: 6px; font-size: 11px; }
 .tn-champion .tn-slot { border-color: var(--accent); }
+.tn-org { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .tn-withdraw { margin-left: 8px; }

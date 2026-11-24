@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roulette as g, payout, WHEEL, REDS, type RouletteState } from './roulette';
+import { roulette as g, payout, spotNumbers, WHEEL, REDS, type RouletteState } from './roulette';
 
 const ok = (r: ReturnType<typeof g.act>): RouletteState => { if ('error' in r) throw new Error(r.error); return r.state; };
 const err = (r: ReturnType<typeof g.act>) => ('error' in r ? r.error : null);
@@ -48,4 +48,15 @@ test('after the last spin the most chips wins', () => {
   s = ok(g.act(s, 'amber', { type: 'done' }, 0, ctx));
   s = ok(g.act(s, 'teal', { type: 'done' }, 0, ctx));
   assert.equal(s.result?.winner, 'amber');
+});
+
+test('inside bets: splits, streets, corners and six lines', () => {
+  assert.equal(payout('s17-18', 18), 17);
+  assert.equal(payout('s17-20', 20), 17);
+  assert.equal(payout('s0-2', 0), 17);
+  assert.equal(payout('t13', 15), 11);
+  assert.equal(payout('q13', 17), 8);
+  assert.equal(payout('q13', 15), 0);
+  assert.equal(payout('x31', 36), 5);
+  for (const bad of ['s18-19', 's17-19', 't14', 'q3', 'q33', 'x34']) assert.equal(spotNumbers(bad), null, bad);
 });

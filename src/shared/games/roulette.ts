@@ -19,11 +19,32 @@ export const WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30
 /** A place to bet: 'n17' (a number), 'red', 'black', 'odd', 'even', 'low', 'high', 'd1'-'d3' (dozens), 'c1'-'c3' (columns). */
 export type Spot = string;
 export const OUTSIDE = ['red', 'black', 'odd', 'even', 'low', 'high', 'd1', 'd2', 'd3', 'c1', 'c2', 'c3'];
-export const isSpot = (s: string) => OUTSIDE.includes(s) || (/^n\d{1,2}$/.test(s) && Number(s.slice(1)) <= 36);
+/** Inside bets between numbers (#55): split 's17-18', street 't13' (13-15), corner 'q13' (13, 14, 16, 17), six line 'x13' (13-18). */
+export function spotNumbers(spot: Spot): number[] | null {
+  const m = /^([ntqx])(\d{1,2})$/.exec(spot);
+  if (m) {
+    const n = Number(m[2]);
+    if (m[1] === 'n') return n <= 36 ? [n] : null;
+    if (m[1] === 't') return n >= 1 && n <= 34 && (n - 1) % 3 === 0 ? [n, n + 1, n + 2] : null;
+    if (m[1] === 'q') return n >= 1 && n <= 32 && n % 3 !== 0 ? [n, n + 1, n + 3, n + 4] : null;
+    if (m[1] === 'x') return n >= 1 && n <= 31 && (n - 1) % 3 === 0 ? [n, n + 1, n + 2, n + 3, n + 4, n + 5] : null;
+  }
+  const sp = /^s(\d{1,2})-(\d{1,2})$/.exec(spot);
+  if (sp) {
+    const a = Number(sp[1]), b = Number(sp[2]);
+    if (a >= b || b > 36) return null;
+    const ok = (a === 0 && b <= 3) || (a > 0 && ((b === a + 1 && a % 3 !== 0) || b === a + 3));
+    return ok ? [a, b] : null;
+  }
+  return null;
+}
+const INSIDE_PAYS: Record<number, number> = { 1: 35, 2: 17, 3: 11, 4: 8, 6: 5 };
+export const isSpot = (s: string) => OUTSIDE.includes(s) || spotNumbers(s) !== null;
 
 /** What a spot pays for each chip bet if it wins (not counting the stake), or 0 if it loses. */
 export function payout(spot: Spot, n: number): number {
-  if (spot[0] === 'n') return Number(spot.slice(1)) === n ? 35 : 0;
+  const nums = spotNumbers(spot);
+  if (nums) return nums.includes(n) ? INSIDE_PAYS[nums.length] : 0;
   if (n === 0) return 0;
   switch (spot) {
     case 'red': return REDS.has(n) ? 1 : 0;
@@ -37,7 +58,11 @@ export function payout(spot: Spot, n: number): number {
   if (spot[0] === 'c') return ((n - 1) % 3) + 1 === Number(spot[1]) ? 2 : 0;
   return 0;
 }
-export const spotWords = (spot: Spot) => (spot[0] === 'n' ? spot.slice(1) : spot[0] === 'd' ? `dozen ${spot[1]}` : spot[0] === 'c' ? `column ${spot[1]}` : spot);
+export function spotWords(spot: Spot): string {
+  const nums = spotNumbers(spot);
+  if (nums) return nums.length === 1 ? `${nums[0]}` : `${({ 2: 'split', 3: 'street', 4: 'corner', 6: 'six line' } as Record<number, string>)[nums.length]} ${nums[0]}-${nums[nums.length - 1]}`;
+  return spot[0] === 'd' ? `dozen ${spot[1]}` : spot[0] === 'c' ? `column ${spot[1]}` : spot;
+}
 export const colourOf = (n: number) => (n === 0 ? 'green' : REDS.has(n) ? 'red' : 'black');
 
 export interface RouletteConfig { spins: number }
@@ -106,7 +131,7 @@ export const roulette = withHistory<RouletteState, RouletteConfig>({
         'When you’re happy, press Done. The wheel spins when everyone is done.',
       ] },
       { title: 'What pays', points: [
-        'A single number (straight up): 35 to 1.',
+        'A single number (straight up): 35 to 1. Between numbers: a split (two side by side) 17 to 1, a street (a row of three) 11 to 1, a corner (four in a square) 8 to 1, a six line (two rows) 5 to 1.',
         'Red or black, odd or even, low (1-18) or high (19-36): 1 to 1.',
         'A dozen (1-12, 13-24, 25-36) or a column: 2 to 1.',
         'The wheel has one zero. When zero comes up, every bet except one on 0 itself loses.',

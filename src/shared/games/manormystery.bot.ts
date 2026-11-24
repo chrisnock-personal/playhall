@@ -7,12 +7,13 @@
 // open, and accuses only when it's certain.
 
 import type { SeatId } from '../game';
+import type { BotLevel } from '../bots';
 import { ALL_CARDS, OBJECTS, ROOMS, SUSPECTS, exits, type CardId, type ManorView, type Solution } from './manormystery';
 
 type Mark = 'yes' | 'no';
 
 /** Everything the bot can be sure of: card → seat → yes/no, and the envelope so far. */
-export function deduce(v: ManorView, me: SeatId): { holds: Record<string, Record<SeatId, Mark>>; envelope: Partial<Solution>; open: Record<'suspect' | 'object' | 'room', CardId[]> } {
+export function deduce(v: ManorView, me: SeatId, careful = true): { holds: Record<string, Record<SeatId, Mark>>; envelope: Partial<Solution>; open: Record<'suspect' | 'object' | 'room', CardId[]> } {
   const holds: Record<string, Record<SeatId, Mark>> = {};
   for (const c of ALL_CARDS) holds[c] = { ...(v.notebook?.[c] ?? {}) };
   const set = (c: CardId, p: SeatId, m: Mark): boolean => {
@@ -28,7 +29,7 @@ export function deduce(v: ManorView, me: SeatId): { holds: Record<string, Record
   let last: Solution | null = null;
   for (const e of v.log) {
     if (e.kind === 'suggest') last = e;
-    else if (e.kind === 'show' && last && e.to !== me && e.seat !== me) shows.push({ seat: e.seat, cards: [last.suspect, last.object, last.room] });
+    else if (careful && e.kind === 'show' && last && e.to !== me && e.seat !== me) shows.push({ seat: e.seat, cards: [last.suspect, last.object, last.room] });
   }
   for (let changed = true; changed;) {
     changed = false;
@@ -55,7 +56,7 @@ export function deduce(v: ManorView, me: SeatId): { holds: Record<string, Record
   return { holds, envelope, open };
 }
 
-export function manorBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+export function manorBot(view: unknown, seat: SeatId, random: () => number, _words?: unknown, level: BotLevel = 'fair'): unknown | null {
   const v = view as ManorView;
   if (v.result || !v.hand) return null;
   const pickOf = <T,>(xs: T[]) => xs[Math.floor(random() * xs.length)];
@@ -65,7 +66,8 @@ export function manorBot(view: unknown, seat: SeatId, random: () => number): unk
     return { type: 'show', card: v.mustShow.find((c) => before.includes(c)) ?? pickOf(v.mustShow) };
   }
   if (v.turn !== seat || v.pending || v.out.includes(seat)) return null;
-  const { envelope, open } = deduce(v, seat);
+  // Gentle: only what it's seen itself (slower to solve); fair and strong reason from everything.
+  const { envelope, open } = deduce(v, seat, level !== 'gentle');
   if (envelope.suspect && envelope.object && envelope.room) return { type: 'accuse', ...envelope };
   if (!v.moved) {
     const here = v.positions[seat];

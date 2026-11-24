@@ -6,7 +6,7 @@
 // seat. A person in a seat is a player; everyone else present is watching.
 
 import { GAMES } from '../../shared/games';
-import { BOTS, BOT_ID_PREFIX, BOT_TALK, botName, isBotId } from '../../shared/bots';
+import { BOTS, BOT_ID_PREFIX, BOT_TALK, LEVELLED, botName, isBotId } from '../../shared/bots';
 import { AI_GAMES, aiPrompt, aiReplyPrompt, readAnswer, readSay } from '../../shared/ai';
 import { placingsOf } from '../../shared/scoring';
 import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId } from '../../shared/game';
@@ -30,6 +30,8 @@ export interface SeatHolder {
   bot?: boolean;
   /** Played by a language model (#32), with the rule bot as its fallback. */
   ai?: boolean;
+  /** How strong a bot plays (#62); fair when missing. */
+  level?: 'gentle' | 'fair' | 'strong';
 }
 
 export interface RoomRecord {
@@ -423,7 +425,7 @@ export class Room {
       case 'start': this.hostOnly(user); return this.start();
       case 'seat': this.hostOnly(user); return this.seatSomeone(msg.userId, msg.seat);
       case 'unseat': this.hostOnly(user); return this.unseat(msg.userId);
-      case 'addBot': this.hostOnly(user); return this.addBot(msg.seat, msg.ai === true);
+      case 'addBot': this.hostOnly(user); return this.addBot(msg.seat, msg.ai === true, msg.level);
       case 'makeHost': this.hostOnly(user); return this.makeHost(msg.userId);
       case 'kick': this.hostOnly(user); return this.kick(user, msg.userId);
       case 'settings': this.hostOnly(user); return this.updateSettings(msg.settings);
@@ -830,15 +832,16 @@ export class Room {
   }
 
   /** The host puts a computer player in a free seat (games with bots). */
-  private addBot(seat: SeatId, ai = false): void {
+  private addBot(seat: SeatId, ai = false, level?: 'gentle' | 'fair' | 'strong'): void {
     if (!BOTS[this.rec.gameId]) throw new RoomError(`${this.game.name} has no computer players yet`);
     if (ai && !this.aiPlayers) throw new RoomError(`AI players aren\u2019t available for ${this.game.name} on this server`);
     this.checkSeat(seat);
     if (this.status === 'playing') throw new RoomError('End the game first');
     if (this.rec.seats[seat]) throw new RoomError('That seat is taken');
-    const name = botName(Object.values(this.rec.seats).map((h) => h?.name ?? ''), ai ? 'AI' : 'bot');
+    const lv = !ai && level && level !== 'fair' && LEVELLED.includes(this.rec.gameId) ? level : undefined;
+    const name = botName(Object.values(this.rec.seats).map((h) => h?.name ?? ''), ai ? 'AI' : lv ? `${lv} bot` : 'bot');
     const id = `${BOT_ID_PREFIX}${Math.floor(this.hooks.random() * 1e12).toString(36)}`;
-    this.place({ userId: id, name, guest: false, bot: true, ...(ai ? { ai: true } : {}) }, seat);
+    this.place({ userId: id, name, guest: false, bot: true, ...(ai ? { ai: true } : {}), ...(lv ? { level: lv } : {}) }, seat);
     this.system(`The host added ${name} as ${this.seatLabel(seat)}`);
     this.touch();
   }
@@ -878,7 +881,8 @@ export class Room {
   private ruleMove(seat: SeatId): void {
     const now = this.hooks.now();
     const words = this.hooks.isWord && this.hooks.isPrefix ? { isWord: this.hooks.isWord, isPrefix: this.hooks.isPrefix } : undefined;
-    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), seat, () => this.hooks.random(), words);
+    const level = (this.rec.game.players ?? this.rec.seats)[seat]?.level ?? 'fair';
+    const action = BOTS[this.rec.gameId](this.game.view(this.rec.game.state, now, seat), seat, () => this.hooks.random(), words, level);
     const r = action === null ? null : this.game.act(this.rec.game.state, seat, action, now, this.context());
     if (r && !('error' in r)) { this.accept(r, seat); return; }
     if (this.game.timeout) {

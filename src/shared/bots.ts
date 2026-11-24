@@ -18,7 +18,12 @@ import { ship2shoreTalk } from './games/ship2shore.talk';
 /** A bot: its seat's view and its seat in, the action it takes out. */
 /** Word checks for bots of word games (on the server's word list). */
 export interface BotWords { isWord(word: string): boolean; isPrefix(start: string): boolean }
-export type Bot = (view: unknown, seat: string, random: () => number, words?: BotWords) => unknown | null;
+/** How strong a computer player is (#62): gentle for children, fair by default, strong for practice. */
+export type BotLevel = 'gentle' | 'fair' | 'strong';
+export const BOT_LEVELS: BotLevel[] = ['gentle', 'fair', 'strong'];
+/** Games whose bots play differently at each level (the others play one way). */
+export const LEVELLED = ['chess', 'letterworks', 'manormystery', 'fourinarow', 'checkers'];
+export type Bot = (view: unknown, seat: string, random: () => number, words?: BotWords, level?: BotLevel) => unknown | null;
 
 /** The games that have bots, by game id. */
 export const BOTS: Record<string, Bot> = {
@@ -75,7 +80,7 @@ export const BOT_NAMES = ['Ada', 'Bram', 'Cleo', 'Dov', 'Esme', 'Finn', 'Greta',
 
 /** A name not already at the table: "Ada (bot)", or "Ada (AI)" for a
  *  model-played seat (#32). */
-export function botName(taken: string[], kind: 'bot' | 'AI' = 'bot'): string {
+export function botName(taken: string[], kind: string = 'bot'): string {
   const n = BOT_NAMES.find((x) => !taken.some((t) => t.startsWith(`${x} (`)));
   return n ? `${n} (${kind})` : `${kind === 'AI' ? 'AI' : 'Bot'} ${taken.length + 1}`;
 }

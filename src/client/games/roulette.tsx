@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MIN_BET, WHEEL, colourOf, spotWords, type RouletteView } from '../../shared/games/roulette';
+import { MIN_BET, WHEEL, colourOf, spotNumbers, spotWords, type RouletteView } from '../../shared/games/roulette';
 import type { GameClient, StageProps } from './types';
 import { COLOURS as KIT, Disc, GameActions, MoveTimer } from '../kit/kit';
 import './casino.css';
@@ -42,15 +42,40 @@ function RouletteStage({ snap, send, receivedAt }: StageProps) {
   const playing = snap.game.status === 'playing';
   const me = v?.you ?? null;
   const [value, setValue] = useState(25);
+  // Inside bets (#55): pick the kind, then tap numbers.
+  const [kind, setKind] = useState<'n' | 's' | 't' | 'q' | 'x'>('n');
+  const [firstOfSplit, setFirstOfSplit] = useState<number | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const name = (p: string) => (p === me ? 'You' : snap.seats.find((s) => s.id === p)?.name ?? KIT[p]?.label ?? p);
   const betting = playing && !!v && !!me && !v.ready.includes(me);
   const mine = (me && v?.bets[me]) || {};
   const others = (spot: string) => (v ? v.order.filter((p) => p !== me && v.bets[p]?.[spot]) : []);
   const last = v?.last?.number ?? null;
   const bet = (spot: string) => betting && v!.chips[me!] >= Math.max(MIN_BET, value) && act(send, { type: 'bet', spot, amount: value });
+  /** A number was tapped: a straight bet, or part of an inside bet. */
+  const tapNumber = (n: number) => {
+    setHint(null);
+    if (kind === 'n' || n === 0 && kind !== 's') { bet(`n${n}`); return; }
+    const street = n - ((n - 1) % 3);
+    if (kind === 't') { bet(`t${street}`); return; }
+    if (kind === 'x') { const st = Math.min(street, 31); bet(`x${st}`); return; }
+    if (kind === 'q') {
+      // The corner with this number in it, going right and down where there's room.
+      const tl = (n % 3 === 0 ? n - 1 : n) - (n > 33 ? 3 : 0);
+      if (spotNumbers(`q${tl}`)) bet(`q${tl}`); else setHint('No corner there');
+      return;
+    }
+    // A split: two taps on numbers side by side.
+    if (firstOfSplit === null) { setFirstOfSplit(n); setHint(`Now tap a number next to ${n}`); return; }
+    const [a, b] = [Math.min(firstOfSplit, n), Math.max(firstOfSplit, n)];
+    setFirstOfSplit(null);
+    if (spotNumbers(`s${a}-${b}`)) bet(`s${a}-${b}`); else setHint(`${a} and ${b} aren’t side by side`);
+  };
 
+  const insides = Object.keys(mine).filter((k) => spotNumbers(k) && !k.startsWith('n'));
+  const insideOn = (spot: string) => spot[0] === 'n' && insides.some((k) => spotNumbers(k)!.includes(Number(spot.slice(1))));
   const Spot = ({ spot, label, className = '' }: { spot: string; label: string; className?: string }) => (
-    <button className={`rl-spot ${className}${last !== null && v?.last && spot === `n${last}` ? ' won' : ''}`} disabled={!betting} onClick={() => bet(spot)}
+    <button className={`rl-spot ${className}${last !== null && v?.last && spot === `n${last}` ? ' won' : ''}${spot === `n${firstOfSplit}` ? ' picking' : ''}${insideOn(spot) ? ' inside' : ''}`} disabled={!betting} onClick={() => (spot[0] === 'n' ? tapNumber(Number(spot.slice(1))) : bet(spot))}
       aria-label={`Bet on ${spotWords(spot)}${mine[spot] ? `: ${mine[spot]} on it` : ''}`}>
       {label}
       {mine[spot] ? <span className="rl-chip">{mine[spot]}</span> : null}
@@ -86,6 +111,16 @@ function RouletteStage({ snap, send, receivedAt }: StageProps) {
             <Spot spot="black" label="Black" className="black" /><Spot spot="odd" label="Odd" /><Spot spot="high" label="19-36" />
           </div>
         </div>
+
+        {betting && (
+          <div className="rl-kinds" role="group" aria-label="Kind of bet">
+            {([['n', 'Single number'], ['s', 'Split (2)'], ['t', 'Street (3)'], ['q', 'Corner (4)'], ['x', 'Six line (6)']] as const).map(([k, label]) => (
+              <button key={k} className={`btn tiny${kind === k ? ' primary' : ''}`} onClick={() => { setKind(k); setFirstOfSplit(null); setHint(null); }}>{label}</button>
+            ))}
+            {hint && <span className="note">{hint}</span>}
+          </div>
+        )}
+        {Object.keys(mine).length > 0 && <p className="rl-mine">Your bets: {Object.entries(mine).map(([k, n]) => `${spotWords(k)} (${n})`).join(' · ')}</p>}
 
         <div className="cs-players">
           {(v?.order ?? []).map((p) => (

@@ -3,6 +3,7 @@
 
 import { bestMove as ccBestMove, type CheckersView as StarView } from './chinesecheckers';
 import type { SeatId } from '../game';
+import type { BotLevel } from '../bots';
 import type { SnakesView } from './snakes';
 import { HOME, SAFE, square, type LudoView } from './ludo';
 import { COLS, ROWS, landing, lineThrough, type FourSeat, type FourView } from './fourinarow';
@@ -86,7 +87,8 @@ function negamax(grid: (FourSeat | null)[], who: FourSeat, depth: number, alpha:
   return any ? best : 0;
 }
 
-export function fourBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+export function fourBot(view: unknown, seat: SeatId, random: () => number, _words?: unknown, level: BotLevel = 'fair'): unknown | null {
+  const depth = level === 'gentle' ? 1 : level === 'strong' ? 6 : 4;
   const v = view as FourView;
   if (v.result || v.turn !== seat) return null;
   const grid = [...v.grid];
@@ -96,7 +98,7 @@ export function fourBot(view: unknown, seat: SeatId, random: () => number): unkn
     const cell = landing(grid, col);
     if (cell < 0) continue;
     grid[cell] = me;
-    const val = lineThrough(grid, cell, me) ? 100000 : -negamax(grid, other4(me), 4, -Infinity, Infinity);
+    const val = lineThrough(grid, cell, me) ? 100000 : -negamax(grid, other4(me), depth, -Infinity, Infinity);
     grid[cell] = null;
     if (val > best) { best = val; picks = [col]; } else if (val === best) picks.push(col);
   }
@@ -153,7 +155,8 @@ function search(board: (Piece | null)[], side: CheckersSide, me: CheckersSide, d
   return best;
 }
 
-export function checkersBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+export function checkersBot(view: unknown, seat: SeatId, random: () => number, _words?: unknown, level: BotLevel = 'fair'): unknown | null {
+  const depth = level === 'gentle' ? 1 : level === 'strong' ? 6 : 4;
   const v = view as CheckersView;
   const me = seat as CheckersSide;
   if (v.result) return null;
@@ -162,7 +165,7 @@ export function checkersBot(view: unknown, seat: SeatId, random: () => number): 
   if (v.turn !== me || !v.legal.length) return null;
   let best = -Infinity, picks: CheckersMove[] = [];
   for (const m of v.legal) {
-    const val = search(apply(v.board, m), otherSide(me), me, 4, -Infinity, Infinity);
+    const val = search(apply(v.board, m), otherSide(me), me, depth, -Infinity, Infinity);
     if (val > best + 1e-9) { best = val; picks = [m]; } else if (Math.abs(val - best) <= 1e-9) picks.push(m);
   }
   return { type: 'move', path: picks[Math.floor(random() * picks.length)].path };

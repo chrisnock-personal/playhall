@@ -16,16 +16,25 @@ export const SEATS = ['amber', 'teal', 'violet', 'rose', 'lime', 'blue', 'red', 
 export const START_CHIPS = 1000;
 export const MIN_BET = 5;
 export const ROLL_OPTIONS = [20, 30, 40];
-export const BETS = ['pass', 'dontpass', 'odds', 'field'] as const;
+export const POINTS = [4, 5, 6, 8, 9, 10] as const;
+/** Bets players place. Come bets travel to their own number ('cp6', 'dcp6'), which isn't placed directly. */
+export const BETS = ['pass', 'dontpass', 'odds', 'field', 'come', 'dontcome', ...POINTS.map((n) => `place${n}` as const)] as const;
 export type Bet = (typeof BETS)[number];
-export const BET_NAMES: Record<Bet, string> = { pass: 'Pass line', dontpass: 'Don’t pass', odds: 'Odds', field: 'Field' };
+export const BET_NAMES: Record<Bet, string> = {
+  pass: 'Pass line', dontpass: 'Don’t pass', odds: 'Odds', field: 'Field', come: 'Come', dontcome: 'Don’t come',
+  place4: 'Place 4', place5: 'Place 5', place6: 'Place 6', place8: 'Place 8', place9: 'Place 9', place10: 'Place 10',
+};
+/** Place bets pay (winnings per chip): 9 to 5 on 4 and 10, 7 to 5 on 5 and 9, 7 to 6 on 6 and 8. */
+export const PLACE_PAYS: Record<number, [number, number]> = { 4: [9, 5], 10: [9, 5], 5: [7, 5], 9: [7, 5], 6: [7, 6], 8: [7, 6] };
 
 /** True odds on a point: what each chip wins. */
 export const ODDS: Record<number, [number, number]> = { 4: [2, 1], 10: [2, 1], 5: [3, 2], 9: [3, 2], 6: [6, 5], 8: [6, 5] };
 
 export interface CrapsConfig { rolls: number }
-type Stakes = Record<Bet, number>;
-const none = (): Stakes => ({ pass: 0, dontpass: 0, odds: 0, field: 0 });
+/** Chips on each bet, by name: the placeable bets, plus come bets on their numbers ('cp6', 'dcp6'). */
+export type Stakes = Record<string, number>;
+const KEYS = [...BETS, ...POINTS.flatMap((n) => [`cp${n}`, `dcp${n}`])];
+const none = (): Stakes => Object.fromEntries(KEYS.map((k) => [k, 0]));
 
 export interface CrapsState {
   config: CrapsConfig;
@@ -45,12 +54,12 @@ export interface CrapsState {
 
 export interface CrapsView extends Omit<CrapsState, 'history'> { you: SeatId | null }
 
-const total = (b: Stakes) => b.pass + b.dontpass + b.odds + b.field;
+const total = (b: Stakes) => Object.values(b).reduce((n, x) => n + (x || 0), 0);
 
 /** Settle one roll for one player: chips back (stake included), and the bets left on the table. */
 export function settle(bets: Stakes, point: number | null, t: number): { back: number; bets: Stakes } {
   let back = 0;
-  const left = { ...bets, field: 0 };
+  const left: Stakes = { ...bets, field: 0 };
   if (bets.field) {
     if ([2, 12].includes(t)) back += bets.field * 3;
     else if ([3, 4, 9, 10, 11].includes(t)) back += bets.field * 2;
@@ -66,6 +75,28 @@ export function settle(bets: Stakes, point: number | null, t: number): { back: n
   } else if (t === 7) {
     back += bets.dontpass * 2;
     left.pass = 0; left.odds = 0; left.dontpass = 0;
+  }
+  // Come bets already on a number: win if it comes again, lose on a 7 (don't come the other way).
+  for (const n of POINTS) {
+    const c = bets[`cp${n}`] ?? 0, d = bets[`dcp${n}`] ?? 0;
+    if (t === n) { back += c * 2; left[`cp${n}`] = 0; left[`dcp${n}`] = 0; }
+    else if (t === 7) { back += d * 2; left[`cp${n}`] = 0; left[`dcp${n}`] = 0; }
+  }
+  // New come bets: like the come-out roll for the pass line; any other number becomes the bet's own.
+  const come = bets.come ?? 0, dont = bets.dontcome ?? 0;
+  left.come = 0; left.dontcome = 0;
+  if (t === 7 || t === 11) back += come * 2;
+  else if (t === 2 || t === 3) back += dont * 2;
+  else if (t === 12) back += dont;
+  else { left[`cp${t}`] = (left[`cp${t}`] ?? 0) + come; left[`dcp${t}`] = (left[`dcp${t}`] ?? 0) + dont; }
+  // Place bets work once there's a point: the winnings come back and the bet stays up; a 7 takes them.
+  if (point !== null) {
+    for (const n of POINTS) {
+      const amt = bets[`place${n}`] ?? 0;
+      if (!amt) continue;
+      if (t === n) { const [num, den] = PLACE_PAYS[n]; back += Math.floor((amt * num) / den); }
+      else if (t === 7) left[`place${n}`] = 0;
+    }
   }
   return { back, bets: left };
 }
@@ -130,6 +161,7 @@ export function cantBet(s: Pick<CrapsState, 'point' | 'bets' | 'chips'>, seat: S
   if (amount > s.chips[seat]) return 'You don’t have enough chips';
   const b = s.bets[seat];
   if ((bet === 'pass' || bet === 'dontpass') && s.point !== null) return 'Pass and don’t pass go down before the come-out roll';
+  if ((bet === 'come' || bet === 'dontcome') && s.point === null) return 'Come bets go down once there’s a point';
   if (bet === 'odds') {
     if (s.point === null) return 'Odds go down once there’s a point';
     if (!b.pass) return 'Odds go behind a pass line bet';
@@ -155,6 +187,8 @@ export const craps = withHistory<CrapsState, CrapsConfig>({
         'Don’t pass (before the come-out): the opposite. 2 or 3 wins, 12 is a push, 7 or 11 loses; after the point, a 7 wins and the point loses.',
         'Odds: once there’s a point, back your pass bet with up to twice as much again. Paid at true odds: 2 to 1 on 4 or 10, 3 to 2 on 5 or 9, 6 to 5 on 6 or 8.',
         'Field (any roll, one roll only): 3, 4, 9, 10 or 11 pay 1 to 1, 2 and 12 pay 2 to 1; 5, 6, 7 and 8 lose.',
+        'Come and don’t come (once there’s a point): like pass and don’t pass, starting with the next roll. A come bet that lands on 4, 5, 6, 8, 9 or 10 moves to that number and wins if it comes again before a 7.',
+        'Place bets on 4, 5, 6, 8, 9 or 10: win when that number is rolled (9 to 5 on 4 and 10, 7 to 5 on 5 and 9, 7 to 6 on 6 and 8) and stay up; a 7 takes them. They’re off on the come-out roll.',
       ] },
       { title: 'The session', points: [
         'The host chooses how many rolls. After the last one, bets still on the table come back, and the most chips wins.',
@@ -201,14 +235,14 @@ export const craps = withHistory<CrapsState, CrapsConfig>({
       return { state: {
         ...s, chips: { ...s.chips, [seat]: s.chips[seat] - amount },
         bets: { ...s.bets, [seat]: { ...s.bets[seat], [bet]: s.bets[seat][bet] + amount } },
-        fresh: { ...s.fresh, [seat]: { ...s.fresh[seat], [bet]: s.fresh[seat][bet] + amount } },
+        fresh: { ...s.fresh, [seat]: { ...s.fresh[seat], [bet]: (s.fresh[seat][bet] ?? 0) + amount } },
       } };
     }
     if (a?.type === 'clear') {
       const f = s.fresh[seat], b = s.bets[seat];
       return { state: {
         ...s, chips: { ...s.chips, [seat]: s.chips[seat] + total(f) },
-        bets: { ...s.bets, [seat]: { pass: b.pass - f.pass, dontpass: b.dontpass - f.dontpass, odds: b.odds - f.odds, field: b.field - f.field } },
+        bets: { ...s.bets, [seat]: Object.fromEntries(Object.keys(b).map((k) => [k, b[k] - (f[k] ?? 0)])) },
         fresh: { ...s.fresh, [seat]: none() },
       } };
     }
