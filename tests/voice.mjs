@@ -34,6 +34,10 @@ assert.ok(await hears(wp), 'the watcher hears the host');
 await hp.selectOption('.voice-mode', 'ptt');
 const ptt = hp.locator('.voice-dock.on button.ptt');
 await ptt.waitFor();
+// Choosing the mode leaves focus in the <select>, and push to talk ignores
+// Space while you're in a form control (#79): move focus off it first.
+await hp.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
+await hp.waitForFunction(() => !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? ''));
 await hp.keyboard.down('Space');
 await hp.waitForFunction(() => document.querySelector('.voice-dock.on button.ptt')?.getAttribute('aria-pressed') === 'true');
 await hp.keyboard.up('Space');
