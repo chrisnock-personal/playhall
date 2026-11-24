@@ -56,7 +56,10 @@ export class RoomSockets {
       });
       ws.once('close', () => { clearTimeout(timer); resolve(null); });
     });
+    // Keep collecting while the room and the player's ladder load (a database
+    // round trip): a message sent straight after the hello mustn't be lost.
     ws.removeAllListeners('message');
+    ws.on('message', (data) => { early.push(String(data)); });
     if (ws.readyState !== ws.OPEN) return;
     const user = this.auth.verify(typeof hello?.token === 'string' ? hello.token : null);
     if (!user || user.mustChangePassword) { ws.close(4401, 'Sign in again'); return; }
@@ -92,6 +95,7 @@ export class RoomSockets {
         }
       }
     };
+    ws.removeAllListeners('message');
     ws.on('message', onMessage);
     for (const m of early) onMessage(m);
     ws.on('close', () => {

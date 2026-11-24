@@ -150,7 +150,8 @@ for (let turn = 0; turn < 8 && !played; turn++) {
   const rack = me.snap.game.view.rack.filter((l) => l !== '?');
   const pairs = rack.flatMap((x, i) => rack.filter((_, j) => j !== i).map((y) => x + y));
   const good = pairs.find((w) => TWO.has(w));
-  const bad = pairs.find((w) => !TWO.has(w));
+  // Not a word either way round (a word backwards gets a different message).
+  const bad = pairs.find((w) => !TWO.has(w) && !TWO.has(w[1] + w[0]));
   if (bad && turn === 0) {
     const errs = me.errors.length;
     me.send({ t: 'act', action: { type: 'play', tiles: [{ cell: 112, letter: bad[0] }, { cell: 113, letter: bad[1] }] } });
