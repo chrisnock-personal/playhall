@@ -15,7 +15,7 @@
 // the board without joining voice, view('table') also works while you're
 // not in voice: a video-only connection, nothing sent.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Participant, RemoteTrack, RemoteTrackPublication, Room, Track as LkTrack } from 'livekit-client';
 // Loaded on first use, so the app stays small for people who never join voice.
 let lk: typeof import('livekit-client') | null = null;
@@ -368,8 +368,11 @@ export function useVoice(code: string, sessionToken: string): Voice {
     refresh();
   }, [refresh]);
 
-  // Push to talk: hold Space, unless you're typing somewhere.
-  useEffect(() => {
+  // Push to talk: hold Space, unless you're typing somewhere. A layout effect,
+  // so Space works from the moment the push-to-talk button shows: a passive
+  // effect can run a frame or more later, and a Space pressed in between was
+  // lost (the CI voice test hit this on a busy runner).
+  useLayoutEffect(() => {
     if (mode !== 'ptt' || state !== 'on') return;
     const typing = (e: KeyboardEvent) => { const t = e.target as HTMLElement | null; return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); };
     const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !e.repeat && !typing(e)) { e.preventDefault(); pushToTalk(true); } };
