@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { RoomSnapshot } from '../../shared/protocol';
+import { isTeamVoiceChannel, type RoomSnapshot, type VoiceChannel } from '../../shared/protocol';
 import { Avatar, Icon } from '../ui';
 import type { Voice } from './useVoice';
 
@@ -7,18 +7,27 @@ let mediaOn: Promise<boolean> | null = null;
 /** Does this server have voice and video at all? (Asked once.) */
 const serverHasMedia = () => (mediaOn ??= fetch('/api/health').then((r) => r.json()).then((h) => !!h.media).catch(() => false));
 
-/** Join voice at the table or in the gallery, mute, see who's talking. */
+/** Join voice at the table, in the gallery, or in your side's private channel;
+ *  mute, see who's talking. */
 export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSnapshot; compact?: boolean }) {
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => { void serverHasMedia().then(setAvailable); }, []);
+  const teamVoice = snap.you.teamVoice;
+  // The next game, or the next side in these seats, closes this channel.
+  useEffect(() => {
+    if (voice.channel && isTeamVoiceChannel(voice.channel) && voice.channel !== teamVoice?.channel) voice.leave();
+  }, [voice.channel, teamVoice?.channel, voice.leave]);
   if (!available) return null;
 
   const seated = !!snap.you.seat;
   const playing = snap.game.status === 'playing';
-  // Players talk at the table; watchers default to the gallery and can listen in at the table.
-  const choices: ('table' | 'gallery')[] = seated && playing ? ['table'] : seated ? ['table', 'gallery'] : ['gallery', 'table'];
-  const label = (c: string) => (c === 'table' ? 'Table' : 'Gallery');
+  // Players talk with their side first; watchers default to the gallery and
+  // can listen in at the table. The server has the final say on every choice.
+  const choices: VoiceChannel[] = teamVoice && seated
+    ? (playing ? [teamVoice.channel, 'table'] : [teamVoice.channel, 'table', 'gallery'])
+    : seated && playing ? ['table'] : seated ? ['table', 'gallery'] : ['gallery', 'table'];
+  const label = (c: VoiceChannel) => c === 'table' ? 'Table' : c === 'gallery' ? 'Gallery' : teamVoice?.channel === c ? teamVoice.label : 'Team voice';
 
   if (voice.state !== 'on') {
     return (
@@ -28,9 +37,9 @@ export function VoiceDock({ voice, snap, compact }: { voice: Voice; snap: RoomSn
 
           <Icon name="headphones" size={16} />{voice.state === 'joining' ? 'Joining…' : compact ? 'Voice' : `Join voice: ${label(choices[0])}`}
         </button>
-        {!compact && choices.length > 1 && voice.state !== 'joining' && (
-          <button className="btn small ghost" onClick={() => voice.join(choices[1])}>{label(choices[1])}</button>
-        )}
+        {!compact && choices.length > 1 && voice.state !== 'joining' && choices.slice(1).map((c) => (
+          <button key={c} className="btn small ghost" onClick={() => voice.join(c)}>{label(c)}</button>
+        ))}
         {voice.error && <span className="voice-error" role="alert">{voice.error}</span>}
       </div>
     );

@@ -1,10 +1,14 @@
 // Messages between the browser and the room over the WebSocket (/ws), and
 // the snapshot of a room each person is sent after every change.
-import type { GameResult, SeatId, TeamChat, TextChannel } from './game';
+import type { GameResult, SeatId, TeamChat, TeamVoice, TextChannel } from './game';
 
 export type { TextChannel } from './game';
-/** Voice and video channels. Team channels are text only. */
+/** The room's two open voice/video channels, split like the chat. */
 export type Channel = 'table' | 'gallery';
+/** Open channels carry audio and video; a game's side channel is audio only. */
+export type VoiceChannel = Channel | `team-${number}`;
+export const isTeamVoiceChannel = (c: string): c is `team-${number}` => /^team-\d+$/.test(c);
+export const isVoiceChannel = (c: string): c is VoiceChannel => c === 'table' || c === 'gallery' || isTeamVoiceChannel(c);
 
 export interface RoomSettings {
   /** A practice room (#57): one person learning a game against gentle bots,
@@ -146,6 +150,8 @@ export interface RoomSnapshot {
     canWrite: TextChannel[];
     /** This player's private team chat, when the game has teams (Realm Battle). */
     teamChat: TeamChat | null;
+    /** This player's private team voice, when the game has one (#82). */
+    teamVoice: TeamVoice | null;
     /** Seconds behind live that this person sees the game (watchers only). */
     delay: number;
     /** Voice and video rights in each channel (the server enforces them). */

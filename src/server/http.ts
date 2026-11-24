@@ -13,7 +13,7 @@ import { boardNames, isGameFilter, leaderboard, nameFilter, PERIODS, playerStats
 import type { Period } from '../shared/protocol';
 import type { Db } from './db';
 import { cameraToken, mediaToken, proxyHttp, type MediaConfig } from './media';
-import type { Channel } from '../shared/protocol';
+import { isTeamVoiceChannel, isVoiceChannel, type VoiceChannel } from '../shared/protocol';
 import { adminRoutes, type AdminTls } from './admin';
 import { reportRoute } from './reports';
 import { securityHeaders } from './headers';
@@ -70,15 +70,24 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
   app.post('/api/rooms/:code/media/:channel', auth.requireUser, rateLimit(30, 60_000), async (req, res) => {
     if (!media) { res.status(503).json({ error: 'Voice and video aren’t set up on this server' }); return; }
     if (!getPlatformSettings().voiceVideoAllowed) { res.status(503).json({ error: 'Voice and video are switched off on this server' }); return; }
-    const channel = String(req.params.channel) as Channel;
-    if (channel !== 'table' && channel !== 'gallery') { res.status(404).json({ error: 'No such channel' }); return; }
+    const channel = String(req.params.channel) as VoiceChannel;
+    if (!isVoiceChannel(channel)) { res.status(404).json({ error: 'No such channel' }); return; }
     const room = await rooms.get(String(req.params.code));
     if (!room) { res.status(404).json({ error: 'No such room' }); return; }
-    const rights = room.mediaRights(req.user!.id);
-    if (!rights) { res.status(403).json({ error: 'Join the room first' }); return; }
-    const r = rights[channel];
-    if (!r.listen) { res.status(403).json({ error: channel === 'gallery' ? 'The gallery is hidden from players during the game' : 'Watchers on a delay can’t hear the table live' }); return; }
-    const token = await mediaToken(media, { code: room.rec.code, channel, userId: req.user!.id, name: req.user!.name, ...r });
+    // The room resolves a team channel itself: a guessed side number, a
+    // watcher, or the next occupants of those seats all get no rights here.
+    const r = room.voiceRight(req.user!.id, channel);
+    if (!r) {
+      let error = 'Join the room first';
+      if (room.mediaRights(req.user!.id)) {
+        error = isTeamVoiceChannel(channel) ? 'That team voice channel isn’t open to you'
+          : channel === 'gallery' ? 'The gallery is hidden from players during the game' : 'Watchers on a delay can’t hear the table live';
+      }
+      res.status(403).json({ error }); return;
+    }
+    const token = await mediaToken(media, {
+      code: room.rec.code, channel, generation: room.voiceGeneration(), userId: req.user!.id, name: req.user!.name, ...r,
+    });
     res.json({ token, channel, ...r });
   });
   // The table camera (camera table rooms). The host asks for the link for a

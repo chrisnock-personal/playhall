@@ -127,13 +127,17 @@ test('the last team standing wins, both partners scoring', () => {
   assert.equal(s.result?.teamWin, true);
 });
 
-test('each side gets a private team chat, but a free-for-all gets none', () => {
+test('each side gets a private team chat and voice, but a free-for-all gets none', () => {
   const s = g.create({ mode: '2v2', hand: 3 }, 0, ctx);
   assert.deepEqual(g.teamChat!(s, 'amber'), { channel: 'team-0', label: 'Sun team' });
   assert.deepEqual(g.teamChat!(s, 'rose'), { channel: 'team-1', label: 'Moon team' });
   assert.equal(g.teamChat!(s, null), null, 'watchers don’t get a team chat');
+  assert.deepEqual(g.teamVoice!(s, 'amber'), { channel: 'team-0', label: 'Sun team voice' });
+  assert.deepEqual(g.teamVoice!(s, 'rose'), { channel: 'team-1', label: 'Moon team voice' });
+  assert.equal(g.teamVoice!(s, null), null, 'watchers don’t get side voice');
   const ffa = g.create({ mode: 'ffa', hand: 3 }, 0, { seats: seats4, random: () => 0.4 });
   assert.equal(g.teamChat!(ffa, 'amber'), null);
+  assert.equal(g.teamVoice!(ffa, 'amber'), null);
 });
 
 test('Mend heals a team mate who is more hurt than the Lumen Stag', () => {

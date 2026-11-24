@@ -1,8 +1,9 @@
 // Voice and video in a room, through LiveKit. Each Playhall room has two
-// channels matching the chats: the table and the gallery. The server decides
-// who may listen, talk and send their camera (and changes it live when a game
-// starts or ends); this hook joins one channel, plays everyone else, and sends
-// your microphone and, when you switch it on, your camera.
+// channels matching the open chats: the table and the gallery. A team game can
+// add a private, audio-only channel for each side. The server decides who may
+// listen, talk and send their camera (and changes it live when a game starts
+// or ends); this hook joins one channel, plays everyone else, and sends your
+// microphone and, when you switch it on, your camera.
 //
 // Video: players' cameras go to the table (their seat cards), watchers' to the
 // gallery (the gallery strip, when the host allows it). So you can see both,
@@ -15,25 +16,26 @@
 // the board without joining voice, view('table') also works while you're
 // not in voice: a video-only connection, nothing sent.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Participant, RemoteTrack, RemoteTrackPublication, Room, Track as LkTrack } from 'livekit-client';
 // Loaded on first use, so the app stays small for people who never join voice.
 let lk: typeof import('livekit-client') | null = null;
 const loadLiveKit = async () => (lk ??= await import('livekit-client'));
 import { canPickSpeaker, chosen, constraints, listDevices, readDevicePrefs } from '../devices';
-import type { Channel } from '../../shared/protocol';
+import { isTeamVoiceChannel, type Channel, type VoiceChannel } from '../../shared/protocol';
 
 export interface VoicePerson { id: string; name: string; speaking: boolean; muted: boolean; you: boolean; volume: number }
 export type VoiceMode = 'open' | 'ptt';
 
 /** A camera that's on, in one channel. `track` is there once it's received
  *  (yours at once; someone else's after a tile asks for it with watch()). */
-export interface VideoFeed { channel: Channel; id: string; you: boolean; track: LkTrack | undefined }
+export interface VideoFeed { channel: VoiceChannel; id: string; you: boolean; track: LkTrack | undefined }
 
 const MODE_KEY = 'playhall.voiceMode';
 const readMode = (): VoiceMode => { try { return localStorage.getItem(MODE_KEY) === 'ptt' ? 'ptt' : 'open'; } catch { return 'open'; } };
 const other = (c: Channel): Channel => (c === 'table' ? 'gallery' : 'table');
-const key = (c: Channel, id: string) => `${c}|${id}`;
+const key = (c: VoiceChannel, id: string) => `${c}|${id}`;
+const emptySpeaking = (): Record<string, string[]> => ({ table: [], gallery: [] });
 /** LiveKit's protocol number for the camera in a permission's source list. */
 const CAMERA_SOURCE = 1;
 /** The camera table's board camera (see src/server/media.ts). */
@@ -41,14 +43,14 @@ export const isTableCamera = (id: string) => id.startsWith('camera:');
 
 export interface Voice {
   state: 'off' | 'joining' | 'on' | 'error';
-  channel: Channel | null;
+  channel: VoiceChannel | null;
   canTalk: boolean;
   muted: boolean;
   /** The browser blocked sound until you click something. */
   needsClick: boolean;
   people: VoicePerson[];
   error: string | null;
-  join(channel: Channel): Promise<void>;
+  join(channel: VoiceChannel): Promise<void>;
   leave(): void;
   toggleMute(): Promise<void>;
   startAudio(): Promise<void>;
@@ -68,11 +70,11 @@ export interface Voice {
   /** Cameras that are on, in your channel and the one you're viewing. */
   feeds: VideoFeed[];
   /** Who's talking, per channel (for the ring on tiles). */
-  speaking: Record<Channel, string[]>;
+  speaking: Record<string, string[]>;
   /** Ask for someone's video while their tile is on screen; returns the "done" call. */
-  watch(channel: Channel, id: string): () => void;
-  /** Also show video from this other channel (null: none). */
-  view(channel: Channel | null): void;
+  watch(channel: VoiceChannel, id: string): () => void;
+  /** Also show video from this other channel (null: none; team voice has none). */
+  view(channel: VoiceChannel | null): void;
   /** Your microphone's track while it's published (for transcripts). */
   micTrack: MediaStreamTrack | null;
 }
@@ -80,13 +82,13 @@ export interface Voice {
 export function useVoice(code: string, sessionToken: string): Voice {
   const room = useRef<Room | null>(null);
   const viewRoom = useRef<Room | null>(null);
-  const viewing = useRef<Channel | null>(null);
-  const viewWanted = useRef<Channel | null>(null);
+  const viewing = useRef<VoiceChannel | null>(null);
+  const viewWanted = useRef<VoiceChannel | null>(null);
   const audio = useRef(new Map<string, HTMLMediaElement[]>());
   const wanted = useRef(new Map<string, number>());
   const [state, setState] = useState<Voice['state']>('off');
-  const [channel, setChannel] = useState<Channel | null>(null);
-  const channelRef = useRef<Channel | null>(null);
+  const [channel, setChannel] = useState<VoiceChannel | null>(null);
+  const channelRef = useRef<VoiceChannel | null>(null);
   const [canTalk, setCanTalk] = useState(false);
   const [canVideo, setCanVideo] = useState(false);
   const [camera, setCamera] = useState(false);
@@ -95,7 +97,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
   const [needsClick, setNeedsClick] = useState(false);
   const [people, setPeople] = useState<VoicePerson[]>([]);
   const [feeds, setFeeds] = useState<VideoFeed[]>([]);
-  const [speaking, setSpeaking] = useState<Record<Channel, string[]>>({ table: [], gallery: [] });
+  const [speaking, setSpeaking] = useState<Record<string, string[]>>(() => emptySpeaking());
   const [error, setError] = useState<string | null>(null);
   const [mode, setModeState] = useState<VoiceMode>(readMode);
   const [talking, setTalking] = useState(false);
@@ -107,7 +109,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
   const reconcile = useCallback(() => {
     if (!lk) return;
     const { Track } = lk;
-    const conns: [Room | null, Channel | null, boolean][] = [[room.current, channelRef.current, true], [viewRoom.current, viewing.current, false]];
+    const conns: [Room | null, VoiceChannel | null, boolean][] = [[room.current, channelRef.current, true], [viewRoom.current, viewing.current, false]];
     for (const [r, ch, main] of conns) {
       if (!r || !ch) continue;
       for (const p of r.remoteParticipants.values()) {
@@ -122,7 +124,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
 
   const refresh = useCallback(() => {
     const r = room.current;
-    if (!lk || (!r && !viewRoom.current)) { setPeople([]); setFeeds([]); setSpeaking({ table: [], gallery: [] }); return; }
+    if (!lk || (!r && !viewRoom.current)) { setPeople([]); setFeeds([]); setSpeaking(emptySpeaking()); return; }
     const { Track } = lk;
     if (r) {
       // The table camera is a device, not someone to talk to: not in the list.
@@ -142,8 +144,8 @@ export function useVoice(code: string, sessionToken: string): Voice {
       setPeople([]);
     }
     const out: VideoFeed[] = [];
-    const talk: Record<Channel, string[]> = { table: [], gallery: [] };
-    for (const [conn, ch] of [[r, channelRef.current], [viewRoom.current, viewing.current]] as [Room | null, Channel | null][]) {
+    const talk = emptySpeaking();
+    for (const [conn, ch] of [[r, channelRef.current], [viewRoom.current, viewing.current]] as [Room | null, VoiceChannel | null][]) {
       if (!conn || !ch) continue;
       for (const p of [conn.localParticipant, ...conn.remoteParticipants.values()] as Participant[]) {
         const you = p === conn.localParticipant;
@@ -169,7 +171,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
       RoomEvent.ParticipantPermissionsChanged]) r.on(ev, update);
   }, [reconcile, refresh]);
 
-  const tokenFor = useCallback(async (ch: Channel) => {
+  const tokenFor = useCallback(async (ch: VoiceChannel) => {
     const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/media/${ch}`, { method: 'POST', headers: { authorization: `Bearer ${sessionToken}` } });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? 'Voice isn’t available');
@@ -187,8 +189,9 @@ export function useVoice(code: string, sessionToken: string): Voice {
 
   // Without voice (room.current null) this is the only connection: the
   // camera table's board for someone not in voice.
-  const openView = useCallback(async (ch: Channel) => {
-    if (viewing.current === ch || channelRef.current === ch) return;
+  const openView = useCallback(async (ch: VoiceChannel) => {
+    // Side voice is audio only: there's no second camera view to open.
+    if (isTeamVoiceChannel(ch) || viewing.current === ch || channelRef.current === ch) return;
     closeView();
     viewing.current = ch;
     try {
@@ -214,7 +217,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     }
   }, [closeView, tokenFor, listen, reconcile, refresh]);
 
-  const view = useCallback((ch: Channel | null) => {
+  const view = useCallback((ch: VoiceChannel | null) => {
     viewWanted.current = ch;
     if (!ch) { if (viewing.current) { closeView(); refresh(); } return; }
     if (viewing.current !== ch) void openView(ch);
@@ -230,14 +233,14 @@ export function useVoice(code: string, sessionToken: string): Voice {
     closeView();
     for (const els of audio.current.values()) els.forEach((e) => e.remove());
     audio.current.clear();
-    setState('off'); setChannel(null); setPeople([]); setFeeds([]); setSpeaking({ table: [], gallery: [] });
+    setState('off'); setChannel(null); setPeople([]); setFeeds([]); setSpeaking(emptySpeaking());
     setMuted(true); setCamera(false); setNeedsClick(false); setMicTrack(null);
     const w = viewWanted.current;
     if (reopen && w) void openView(w);
   }, [closeView, openView]);
   const leave = useCallback(() => drop(true), [drop]);
 
-  const join = useCallback(async (ch: Channel) => {
+  const join = useCallback(async (ch: VoiceChannel) => {
     drop(false);
     setState('joining'); setError(null); setChannel(ch);
     try {
@@ -329,7 +332,7 @@ export function useVoice(code: string, sessionToken: string): Voice {
     }
   }, [cameraBusy, refresh]);
 
-  const watch = useCallback((ch: Channel, id: string) => {
+  const watch = useCallback((ch: VoiceChannel, id: string) => {
     const k = key(ch, id);
     wanted.current.set(k, (wanted.current.get(k) ?? 0) + 1);
     reconcile();
@@ -368,8 +371,11 @@ export function useVoice(code: string, sessionToken: string): Voice {
     refresh();
   }, [refresh]);
 
-  // Push to talk: hold Space, unless you're typing somewhere.
-  useEffect(() => {
+  // Push to talk: hold Space, unless you're typing somewhere. A layout effect,
+  // so Space works from the moment the push-to-talk button shows: a passive
+  // effect can run a frame or more later, and a Space pressed in between was
+  // lost (the CI voice test hit this on a busy runner).
+  useLayoutEffect(() => {
     if (mode !== 'ptt' || state !== 'on') return;
     const typing = (e: KeyboardEvent) => { const t = e.target as HTMLElement | null; return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); };
     const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !e.repeat && !typing(e)) { e.preventDefault(); pushToTalk(true); } };
@@ -387,9 +393,10 @@ export function useVoice(code: string, sessionToken: string): Voice {
   };
 }
 
-/** Which other channel's video you may see while in voice (from your rights). */
-export function viewChannel(voiceChannel: Channel | null, media: Record<Channel, { listen: boolean }>): Channel | null {
-  if (!voiceChannel) return null;
+/** Which other open channel's video you may see while in voice (from your
+ *  rights). A private side channel has no camera view. */
+export function viewChannel(voiceChannel: VoiceChannel | null, media: Record<Channel, { listen: boolean }>): Channel | null {
+  if (!voiceChannel || isTeamVoiceChannel(voiceChannel)) return null;
   const o = other(voiceChannel);
   return media[o].listen ? o : null;
 }

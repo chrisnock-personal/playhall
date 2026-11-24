@@ -38,6 +38,8 @@ chess:
 - **Gallery**: the watchers' own. Hidden from players while a game is on
   (host can turn that off); visible again once it ends.
 Voice in phase 2 follows the same split (a watcher's mic reaches the gallery).
+A team game can add one more private, audio-only conversation per side, gated
+like the team chat and given a fresh room for each game.
 
 **After each game**: same players / winner stays / both rotate out. Seats go
 to people asking for one; with nobody asking, the players stay. Then the

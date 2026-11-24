@@ -182,7 +182,8 @@ free-for-all for 3-4; everyone picks a creature, a style and a target; all
 fighters strike in Agility order; a fallen target's hit goes to another enemy
 at random; team mates see each other's picks and hands). Bots focus on the
 team's target. In team games Mend heals and Shield covers whoever on the side
-is most hurt, itself included, with a private team chat tab; free-for-all keeps Realm Duel's abilities.
+is most hurt, itself included, with a private team chat tab and voice channel
+for that game's players only; free-for-all keeps Realm Duel's abilities.
 **Clue Words** (#46, our own four-player team word game: Amber and Violet are
 Sun, Teal and Rose are Moon. One clue-giver on each side sees the key to the
 5×5 board (nine Sun words, eight Moon words, seven neutral and one spy) and
