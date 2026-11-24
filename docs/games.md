@@ -181,8 +181,8 @@ spins when all are done). Splits and corners are still to do. It has a bot.
 free-for-all for 3-4; everyone picks a creature, a style and a target; all
 fighters strike in Agility order; a fallen target's hit goes to another enemy
 at random; team mates see each other's picks and hands). Bots focus on the
-team's target. In team games Mend heals the most wounded ally and Shield covers
-one, with a private team chat tab; free-for-all keeps Realm Duel's abilities.
+team's target. In team games Mend heals and Shield covers whoever on the side
+is most hurt, itself included, with a private team chat tab; free-for-all keeps Realm Duel's abilities.
 **Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
 Violet against East-West Teal and Rose; the auction with doubles and
 redoubles and each call explained in words; dummy face up after the opening
