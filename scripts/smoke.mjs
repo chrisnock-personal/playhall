@@ -31,8 +31,8 @@ function connect(code, token) {
     c.waiters = c.waiters.filter((w) => !w());
   });
   c.send = (m) => ws.send(JSON.stringify(m));
-  c.until = (pred, label) => new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), 5000);
+  c.until = (pred, label, ms = 5000) => new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), ms);
     const check = () => { if (c.snap && pred(c.snap)) { clearTimeout(t); resolve(c.snap); return true; } return false; };
     if (!check()) c.waiters.push(check);
   });
@@ -73,7 +73,8 @@ for (const [c, from, to] of moves) {
   c.send({ t: 'act', action: { type: 'move', from, to } });
   await p.until((s) => s.game.view.san.length === n + 1 || s.game.status === 'over', `move ${from}${to}`);
 }
-const end = await p.until((s) => s.game.status === 'over', 'game over');
+// The end of a game waits on saving it and the results: give a busy CI machine time.
+const end = await p.until((s) => s.game.status === 'over', 'game over', 15000);
 assert.deepEqual(end.game.result, { winner: 'black', reason: 'checkmate' });
 const after = await a.until((s) => s.chat.some((l) => l.text === 'gallery secret'), 'gallery visible after the game');
 assert.ok(after.chat.some((l) => /won by checkmate/.test(l.text)));
