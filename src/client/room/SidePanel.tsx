@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { Channel, ClientMessage, MemberView, RoomSnapshot } from '../../shared/protocol';
+import type { ClientMessage, MemberView, RoomSnapshot, TextChannel } from '../../shared/protocol';
 import type { GameClient, StageProps } from '../games/types';
 import type { SidePanelState } from './layout';
 import { Avatar, Icon } from '../ui';
@@ -7,23 +7,24 @@ import { HowToPlay } from '../HowToPlay';
 import { useGames } from '../useGames';
 import { ReportDialog } from './ReportDialog';
 
-export type SideTab = Channel | 'people' | 'game' | 'rules';
+export type SideTab = TextChannel | 'people' | 'game' | 'rules';
 
 export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
   state: SidePanelState; onSet(v: SidePanelState): void; tab: SideTab; onTab(t: SideTab): void;
-  unread: Record<Channel, number>; stage: StageProps; game?: GameClient;
+  unread: Record<TextChannel, number>; stage: StageProps; game?: GameClient;
 }) {
   const { snap } = stage;
   const hands = snap.queue.length;
   const tabs: { id: SideTab; label: string; icon: string; badge: number }[] = [
     { id: 'table', label: 'Table', icon: 'chat', badge: unread.table },
     ...(snap.you.canRead.includes('gallery') ? [{ id: 'gallery' as SideTab, label: 'Gallery', icon: 'chat', badge: unread.gallery }] : []),
+    ...(snap.you.teamChat ? [{ id: snap.you.teamChat.channel as SideTab, label: snap.you.teamChat.label, icon: 'chat', badge: unread[snap.you.teamChat.channel] ?? 0 }] : []),
     { id: 'people', label: 'People', icon: 'people', badge: snap.you.host ? hands : 0 },
     ...(game?.tab ? [{ id: 'game' as SideTab, label: game.tab.label, icon: 'game', badge: 0 }] : []),
     { id: 'rules' as SideTab, label: 'Rules', icon: 'help', badge: 0 },
   ];
   const rules = useGames().find((g) => g.id === snap.room.gameId)?.howToPlay;
-  const totalUnread = unread.table + unread.gallery;
+  const totalUnread = Object.values(unread).reduce((n, v) => n + v, 0);
 
   if (state === 'hidden') {
     return <button className="edge-tab vertical" onClick={() => onSet('full')}>Chat{totalUnread ? ` · ${totalUnread} new` : ''}</button>;
@@ -55,7 +56,7 @@ export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
         ))}
         <button className="icon-btn" aria-label="Shrink the side panel" onClick={() => onSet('rail')}><Icon name="right" size={16} /></button>
       </div>
-      {(tab === 'table' || tab === 'gallery') && <Chat channel={tab} snap={snap} send={stage.send} />}
+      {(tab === 'table' || tab === 'gallery' || tab === snap.you.teamChat?.channel) && <Chat channel={tab} snap={snap} send={stage.send} />}
       {tab === 'people' && <People snap={snap} send={stage.send} />}
       {tab === 'game' && Tab && <div className="tab-body"><Tab {...stage} /></div>}
       {tab === 'rules' && <div className="tab-body"><HowToPlay rules={rules} pictures={game?.rulesPictures} /></div>}
@@ -63,14 +64,15 @@ export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
   );
 }
 
-function chatHint(channel: Channel, snap: RoomSnapshot): string {
+function chatHint(channel: TextChannel, snap: RoomSnapshot): string {
   const playing = snap.game.status === 'playing';
   if (channel === 'gallery') return 'Everyone watching. ' + (snap.room.settings.hideGalleryFromPlayers ? 'Players can’t read this while a game is on.' : 'Players can read this too.');
+  if (channel === snap.you.teamChat?.channel) return `Only your team (${snap.you.teamChat.label}) can read this. The other side and the watchers can’t.`;
   if (snap.you.seat) return 'Everyone can read the table.' + (snap.room.settings.hideGalleryFromPlayers && playing ? ' The gallery is hidden from you until the game ends.' : '');
   return snap.you.canWrite.includes('table') ? 'The players’ conversation. Everyone can read it.' : 'The players’ conversation. Watchers can read it but not write here during play.';
 }
 
-function Chat({ channel, snap, send }: { channel: Channel; snap: RoomSnapshot; send(m: ClientMessage): void }) {
+function Chat({ channel, snap, send }: { channel: TextChannel; snap: RoomSnapshot; send(m: ClientMessage): void }) {
   const [text, setText] = useState('');
   const listRef = useRef<HTMLOListElement>(null);
   const lines = snap.chat.filter((l) => l.channel === channel);
@@ -109,7 +111,7 @@ function Chat({ channel, snap, send }: { channel: Channel; snap: RoomSnapshot; s
       <form className="composer" onSubmit={submit}>
         <label className="sr-only" htmlFor={`msg-${channel}`}>Message</label>
         <input id={`msg-${channel}`} value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} disabled={!canWrite}
-          placeholder={canWrite ? (channel === 'gallery' ? 'Message the gallery' : 'Message the table') : 'You can’t write here right now'} />
+          placeholder={canWrite ? (channel === 'gallery' ? 'Message the gallery' : channel === snap.you.teamChat?.channel ? `Message the ${snap.you.teamChat.label}` : 'Message the table') : 'You can’t write here right now'} />
         <button className="btn primary icon-only" aria-label="Send" disabled={!canWrite || !text.trim()}><Icon name="send" /></button>
       </form>
     </>

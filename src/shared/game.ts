@@ -6,6 +6,11 @@
 
 export type SeatId = string;
 
+/** Chat channels: the room's two open channels, plus a team's private one
+ *  (`team-0`, `team-1`) in games that have teams (Realm Battle, #68). Voice
+ *  stays on the two open channels; `Channel` in protocol.ts is those two. */
+export type TextChannel = 'table' | 'gallery' | `team-${number}`;
+
 export interface SeatDef {
   id: SeatId;
   label: string;
@@ -124,6 +129,9 @@ export interface GameModule<S = unknown, C = unknown> {
   /** What one person sees: `viewer` is their seat, or null for a watcher.
    *  Hands, fleets and hole cards appear only in their owner's view. */
   view(state: S, now: number, viewer: SeatId | null): unknown;
+  /** A game with teams can give each side a private text channel. The room
+   *  uses this to allow and filter chat; watchers and free-for-alls get null. */
+  teamChat?(state: S, viewer: SeatId | null): { channel: TextChannel; label: string } | null;
 }
 
 /** The seats in use for a (raw) config. */

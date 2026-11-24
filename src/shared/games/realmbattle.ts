@@ -7,7 +7,7 @@
 // player) with creatures standing wins. Uses Realm Duel's creatures, damage
 // and elements (realmduel.ts).
 
-import type { GameResult, SeatDef, SeatId } from '../game';
+import type { GameResult, SeatDef, SeatId, TextChannel } from '../game';
 import {
   CREATURES, MEND, POISON_DAMAGE, POISON_ROUNDS, STYLES, STYLE_NAME, UNDERTOW_CHANCE, GUST_CHANCE,
   bestStyle, damage, deal, type Fighter, type FighterView, type Style,
@@ -77,6 +77,23 @@ function decide(s: BattleState): GameResult | null {
   return { winner: winners.length === 1 ? winners[0] : null, placings: [winners, s.order.filter((p) => !winners.includes(p))], reason: `the ${MAX_ROUNDS}-round limit`, ...(ffa ? {} : { teamWin: true }) };
 }
 
+/** A team mate's chosen creature for an ally ability (#68): the most wounded
+ *  one still fighting, or self if nobody on this side needs help. Only the
+ *  creature picked this round matters — benched creatures aren't in the fight. */
+function allyToHelp(s: BattleState, hands: Record<SeatId, Fighter[]>, ch: Record<SeatId, BChoice>,
+  fighting: SeatId[], p: SeatId, onlyWounded: boolean): SeatId | null {
+  const hurt = (q: SeatId) => {
+    if (q === p || s.team[q] !== s.team[p] || !fighting.includes(q)) return false;
+    const x = hands[q][ch[q].creature];
+    return x.hp > 0 && (!onlyWounded || x.hp < CREATURES[x.kind].hp);
+  };
+  const ratio = (q: SeatId) => {
+    const x = hands[q][ch[q].creature];
+    return x.hp / CREATURES[x.kind].hp;
+  };
+  return fighting.filter(hurt).sort((a, b) => ratio(a) - ratio(b) || s.order.indexOf(a) - s.order.indexOf(b))[0] ?? null;
+}
+
 /** Everyone has chosen: all the fighters strike, fastest first. */
 export function resolveRound(s: BattleState, random: () => number): BattleState {
   const hands: Record<SeatId, Fighter[]> = Object.fromEntries(s.order.map((p) => [p, s.hands[p].map((f) => ({ ...f }))]));
@@ -92,6 +109,17 @@ export function resolveRound(s: BattleState, random: () => number): BattleState 
   const rolls = Object.fromEntries(fighting.map((p) => [p, random()]));
   const order = [...fighting].sort((a, b) => c(b).agi - c(a).agi || Number(c(b).ability === 'swift') - Number(c(a).ability === 'swift') || rolls[a] - rolls[b]);
   lines.push(`Order: ${order.map((p) => name(p)).join(', ')}.`);
+  // In team games (#68) Shield covers the most wounded team mate instead of
+  // itself. The shield still lasts for this one fight.
+  if (s.config.mode !== 'ffa') for (const p of fighting) {
+    const me = f(p);
+    if (c(p).ability !== 'shield' || !me.shielded) continue;
+    const ally = allyToHelp(s, hands, ch, fighting, p, false);
+    if (!ally) continue;
+    me.shielded = false;
+    f(ally).shielded = true;
+    lines.push(`${c(p).abilityName}: ${name(p)} covers ${name(ally)}.`);
+  }
   for (const p of order) {
     const me = f(p);
     if (me.hp <= 0) continue;
@@ -123,9 +151,17 @@ export function resolveRound(s: BattleState, random: () => number): BattleState 
     x.poison -= 1;
     lines.push(`Poison: ${LABEL[p]}’s ${CREATURES[x.kind].name} loses ${POISON_DAMAGE}${x.hp <= 0 ? ' and is knocked out!' : '.'}`);
   }
+  // Mend helps the most wounded team mate in team games, falling back to the
+  // Lumen Stag itself when nobody on its side is hurt (#68).
   for (const p of fighting) {
-    const me = f(p), max = c(p).hp;
-    if (me.hp > 0 && c(p).ability === 'mend' && me.hp < max) { const h = Math.min(MEND, max - me.hp); me.hp += h; lines.push(`Mend: ${name(p)} heals ${h}.`); }
+    if (f(p).hp <= 0 || c(p).ability !== 'mend') continue;
+    let helped = p;
+    if (s.config.mode !== 'ffa') helped = allyToHelp(s, hands, ch, fighting, p, true) ?? p;
+    const x = f(helped), max = c(helped).hp;
+    if (x.hp <= 0 || x.hp >= max) continue;
+    const h = Math.min(MEND, max - x.hp);
+    x.hp += h;
+    lines.push(`Mend: ${name(p)} heals ${name(helped)} for ${h}.`);
   }
   for (const p of s.order) for (const x of hands[p]) if (x.hp <= 0) { x.poison = 0; x.stunned = false; }
   const before = alive(s);
@@ -165,6 +201,8 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
       ] },
       { title: 'Everything else', points: [
         'The creatures, damage, elements and abilities are Realm Duel’s (see its rules).',
+        'In team games, Mend heals your most wounded team mate and Shield covers one, rather than helping themselves. In a free-for-all they work on yourself as in Realm Duel.',
+        'Team mates have their own private chat tab, visible only to that team.',
         'A player with no creatures standing is out. The last team (or player) with creatures standing wins; in teams, everyone on the winning team scores the win.',
         `After ${MAX_ROUNDS} rounds, the side with more creatures standing (then more Health) wins.`,
         'If the room has a move timer and you run out of time, your healthiest creature attacks the weakest enemy with its strongest style.',
@@ -233,6 +271,12 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
       locked: Object.fromEntries(s.order.map((p) => [p, !!s.choices[p]])),
       teamChoices, out: s.out.flat(), rounds: s.rounds, result: s.result,
     };
+  },
+
+  teamChat(s, viewer): { channel: TextChannel; label: string } | null {
+    if (!viewer || !s.order.includes(viewer) || s.config.mode === 'ffa') return null;
+    const team = s.team[viewer];
+    return { channel: `team-${team}`, label: `${TEAM_NAMES[team]} team` };
   },
 }, { keys: ['creature', 'style', 'target'] });
 

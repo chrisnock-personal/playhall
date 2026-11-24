@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api, readRoomPass, saveRoomPass, type Session } from '../api';
-import type { Channel, RoomSnapshot } from '../../shared/protocol';
+import type { RoomSnapshot, TextChannel } from '../../shared/protocol';
 import { useRoom } from '../useRoom';
 import { GAME_CLIENTS } from '../games';
 import type { StageProps } from '../games/types';
@@ -48,7 +48,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   const game = GAME_CLIENTS[snap.room.gameId];
   const { layout, set, preset } = useLayout(snap.room.gameId);
   const [tab, setTab] = useState<SideTab>(snap.you.seat ? 'table' : 'gallery');
-  const [seen, setSeen] = useState<Record<Channel, number>>({ table: 0, gallery: 0 });
+  const [seen, setSeen] = useState<Record<TextChannel, number>>({ table: 0, gallery: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -99,24 +99,27 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
     return () => clearTimeout(t);
   }, [conn.error]);
 
-  // A tab that can't be read any more (gallery once you sit down) falls back.
+  // A tab that can't be read any more (gallery once you sit down, or a team
+  // channel when the next game changes sides) falls back.
   useEffect(() => {
-    if (tab === 'gallery' && !snap.you.canRead.includes('gallery')) setTab('table');
+    if ((tab === 'gallery' || tab.startsWith('team-')) && !(snap.you.canRead as readonly string[]).includes(tab)) setTab('table');
   }, [tab, snap.you.canRead]);
 
   // Lines in the open tab count as read.
-  const maxId = (ch: Channel) => snap.chat.reduce((m, l) => (l.channel === ch ? Math.max(m, l.id) : m), 0);
+  const maxId = (ch: TextChannel) => snap.chat.reduce((m, l) => (l.channel === ch ? Math.max(m, l.id) : m), 0);
   useEffect(() => {
-    if (sideShown === 'full' && (tab === 'table' || tab === 'gallery')) {
-      const m = maxId(tab);
-      if (m > seen[tab]) setSeen((s) => ({ ...s, [tab]: m }));
+    if (sideShown === 'full' && (tab === 'table' || tab === 'gallery' || tab.startsWith('team-'))) {
+      const ch = tab as TextChannel;
+      const m = maxId(ch);
+      if (m > (seen[ch] ?? 0)) setSeen((s) => ({ ...s, [ch]: m }));
     }
   });
   const unread = useMemo(() => {
-    const u: Record<Channel, number> = { table: 0, gallery: 0 };
-    for (const l of snap.chat) if (l.kind === 'typed' && l.userId !== snap.you.userId && l.id > seen[l.channel]) u[l.channel]++;
+    const u: Record<TextChannel, number> = { table: 0, gallery: 0 };
+    for (const ch of snap.you.canRead) u[ch] ??= 0;
+    for (const l of snap.chat) if (l.kind === 'typed' && l.userId !== snap.you.userId && l.id > (seen[l.channel] ?? 0)) u[l.channel] = (u[l.channel] ?? 0) + 1;
     return u;
-  }, [snap.chat, seen, snap.you.userId]);
+  }, [snap.chat, snap.you.canRead, seen, snap.you.userId]);
 
   const invite = async () => {
     const url = `${location.origin}/#/r/${snap.room.code}`;
