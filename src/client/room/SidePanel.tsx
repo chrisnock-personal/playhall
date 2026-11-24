@@ -58,7 +58,7 @@ export function SidePanel({ state, onSet, tab, onTab, unread, stage, game }: {
       {(tab === 'table' || tab === 'gallery') && <Chat channel={tab} snap={snap} send={stage.send} />}
       {tab === 'people' && <People snap={snap} send={stage.send} />}
       {tab === 'game' && Tab && <div className="tab-body"><Tab {...stage} /></div>}
-      {tab === 'rules' && <div className="tab-body"><HowToPlay rules={rules} /></div>}
+      {tab === 'rules' && <div className="tab-body"><HowToPlay rules={rules} pictures={game?.rulesPictures} /></div>}
     </aside>
   );
 }

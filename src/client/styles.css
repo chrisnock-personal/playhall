@@ -763,3 +763,23 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .pill.locked-note { background: var(--surface-2); color: var(--muted); }
 .nav-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: #d64545; color: #fff; font: 700 11px var(--body); vertical-align: 1px; }
 .bot-add { display: flex; gap: 4px; align-items: center; } .bot-add .btn { flex: 1; }
+
+/* The coach in practice rooms (#57) */
+.coach { position: absolute; right: 12px; bottom: 12px; z-index: 20; width: min(340px, calc(100% - 24px)); background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.coach-head { display: flex; justify-content: space-between; align-items: center; color: var(--accent); }
+.coach-now { margin: 0; }
+.coach-tip { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.coach-tip p { margin: 0; }
+.coach-nav { display: flex; gap: 6px; justify-content: flex-end; }
+.coach-show { position: absolute; right: 12px; bottom: 12px; z-index: 20; }
+.rules-picture { margin: 6px 0 10px; display: flex; justify-content: center; } .rules-picture svg { max-width: 100%; height: auto; } .learn-btn { margin: 6px 0 10px; width: 100%; }
+.rp { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.rp-art { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
+.rp-caption { font-size: 13px; color: var(--muted); max-width: 420px; }
+.rp-cards { display: inline-flex; gap: 3px; }
+.rp-tiles, .rp-dice, .rp-elements { display: inline-flex; gap: 4px; align-items: center; }
+.rp-gap { width: 14px; }
+.rp-ticket { display: grid; grid-template-columns: repeat(9, 22px); gap: 2px; padding: 4px; background: #f7f1e3; border-radius: 6px; }
+.rp-ticket span { height: 22px; display: grid; place-items: center; font: 700 11px var(--body); color: #2a2230; background: #fff; border-radius: 3px; position: relative; }
+.rp-ticket span.blank { background: #c9b9df; }
+.rp-ticket span.marked::after { content: ''; position: absolute; inset: 15%; border-radius: 50%; background: rgba(214,51,108,.55); }

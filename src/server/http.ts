@@ -6,7 +6,9 @@ import { rateLimit, roomPassword, type Auth } from './auth';
 import type { RoomManager } from './rooms/manager';
 import type { RoomSockets } from './ws';
 import { RoomError } from './rooms/room';
-import { gameList } from '../shared/games';
+import { GAMES, gameList } from '../shared/games';
+import { BOTS } from '../shared/bots';
+import { seatsIn } from '../shared/game';
 import { boardNames, isGameFilter, leaderboard, nameFilter, PERIODS, playerStats, replay } from './stats';
 import type { Period } from '../shared/protocol';
 import type { Db } from './db';
@@ -146,6 +148,24 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     res.status(201).json({ room: room.summary() });
   });
 
+  // Learn by playing (#57): a private, casual room with the player seated and gentle bots in the other seats.
+  app.post('/api/rooms/practice', auth.requireUser, async (req, res) => {
+    const gameId = String(req.body?.gameId ?? '');
+    const game = GAMES[gameId];
+    if (!game || !BOTS[gameId]) { res.status(400).json({ error: 'That game has no computer players to practise with' }); return; }
+    if (req.user!.guest) { res.status(403).json({ error: 'Practising needs an account (rooms are hosted by accounts)' }); return; }
+    await loadProgression(req.user!.id);
+    const locked = progressionBlock(req.user!.id, gameId);
+    if (locked) { res.status(403).json({ error: locked }); return; }
+    try {
+      const seat = seatsIn(game, game.defaultConfig)[0].id;
+      const room = await rooms.create(req.user!, { name: `Learning ${game.name}`, gameId, listed: false, ranked: false, hostSeat: seat, practice: true, seatPolicy: 'host' });
+      room.fillWithBots('gentle');
+      res.status(201).json({ room: room.summary() });
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
+  });
   app.get('/api/rooms/:code', auth.requireUser, async (req, res) => {
     const room = await rooms.get(String(req.params.code));
     if (!room) { res.status(404).json({ error: 'No such room' }); return; }

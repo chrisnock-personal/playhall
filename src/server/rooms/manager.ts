@@ -46,6 +46,8 @@ export interface CreateRoomInput {
   passwordHash?: string | null;
   /** Tournaments (#17): people seated from the start, by seat. */
   seated?: Record<string, { id: string; name: string }>;
+  /** A practice room (#57). */
+  practice?: boolean;
 }
 
 export class RoomManager {
@@ -232,6 +234,7 @@ export class RoomManager {
       moveSeconds: input.moveSeconds ?? DEFAULT_SETTINGS.moveSeconds,
       watcherDelay: input.watcherDelay ?? DEFAULT_SETTINGS.watcherDelay,
       gameConfig: game.parseConfig(input.gameConfig ?? game.defaultConfig),
+      ...(input.practice ? { practice: true } : {}),
     };
     const seats: Record<string, SeatHolder | null> = {};
     for (const s of game.seats) seats[s.id] = null;

@@ -6,7 +6,7 @@ import { COLOURS, Disc, GameActions, PlayerStrip } from '../kit/kit';
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 /** One tile: cream, the letter, its value (a blank shows its letter in blue italic, worth 0). */
-function Tile({ letter, blank, state, small }: { letter: string; blank?: boolean; state?: 'pending' | 'last' | 'bad' | 'picked'; small?: boolean }) {
+export function Tile({ letter, blank, state, small }: { letter: string; blank?: boolean; state?: 'pending' | 'last' | 'bad' | 'picked'; small?: boolean }) {
   return (
     <span className={`lw-tile${small ? ' small' : ''}${state ? ` ${state}` : ''}${blank ? ' blank' : ''}`}>
       {letter === '?' ? '' : letter}

@@ -155,6 +155,17 @@ function NewRoom({ session, games, prog }: { session: Session; games: GameInfo[]
   const game = games.find((g) => g.id === gameId);
   const Picker = GAME_CLIENTS[gameId]?.ConfigPicker;
 
+  // Learn by playing (#57): a private practice room against gentle bots, with the coach.
+  const practise = async (id: string) => {
+    setBusy(true); setError(null);
+    try {
+      const r = await api<{ room: RoomSummary }>('/rooms/practice', { token: session.token, body: { gameId: id } });
+      location.hash = `#/r/${r.room.code}`;
+    } catch (err) {
+      setError((err as Error).message); setBusy(false);
+    }
+  };
+
   const create = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -189,8 +200,11 @@ function NewRoom({ session, games, prog }: { session: Session; games: GameInfo[]
             {g.id === gameId && g.howToPlay && (
               <details className="rules-peek">
                 <summary>How to play {g.name}</summary>
-                <HowToPlay rules={g.howToPlay} />
+                <HowToPlay rules={g.howToPlay} pictures={GAME_CLIENTS[g.id]?.rulesPictures} />
               </details>
+            )}
+            {g.id === gameId && g.bots && (!open || open.has(g.id)) && (
+              <button type="button" className="btn small learn-btn" disabled={busy} onClick={() => practise(g.id)}>Learn by playing: a practice game with a coach</button>
             )}
           </div>
         ))}

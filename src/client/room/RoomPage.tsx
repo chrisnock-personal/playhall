@@ -14,6 +14,7 @@ import { TranscriptNotice } from './TranscriptNotice';
 import { SidePanel, type SideTab } from './SidePanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ResultCard } from './ResultCard';
+import { Coach } from './Coach';
 import { TurnBanner, useMyTurn } from './TurnBanner';
 import { Icon } from '../ui';
 import { SoundButton, useTableSounds } from '../kit/SoundControls';
@@ -178,6 +179,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
           <div className="stage">
             {game ? <game.Stage {...stageProps} /> : <p className="empty">This game isn’t available in this version.</p>}
             <TurnBanner snap={snap} />
+            <Coach snap={snap} />
             <ResultCard snap={snap} send={conn.send} />
           </div>
           <GalleryStrip

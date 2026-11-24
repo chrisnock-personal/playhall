@@ -21,4 +21,6 @@ export interface GameClient {
   /** Something small for a seat card, e.g. that seat's clock. */
   seatExtra?(props: StageProps, seatId: string): ReactNode;
   ConfigPicker: FC<{ value: unknown; onChange(v: unknown): void; disabled?: boolean }>;
+  /** Pictures for the How to play rules (#57), drawn with the game's own pieces, by section title. */
+  rulesPictures?: Record<string, FC>;
 }
