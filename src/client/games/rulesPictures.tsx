@@ -243,6 +243,26 @@ const ClueBoard: FC = () => {
   );
 };
 
+const FillRound: FC = () => (
+  <Fig caption="The judge reads the question; the others slip in cards anonymously. The read-out shows letters, not names.">
+    <svg viewBox="0 0 240 110" width="260" role="img" aria-label="A question with a blank and three anonymous answer cards labelled A, B and C">
+      <rect x="5" y="6" width="230" height="32" rx="7" fill="#f3e4bd" />
+      <text x="120" y="26" textAnchor="middle" fontSize="11" fill="#29251b">A good picnic needs a ___</text>
+      {[
+        { x: 8, label: 'A', text: 'singing potato' },
+        { x: 84, label: 'B', text: 'rubber chicken' },
+        { x: 160, label: 'C', text: 'bag of popcorn' },
+      ].map((c) => (
+        <g key={c.label}>
+          <rect x={c.x} y="50" width="72" height="46" rx="7" fill="#f7f1df" />
+          <text x={c.x + 8} y="66" fontSize="10" fontWeight="bold" fill="#a8791e">{c.label}</text>
+          <text x={c.x + 8} y="83" fontSize="8" fill="#29251b">{c.text}</text>
+        </g>
+      ))}
+    </svg>
+  </Fig>
+);
+
 const PICTURES: Record<string, Record<string, FC>> = {
   chess: { 'How the pieces move': ChessMoves },
   fourinarow: { 'How a game ends': FourInARow },
@@ -288,6 +308,7 @@ const PICTURES: Record<string, Record<string, FC>> = {
   bridge: { 'The auction': BridgeBid },
   realmbattle: { 'A round': BattleRound },
   cluewords: { 'The board': ClueBoard },
+  filltheblank: { 'A round': FillRound },
 };
 
 export default PICTURES;

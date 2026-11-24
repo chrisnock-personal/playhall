@@ -18,7 +18,7 @@ export const DEFAULT_LADDER: Ladder = {
   tiers: [
     { games: ['fourinarow', 'snakes', 'ludo', 'colourclash', 'whodat', 'bingo'], wins: 3 },
     { games: ['checkers', 'seabattle', 'hearts', 'poophead', 'thirtyone', 'chinesecheckers'], wins: 8 },
-    { games: ['chess', 'letterworks', 'spades', 'ginrummy', 'blackjack'], wins: 15 },
+    { games: ['chess', 'letterworks', 'spades', 'ginrummy', 'blackjack', 'filltheblank'], wins: 15 },
     { games: ['poker', 'roulette', 'craps', 'bridge', 'realmduel', 'realmbattle', 'cluewords', 'manormystery', 'ship2shore', 'cameratable'], wins: 25 },
   ],
 };

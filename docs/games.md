@@ -192,6 +192,13 @@ revealing a neutral or enemy word passes the turn, and the spy loses at once.
 Clue-givers and watchers see the key, guessers see only the words; no team chat,
 as it could only carry answers from clue-giver to guesser). No bots, AI, picture mode or custom word lists
 yet. Both team mates score the win.
+**Fill the Blank** (#47, 3-8 players, a saying game: one judge reads a question
+with a blank, everyone else slips in one of five hidden answer cards, and the
+cards are read out anonymously with letters before the judge picks a favourite
+and gives a point. One round per player, most points wins, ties share a place.
+Our own family deck plus host-added question and answer cards; no adult deck,
+bots or AI. Watchers see the read-out but never a hand; no team chat, as it
+could carry answers). It has a rules picture and replays.
 **Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
 Violet against East-West Teal and Rose; the auction with doubles and
 redoubles and each call explained in words; dummy face up after the opening

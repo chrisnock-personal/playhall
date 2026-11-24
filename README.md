@@ -7,12 +7,13 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Twenty-six games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Twenty-seven games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Hearts, Spades, Thirty-One, Gin Rummy, Bingo, Chinese checkers, Roulette, Craps, Bridge, Poophead (the
 shedding game also known as Palace), Letterworks (a crossword tile game),
 Realm Duel (a creature card duel) and Realm Battle (its team version), Manor Mystery (a country-house murder
 mystery), Ship2Shore (a WW2 hidden-role game for 5-11), Who Dat? (a
-guess-the-face game for two) and Clue Words (a 5×5 team word game), drawn from
+guess-the-face game for two), Clue Words (a 5×5 team word game) and Fill the
+Blank (a 3-8 player saying game), drawn from
 one shared kit of boards, pieces, cards, chips and dice
 ([docs/games.md](docs/games.md)), plus the **camera table** for any real
 board game on your own table. Every game is a plug-in with its own
@@ -48,7 +49,7 @@ with remote players using controllers, OpenBOR rooms run on the server
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
-- **Twenty-six games**, each with its rules in a How to play tab, and replays
+- **Twenty-seven games**, each with its rules in a How to play tab, and replays
   of finished games (move by move, hidden cards staying hidden).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a
@@ -85,7 +86,7 @@ with remote players using controllers, OpenBOR rooms run on the server
   shots land with a splash; each with a short sound made in the browser (no
   audio files), quieter under voice chat, off for watchers unless they turn
   it on. A speaker button in the room mutes them or sets the volume.
-- **Computer players** in every game except Clue Words and the camera table. The host can put
+- **Computer players** in every game except Clue Words, Fill the Blank and the camera table. The host can put
   a bot in any free seat between games, so a small group can fill a bigger
   table; chess, Letterworks, Manor Mystery, Four in a Row and checkers also
   offer gentle, fair and strong levels. A bot plays from its own seat's view,
