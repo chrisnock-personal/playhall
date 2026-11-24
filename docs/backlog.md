@@ -31,8 +31,9 @@ the server.
 Our own takes on three party genres, with our own names, words and cards: a
 team word-association game (working name Clue Words), a fill-in-the-blank
 game (working name Fill the Blank: a family deck by default, an adult deck a
-host can choose), and **What Am I?** (everyone sees your word but you; ask
-the table yes/no questions).
+host can choose), and **What Am I?** is in (2026-11-24: everyone sees your word
+but you; ask the table yes/no questions, then guess — with family word
+categories, host-added words and ranked guesses).
 
 ### Landgrab (2026-11-16, #49)
 
@@ -160,3 +161,12 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 - **Pictures in the rules (#69), done 2026-11-24:** the remaining built-in games now have pictures in How to play — chess's pieces, Snakes and Ladders, Ludo, Sea Battle, Blackjack, Colour Clash, Hold'em hand rankings, Manor Mystery's notebook, Who Dat, Poophead's special cards, Chinese checkers' hop chain, Roulette's bets, Bridge's auction, Realm Battle and Ship2Shore's order headings. Every built-in game has one now.
 
 - **Realm Battle teams (#68), part done 2026-11-24:** in team games Mend heals and Shield covers (for that fight) whoever on the side is most hurt by share of Health, the creature itself included and kept on a tie; free-for-all keeps Realm Duel's abilities. Each side also has a private text chat tab, filtered by the room so the other team and watchers can't read it, and so the next side to take those seats can't read the last game's lines. Still to do from #68: team voice and the 30-creature pool/draft shared with Realm Duel.
+
+- **What Am I? (#48), done 2026-11-24:** a 3-8 player talking game. Everyone
+  sees your word but you; on your turn you ask a short question, the others
+  answer yes, no or maybe with buttons and talk it over at the table, and you
+  guess when ready. One turn each; a correct guess takes a place by how few
+  questions it took, with shared places on ties. The host picks a family word
+  category (animals, food, jobs, story characters or a mix) and can add their
+  own words. Watchers see every word, and replays show the watcher's view.
+  Later: bots, AI and an adult deck.

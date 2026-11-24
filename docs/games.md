@@ -183,6 +183,13 @@ fighters strike in Agility order; a fallen target's hit goes to another enemy
 at random; team mates see each other's picks and hands). Bots focus on the
 team's target. In team games Mend heals and Shield covers whoever on the side
 is most hurt, itself included, with a private team chat tab; free-for-all keeps Realm Duel's abilities.
+**What Am I?** (#48, 3-8 players, a talking party game: everyone sees your word
+but you. On your turn you ask a short question, the others answer yes, no or
+maybe with buttons and talk it over at the table, then you guess. Each player
+has one turn; a correct guess takes a place by how few questions it took, with
+a shared place on a tie. Watchers see every word. The host picks a family word
+category or adds their own words; no bots or AI yet). It has replays and a
+rules picture.
 **Bridge** (#37, contract bridge for four in two pairs, North-South Amber and
 Violet against East-West Teal and Rose; the auction with doubles and
 redoubles and each call explained in words; dummy face up after the opening
