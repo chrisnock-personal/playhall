@@ -1,8 +1,9 @@
-# Realm Duel: the creature card duel (design draft)
+# Realm Duel: the creature card duel
 
-A two-player card battle: each player has a hand of fantasy creatures with
-their own stats, and each round both secretly choose a creature and how it
-attacks. Last player with creatures standing wins.
+A two-player card battle: players first draft creatures from a shared pool,
+then each round both secretly choose one of theirs and how it attacks. Last
+player with creatures standing wins. Realm Battle uses the same creatures and
+the same draft.
 
 Based on the rules of [fantasy-card-game](https://github.com/EdwardAThomson/fantasy-card-game)
 by Edward Thomson (MIT licence: rules and balance may be borrowed with
@@ -10,18 +11,22 @@ credit). Playhall's creatures, names and artwork are its own.
 
 ## Creatures
 
-About 30 creatures, each with **Strength, Agility, Intelligence, Defence,
-Magic** and **Health**, an **element** (Fire, Water, Earth, Air, Light,
-Shadow) that is strong against two others and weak against two, and
-sometimes a **special ability**:
+30 creatures, five per element, each with **Strength, Agility, Intelligence,
+Defence, Magic** and **Health**. An **element** (Fire, Water, Earth, Air,
+Light, Shadow) is strong against two others and weak against two. All have a
+**special ability**:
 
 | Ability | Effect |
 |---|---|
-| Stun | The target loses its next attack |
-| Berserk | More damage, but takes some back |
+| Stun (Undertow, Gust) | The target loses its next attack |
 | Poison bite | Damage over the next rounds |
 | Shield | Halves the next hit |
-| Swift | Always attacks first |
+| Swift | Attacks first on an Agility tie |
+| Mend | Heals 4 after a round it fought |
+
+The six starters are Emberfox, Tidecaller, Stonehorn, Galewing, Lumen Stag
+and Duskmaw; the other 24 were added with the draft (#82) and use the same
+ability set.
 
 ## A round
 
@@ -36,25 +41,27 @@ sometimes a **special ability**:
 
 ## Modes
 
-- **Quick battle**: random hands of 3 (or 5) from the pool.
-- **Draft**: players take turns picking creatures from a shared pool of 10:
-  a good show for watchers, and a skill of its own.
+There is one mode: a **draft** from the full 30-creature pool, three creatures
+each by default (the host can choose six). Picks are sequential, in snake
+order, and a creature can be taken only once per match. The same draft opens
+Realm Battle for two, three or four players.
 
 ## In Playhall
 
 - **Simultaneous secret choices** work like Sea Battle's placement: both
   pick, nothing is shown until both have.
 - Cards in the kit's frame, with a creature illustration, stats and element
-  icon. Illustrations are ours; until they're drawn, simple silhouettes.
-- Move timer (a random choice is made for you), How to play, replays (the
-  rounds are kept), leaderboard, as for the other games.
-- A computer opponent is easy to add here (the original has one).
+  icon. The 24 newer creatures get a simple silhouette varied by id, in the
+  element's colour.
+- Move timer (a strong available creature is drafted for you, or a choice is
+  made for you in a round), How to play, replays, leaderboard, as for the
+  other games.
+- A computer opponent drafts and fights from the public view only.
 
 ## Open points
 
-- The name ("Realm Duel" is a placeholder).
-- Balancing the 30 creatures: borrow the original's stat ranges, then tune by
-  simulation.
+- Balancing the 30 creatures: tune by simulation
+  (`npx tsx scripts/realmduel-balance.ts`).
 
 ## Pieces (mockups approved for now, 2026-11-15; may be improved later)
 
@@ -84,11 +91,19 @@ Where the design above left a rule open, the first version
 (`src/shared/games/realmduel.ts`) settled it simply; all of it is open to
 tuning.
 
-- **Deal:** each player draws their own three of the six starters at random
-  (so the opponent's hand is a real secret, and mirror creatures can meet);
-  the host can choose "All six" instead. Unfought cards stay face down to the
-  opponent and to watchers; a creature turns face up once it has fought, and
-  everything is shown when the game ends.
+- **Draft (added 2026-11-24, #82):** the game opens with a shared pool of all
+  30 creatures in a fixed order, and players take turns picking three each
+  (or six, if the host chose that). Turns run forward then backward through
+  the seats — amber, teal, teal, amber, amber, teal — so the later seats get
+  two picks in a row. Picks are open to everyone and shown on the table; only
+  the seat whose turn it is can click a card. A creature that has been picked
+  is dimmed and cannot be taken again. Bot picks and timer picks choose the
+  strongest available creature by a simple value (Health and the attack
+  stats); no hidden information is used. The fixed order keeps replays and
+  saved games simple: only the picks are recorded.
+- **Hands:** the drafted creatures become the deal. Unfought cards stay face
+  down to the opponent and to watchers; a creature turns face up once it has
+  fought, and everything is shown when the game ends.
 - **A round:** both lock in a standing creature and a style; a locked choice
   can't be changed. Then the two creatures fight once each.
 - **First strike:** higher Agility; a tie goes to Swift, otherwise a coin (the
@@ -108,10 +123,17 @@ tuning.
 - **End:** last player with creatures standing wins; both sides out at once is
   a draw. A safety limit of 50 rounds decides on creatures standing, then
   total Health (a draw if equal).
-- **Move timer:** the timer is shared, so when it runs out it picks for every
-  player still choosing: their healthiest creature with the style it hits
-  hardest with (no peeking at the opponent's choice).
-- **Balance check:** 20,000 simulated games (random creatures, each one's best
-  average style) last about 11 rounds; hands holding Stonehorn win about 60%,
-  the others 46-50%. Stonehorn is the first candidate for tuning.
-- Not yet: the 30-creature pool, the draft mode, a computer opponent.
+- **Move timer:** during the draft it picks one strong available creature for
+  the seat whose turn it is. In a round it picks for everyone still choosing:
+  their healthiest creature with the style it hits hardest with (no peeking at
+  the opponent's choice).
+- **Resigning:** ends the duel at once; during the draft hands are empty, so a
+  resignation hands the win to the other player without dealing cards.
+- **Old saves:** a game saved before the draft has no `phase` and plays as a
+  fight; old Realm Battle replays rebuild their draft from the creature kinds
+  still in the hands.
+- **Balance check:** `scripts/realmduel-balance.ts` now drafts before each
+  simulated game, so it can be rerun against the 30-creature pool.
+- **Realm Battle:** the same 30-creature pool, drafted by two, three or four
+  players in the same snake order. Team mates can plan in their private chat
+  during the draft; a resignation mid-draft skips that seat's remaining turns.

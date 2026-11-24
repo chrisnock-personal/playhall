@@ -1,6 +1,7 @@
-// Realm Duel balance check: plays many games between random-but-sensible
-// players (a random standing creature, attacking with its best style) and
-// reports how often a hand holding each creature wins.
+// Realm Duel balance check: drafts three creatures each from the shared pool,
+// then plays many games between random-but-sensible players (a random standing
+// creature, attacking with its best style) and reports how often a hand
+// holding each creature wins.
 //   npx tsx scripts/realmduel-balance.ts [games]
 //   STATS='{"stonehorn":{"hp":34}}' npx tsx scripts/realmduel-balance.ts   (try a change)
 import { realmDuel, CREATURES, bestStyle, type RealmState } from '../src/shared/games/realmduel';
@@ -12,6 +13,13 @@ const held: Record<string, { games: number; wins: number }> = {};
 let draws = 0, rounds = 0;
 for (let g = 0; g < N; g++) {
   let s = realmDuel.create({ hand: 3 }, 0, ctx) as RealmState;
+  while (s.phase === 'draft') {
+    const seat = realmDuel.turn!(s)[0];
+    const pool = s.draft!.pool;
+    const r = realmDuel.act(s, seat, { type: 'draft', kind: pool[Math.floor(Math.random() * pool.length)] }, 0, ctx);
+    if ('error' in r) throw new Error(r.error);
+    s = r.state as RealmState;
+  }
   const hands = { amber: s.hands.amber.map((f) => f.kind), teal: s.hands.teal.map((f) => f.kind) };
   while (!s.result) {
     for (const seat of ['amber', 'teal'] as const) {

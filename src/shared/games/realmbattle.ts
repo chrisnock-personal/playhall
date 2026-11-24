@@ -10,7 +10,9 @@
 import type { GameResult, SeatDef, SeatId, TextChannel } from '../game';
 import {
   CREATURES, MEND, POISON_DAMAGE, POISON_ROUNDS, STYLES, STYLE_NAME, UNDERTOW_CHANCE, GUST_CHANCE,
-  bestStyle, damage, deal, type Fighter, type FighterView, type Style,
+  bestDraft, bestStyle, damage, draftAdvance, draftDone, draftHands, draftPick, draftTurn,
+  draftView, newDraft, type DraftState, type DraftView, type Fighter,
+  type FighterView, type Style,
 } from './realmduel';
 import { withHistory, type GameHistory } from './history';
 
@@ -25,6 +27,9 @@ export interface BChoice { creature: number; style: Style; target: SeatId }
 
 export interface BattleState {
   config: BattleConfig;
+  /** The draft comes first; older saves have no phase and start at the fight. */
+  phase?: 'draft' | 'fight';
+  draft?: DraftState;
   order: SeatId[];
   /** Team of each player: 0 (Sun) or 1 (Moon); in a free-for-all, each their own. */
   team: Record<SeatId, number>;
@@ -39,6 +44,8 @@ export interface BattleState {
 
 export interface BattleView {
   you: SeatId | null;
+  phase: 'draft' | 'fight';
+  draft: DraftView | null;
   mode: Mode;
   order: SeatId[];
   team: Record<SeatId, number>;
@@ -54,7 +61,11 @@ export interface BattleView {
 
 const standing = (hand: Fighter[]) => hand.filter((f) => f.hp > 0).length;
 export const alive = (s: Pick<BattleState, 'order' | 'hands'>) => s.order.filter((p) => standing(s.hands[p]) > 0);
-export const enemiesOf = (s: Pick<BattleState, 'order' | 'hands' | 'team'>, p: SeatId) => alive(s).filter((q) => s.team[q] !== s.team[p]);
+/** During the draft hands are empty; sides still exist from the team map. */
+export const enemiesOf = (s: Pick<BattleState, 'order' | 'hands' | 'team'>, p: SeatId) => {
+  const inPlay = alive(s).length ? alive(s) : s.order;
+  return inPlay.filter((q) => q !== p && s.team[q] !== s.team[p]);
+};
 
 function decide(s: BattleState): GameResult | null {
   const left = alive(s);
@@ -75,6 +86,28 @@ function decide(s: BattleState): GameResult | null {
   const best = [...teams].sort((a, b) => score(b) - score(a))[0];
   const winners = s.order.filter((p) => s.team[p] === best);
   return { winner: winners.length === 1 ? winners[0] : null, placings: [winners, s.order.filter((p) => !winners.includes(p))], reason: `the ${MAX_ROUNDS}-round limit`, ...(ffa ? {} : { teamWin: true }) };
+}
+
+/** Resigning during the draft: hands aren't dealt yet, so decide from who is
+ *  still in rather than from Health. */
+function decideOut(s: BattleState): GameResult | null {
+  const gone = s.out.flat();
+  const left = s.order.filter((p) => !gone.includes(p));
+  const teams = [...new Set(left.map((p) => s.team[p]))];
+  if (teams.length > 1) return null;
+  const ffa = s.config.mode === 'ffa';
+  const placeOut = [...s.out].reverse();
+  if (!left.length) return { winner: null, placings: placeOut, reason: 'resignation' };
+  const winners = s.order.filter((p) => s.team[p] === teams[0]);
+  const rest = placeOut.map((g) => g.filter((p) => !winners.includes(p))).filter((g) => g.length);
+  return ffa
+    ? { winner: left[0], placings: [left, ...rest], reason: 'the last player with creatures standing' }
+    : { winner: null, placings: [winners, ...rest], reason: 'knocking out the other team', teamWin: true };
+}
+
+/** The draft is over: the picked creatures become this game's hands. */
+function finishDraft(s: BattleState, d: DraftState): BattleState {
+  return { ...s, draft: d, phase: 'fight', hands: draftHands(d, s.order) };
 }
 
 /** Who an ally ability helps in team games (#68): the most hurt creature on
@@ -182,13 +215,17 @@ function choose(s: BattleState, p: SeatId, choice: BChoice, random: () => number
 
 export const seatsForMode = (mode: Mode): SeatDef[] => SEATS.slice(0, mode === '3v3' ? 6 : 4).map((id, i) => ({ id, label: mode === 'ffa' ? LABEL[id] : `${LABEL[id]} (${TEAM_NAMES[i % 2]})` }));
 
-export const realmBattle = withHistory<BattleState, BattleConfig>({
+const battleWithHistory = withHistory<BattleState, BattleConfig>({
   id: 'realmbattle',
   name: 'Realm Battle',
-  description: 'Realm Duel for more: two teams of two or three, or everyone for themselves. Pick a creature, a style and a target; everyone fights at once.',
+  description: 'Realm Duel for more: two teams of two or three, or everyone for themselves. Draft from the same 30 creatures, then pick a creature, a style and a target; everyone fights at once.',
   howToPlay: {
     goal: 'Knock out every creature on the other side. In teams, the Sun team (Amber, Violet, Lime) fights the Moon team (Teal, Rose, Blue); in a free-for-all it’s the last player standing.',
     sections: [
+      { title: 'The draft', points: [
+        'Before the first fight everyone drafts from a shared pool of 30 creatures, taking turns in snake order. Each player takes the same number of creatures as the host chose; once one is picked, nobody else can have it.',
+        'Draft picks are open to everyone, and your team mates can plan in their private chat. If the move timer runs out, a strong available creature is picked for you.',
+      ] },
       { title: 'A round', points: [
         'Everyone secretly picks one of their creatures still standing, an attack style (Melee, Ranged or Magic, as in Realm Duel) and a target: a player on the other side.',
         'In teams you see your team mates’ picks once they lock in, so you can gang up on one enemy.',
@@ -217,8 +254,10 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
   create(config, _now, ctx) {
     const order = SEATS.filter((p) => ctx.seats.includes(p));
     const team = Object.fromEntries(order.map((p) => [p, config.mode === 'ffa' ? order.indexOf(p) : SEATS.indexOf(p) % 2]));
+    const draft = newDraft(order, config.hand);
     return {
-      config, order, team, hands: Object.fromEntries(order.map((p) => [p, deal(config.hand, ctx.random)])),
+      config, phase: 'draft', draft, order, team,
+      hands: Object.fromEntries(order.map((p) => [p, []])),
       choices: Object.fromEntries(order.map((p) => [p, null])), out: [], rounds: [], result: null,
     };
   },
@@ -226,13 +265,30 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
   act(s, seat, raw, _now, ctx) {
     if (s.result) return { error: 'The game is over' };
     if (!s.order.includes(seat)) return { error: 'You’re not in this battle' };
-    const a = raw as { type?: string; creature?: unknown; style?: unknown; target?: unknown };
+    const a = raw as { type?: string; creature?: unknown; style?: unknown; target?: unknown; kind?: unknown };
+    const drafting = s.phase === 'draft' && !!s.draft;
     if (a?.type === 'resign') {
+      if (drafting) {
+        const gone = [...s.out.flat(), seat];
+        const next: BattleState = { ...s, draft: draftAdvance(s.draft!, gone), out: [...s.out, [seat]] };
+        const result = decideOut(next);
+        if (result) return { state: { ...next, result: { ...result, reason: result.reason === 'everyone being knocked out at once' ? 'resignation' : result.reason } } };
+        return { state: next };
+      }
       const hands = { ...s.hands, [seat]: s.hands[seat].map((f) => ({ ...f, hp: 0 })) };
       const next: BattleState = { ...s, hands, choices: { ...s.choices, [seat]: null }, out: [...s.out, [seat]] };
       const result = decide({ ...next, rounds: next.rounds });
       if (result) return { state: { ...next, result: { ...result, reason: result.reason === 'everyone being knocked out at once' ? 'resignation' : result.reason } } };
       return { state: alive(next).every((q) => next.choices[q]) ? resolveRound(next, ctx.random) : next };
+    }
+    if (drafting) {
+      if (a?.type !== 'draft') return { error: 'Finish the draft first' };
+      const gone = s.out.flat();
+      const d = draftAdvance(s.draft!, gone);
+      if (draftTurn(d, gone) !== seat) return { error: 'It isn’t your turn to draft' };
+      const picked = draftPick(d, seat, a.kind);
+      if (!picked) return { error: 'Pick a creature that’s still available' };
+      return { state: draftDone(picked, gone) ? finishDraft(s, picked) : { ...s, draft: picked } };
     }
     if (a?.type !== 'choose') return { error: 'Unknown move' };
     if (!alive(s).includes(seat)) return { error: 'You have no creatures left' };
@@ -244,8 +300,24 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
     return { state: choose(s, seat, { creature: i, style: a.style as Style, target: a.target }, ctx.random) };
   },
 
-  turn: (s) => (s.result ? [] : alive(s).filter((p) => !s.choices[p])),
+  turn: (s) => {
+    if (s.result) return [];
+    if (s.phase === 'draft' && s.draft) {
+      const p = draftTurn(s.draft, s.out.flat());
+      return p ? [p] : [];
+    }
+    return alive(s).filter((p) => !s.choices[p]);
+  },
   timeout(s, _seat, _now, ctx) {
+    if (s.phase === 'draft' && s.draft) {
+      const gone = s.out.flat();
+      const d = draftAdvance(s.draft, gone);
+      const due = draftTurn(d, gone);
+      const kind = bestDraft(d.pool);
+      if (!due || !kind) return s;
+      const picked = draftPick(d, due, kind)!;
+      return draftDone(picked, gone) ? finishDraft(s, picked) : { ...s, draft: picked };
+    }
     let next = s;
     for (const p of alive(s)) if (!next.result && !next.choices[p]) next = choose(next, p, autoChoice(next, p), ctx.random);
     return next;
@@ -257,11 +329,15 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
   view(s, _now, viewer): BattleView {
     const seated = !!viewer && s.order.includes(viewer);
     const showAll = !!s.result;
+    const drafting = s.phase === 'draft' && !!s.draft;
     const hand = (p: SeatId) => s.hands[p].map((f) => (showAll || p === viewer || f.revealed || (seated && s.team[p] === s.team[viewer!]) ? { ...f, maxHp: CREATURES[f.kind].hp } : null));
     const teamChoices: Record<SeatId, BChoice> = {};
     if (seated) for (const p of s.order) if (s.choices[p] && s.team[p] === s.team[viewer!]) teamChoices[p] = s.choices[p]!;
     return {
-      you: seated ? viewer : null, mode: s.config.mode, order: s.order, team: s.team, round: s.rounds.length + 1,
+      you: seated ? viewer : null,
+      phase: drafting ? 'draft' : 'fight',
+      draft: drafting ? draftView(s.draft, s.out.flat()) : null,
+      mode: s.config.mode, order: s.order, team: s.team, round: s.rounds.length + 1,
       hands: Object.fromEntries(s.order.map((p) => [p, hand(p)])),
       locked: Object.fromEntries(s.order.map((p) => [p, !!s.choices[p]])),
       teamChoices, out: s.out.flat(), rounds: s.rounds, result: s.result,
@@ -273,6 +349,27 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
     const team = s.team[viewer];
     return { channel: `team-${team}`, label: `${TEAM_NAMES[team]} team` };
   },
-}, { keys: ['creature', 'style', 'target'] });
+}, { keys: ['creature', 'style', 'target', 'kind'] });
+
+/** Games saved before the draft (#82) have no draft state or draft steps.
+ *  Rebuild their missing picks from the creature kinds still in their hands
+ *  so an old saved battle still replays. */
+export const realmBattle: typeof battleWithHistory = {
+  ...battleWithHistory,
+  replay(s) {
+    const h = s.history;
+    if (!h || s.draft || h.steps.some((st) => st.a?.type === 'draft')) return battleWithHistory.replay!(s);
+    const used: Record<SeatId, number> = Object.fromEntries(h.seats.map((p) => [p, 0]));
+    const steps = newDraft(h.seats, s.config.hand).order.flatMap((p) => {
+      const f = s.hands[p]?.[used[p]++];
+      return f ? [{ s: p, a: { type: 'draft', kind: f.kind } }] : [];
+    });
+    const frames = battleWithHistory.replay!({ ...s, history: { ...h, steps: [...steps, ...h.steps] } }) as { phase?: string }[];
+    // The synthetic picks let withHistory rebuild the deal; drop their frames
+    // so the replay opens on the deal, as it did before the draft existed.
+    const firstFight = frames.findIndex((f) => f.phase === 'fight');
+    return firstFight > 0 ? frames.slice(firstFight) : frames;
+  },
+};
 
 export { STYLE_NAME };

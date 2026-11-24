@@ -10,7 +10,7 @@ gallery chat the players can't read during a game.
 Twenty-eight games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Hearts, Spades, Thirty-One, Gin Rummy, Bingo, Chinese checkers, Roulette, Craps, Bridge, Poophead (the
 shedding game also known as Palace), Letterworks (a crossword tile game),
-Realm Duel (a creature card duel) and Realm Battle (its team version), Manor Mystery (a country-house murder
+Realm Duel (a creature card duel with a 30-creature draft) and Realm Battle (its team version, drafting from the same pool), Manor Mystery (a country-house murder
 mystery), Ship2Shore (a WW2 hidden-role game for 5-11), Who Dat? (a
 guess-the-face game for two), Clue Words (a 5×5 team word game), What Am I? (a
 3-8 player talking game) and Fill the Blank (a 3-8 player saying game), drawn from

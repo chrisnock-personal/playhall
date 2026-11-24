@@ -14,7 +14,7 @@ import type { CrapsView } from './craps';
 import { bestMelds as ginBest, worstDiscard as ginWorst, type GinView } from './ginrummy';
 import { handScore as toScore, worstCard as toWorst, type ThirtyOneView } from './thirtyone';
 import { estimateBid, rankOf as sRank, trickWinner, type SpadesView } from './spades';
-import { BEATS as RD_BEATS, CREATURES, STYLES, attackValue, bestStyle, damage, type RealmView, type Style } from './realmduel';
+import { BEATS as RD_BEATS, CREATURES, STYLES, attackValue, bestDraft, bestStyle, damage, type CreatureId, type DraftView, type RealmView, type Style } from './realmduel';
 import type { BattleView } from './realmbattle';
 
 // ---- Blackjack: bet a little, then basic strategy ----
@@ -138,11 +138,21 @@ export function seaBot(view: unknown, seat: SeatId, random: () => number): unkno
   return { type: 'fire', cell: cells[Math.floor(random() * cells.length)] };
 }
 
+// ---- Realm creatures: draft from the shared pool when it's your turn ----
+
+function draftAction(d: DraftView, seat: SeatId): { type: 'draft'; kind: CreatureId } | null {
+  if (d.next !== seat) return null;
+  const kind = bestDraft(d.pool);
+  return kind ? { type: 'draft', kind } : null;
+}
+
 // ---- Realm Duel: the creature that does best against what it has seen ----
 
 export function realmBot(view: unknown, seat: SeatId): unknown | null {
   const v = view as RealmView;
-  if (v.result || v.mine || v.locked[seat]) return null;
+  if (v.result) return null;
+  if (v.phase === 'draft' && v.draft) return draftAction(v.draft, seat);
+  if (v.mine || v.locked[seat]) return null;
   const mine = v.hands[seat];
   const foe = Object.entries(v.hands).find(([p]) => p !== seat)?.[1] ?? [];
   const seen = foe.filter((f): f is NonNullable<typeof f> => !!f && f.hp > 0);
@@ -330,7 +340,9 @@ export function crapsBot(view: unknown, seat: SeatId): unknown | null {
 
 export function realmBattleBot(view: unknown, seat: SeatId, random: () => number = Math.random): unknown | null {
   const v = view as BattleView;
-  if (v.result || !v.you || v.locked[seat] || v.out.includes(seat)) return null;
+  if (v.result || !v.you) return null;
+  if (v.phase === 'draft' && v.draft) return draftAction(v.draft, seat);
+  if (v.locked[seat] || v.out.includes(seat)) return null;
   const mine = (v.hands[seat] ?? []).map((f, i) => ({ f, i })).filter((x) => x.f && x.f.hp > 0);
   if (!mine.length) return null;
   const foes = v.order.filter((p) => v.team[p] !== v.team[seat] && !v.out.includes(p));

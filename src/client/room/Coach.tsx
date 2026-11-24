@@ -6,7 +6,7 @@ import type { RoomSnapshot } from '../../shared/protocol';
 import { useGames } from '../useGames';
 
 /** What to do on your turn, and what to watch for on the bots', game by game. */
-const LEARN: Record<string, { turn: string; watch?: string }> = {
+const LEARN: Record<string, { turn: string; draft?: string; watch?: string }> = {
   chess: { turn: 'Tap one of your pieces to see where it can go, then tap a square. Try to keep your pieces protected, and look for pieces of the bot’s you can take for free.', watch: 'Each piece moves its own way: see the rules tips below.' },
   fourinarow: { turn: 'Tap a column to drop your disc. Make four in a line (across, down or diagonally), and block the bot when it has three.', watch: 'Look at where its last disc landed: is it building three in a row?' },
   checkers: { turn: 'Tap one of your pieces, then where it should go: diagonally forward. If you can jump the bot’s piece, you must.', watch: 'Reach the far row and your piece is crowned: it can move backwards too.' },
@@ -17,8 +17,8 @@ const LEARN: Record<string, { turn: string; watch?: string }> = {
   colourclash: { turn: 'Play a card that matches the top card’s colour or number. Can’t? Draw one. Empty your hand first.' },
   poker: { turn: 'Check or call to stay in, raise with a strong hand, fold a weak one. The best five cards from your two and the five shared ones win.' },
   letterworks: { turn: 'Tap a tile on your rack, then a square on the board. Make a word that joins what’s there (the first covers the centre star), then press Play. The score shows before you play.', watch: 'Short words that use a tile on a coloured square score well.' },
-  realmduel: { turn: 'Pick one of your creatures and an attack style (the button shows how hard it hits), then Lock in. Then both are shown and they fight.', watch: 'Elements matter: Fire beats Air, Air beats Earth, Earth beats Water, Water beats Fire.' },
-  realmbattle: { turn: 'Pick a creature, a style and which player to attack, then Lock in. Ganging up with your team mate on one enemy works well.' },
+  realmduel: { draft: 'Tap a creature in the shared pool to draft it. You take three in turn; once it’s gone, your opponent can’t have it.', turn: 'Pick one of your creatures and an attack style (the button shows how hard it hits), then Lock in. Then both are shown and they fight.', watch: 'Elements matter: Fire beats Air, Air beats Earth, Earth beats Water, Water beats Fire.' },
+  realmbattle: { draft: 'Tap a creature in the shared pool to draft it. Everyone takes the same number in turn, and nobody can pick the same creature.', turn: 'Pick a creature, a style and which player to attack, then Lock in. Ganging up with your team mate on one enemy works well.' },
   manormystery: { turn: 'Move to a room, then suggest who did it and with what. Other players show you a card that proves you wrong; tick it off in your notebook. Accuse only when you’re sure.' },
   ship2shore: { turn: 'Follow what the game asks: vote, pick a crew, or choose a course card. Your role card says which side you’re on.' },
   whodat: { turn: 'Ask a yes-or-no question about the faces, then flip down the faces it rules out. Guess when one face is left.' },
@@ -52,7 +52,7 @@ export function Coach({ snap }: { snap: RoomSnapshot }) {
   let now: string;
   if (g.status !== 'playing' && !g.result) now = me ? 'You’re sitting down with gentle computer players. Press Start the game when you’re ready; the tips below explain the rules as you go.' : 'Take a seat to start learning.';
   else if (g.result) now = 'That’s the game! Press Rematch (or Start the game) to play again, or review the game to see how it went. When you’re ready, play people from the lobby.';
-  else if (mine) now = `Your turn. ${learn?.turn ?? 'The board shows what you can do: playable things are highlighted.'}`;
+  else if (mine) now = `Your turn. ${(g.view as { phase?: string } | null)?.phase === 'draft' ? learn?.draft ?? 'Tap a creature in the shared pool to draft it.' : learn?.turn ?? 'The board shows what you can do: playable things are highlighted.'}`;
   else now = `${others.length ? `${others.join(' and ')} ${others.length === 1 ? 'is' : 'are'} thinking.` : 'Waiting.'} ${learn?.watch ?? 'Watch what the computer players do: they follow the same rules you do.'}`;
 
   return (

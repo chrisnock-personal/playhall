@@ -777,7 +777,9 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .rp-art { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
 .rp-caption { font-size: 13px; color: var(--muted); max-width: 420px; }
 .rp-cards { display: inline-flex; gap: 3px; }
-.rp-tiles, .rp-dice, .rp-elements { display: inline-flex; gap: 4px; align-items: center; }
+.rp-tiles, .rp-dice, .rp-elements, .rp-pool { display: inline-flex; gap: 4px; align-items: center; }
+.rp-pool-card { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 42px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 10px; color: var(--muted); text-transform: capitalize; }
+.rp-pool-card.taken { opacity: .4; text-decoration: line-through; }
 .rp-gap { width: 14px; }
 .rp-ticket { display: grid; grid-template-columns: repeat(9, 22px); gap: 2px; padding: 4px; background: #f7f1e3; border-radius: 6px; }
 .rp-ticket span { height: 22px; display: grid; place-items: center; font: 700 11px var(--body); color: #2a2230; background: #fff; border-radius: 3px; position: relative; }

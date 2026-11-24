@@ -73,6 +73,29 @@ button.rd-pick:not(:disabled):hover .rd-card { transform: translateY(-3px); }
 .rd-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
 .rd-styles { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 
+/* The pre-fight draft (#82): one open pool of 30, and each seat's picks. */
+.rd-draft { display: flex; flex-direction: column; gap: 8px; }
+.rd-draft-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.rd-draft-head h2 { margin: 0; font-size: 16px; }
+.rd-draft-head p { margin: 2px 0 0; font-size: 12px; }
+.rd-draft-turn { border-radius: 999px; padding: 4px 10px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 700; }
+.rd-draft-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.rd-draft-seat { flex: 1 1 140px; display: flex; flex-direction: column; gap: 3px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font-size: 12px; min-width: 0; }
+.rd-draft-seat > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-draft-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.rd-draft-chip { border-radius: 999px; padding: 1px 6px; background: var(--surface-2, rgba(127,127,127,.16)); font-size: 11px; }
+.rd-draft-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.rd-draft-tile { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); font: inherit; text-align: left; overflow: hidden; }
+.rd-draft-tile .rd-art { height: 44px; }
+.rd-draft-tile strong { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-draft-meta { font-size: 10px; color: var(--muted); }
+.rd-draft-tile.taken { opacity: .45; }
+.rd-draft-tile.taken .rd-art { filter: grayscale(1); }
+.rd-draft-tile.can { cursor: pointer; border-color: var(--accent); }
+.rd-draft-tile.can:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,.3); }
+.rd-draft-tile:disabled { cursor: default; }
+.rd-draft-tag { position: absolute; top: 4px; right: 4px; font-size: 9px; background: var(--muted); color: var(--surface); border-radius: 999px; padding: 1px 5px; }
+
 /* The Rounds tab. */
 .rd-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
 .rd-log ul { margin: 4px 0 0; padding-left: 16px; color: var(--text-2); }
