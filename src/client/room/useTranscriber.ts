@@ -6,7 +6,7 @@
 // transcripts; nothing is kept in the browser after it's sent.
 
 import { useEffect, useRef, useState } from 'react';
-import type { RoomSnapshot } from '../../shared/protocol';
+import { isTeamVoiceChannel, type RoomSnapshot } from '../../shared/protocol';
 import type { Voice } from './useVoice';
 import { tapMic } from '../transcribe/capture';
 import { Utterances } from '../transcribe/vad';
@@ -26,7 +26,8 @@ export const transcriptsOn = (snap: RoomSnapshot | null) => !!snap && snap.room.
 
 export function useTranscriber(code: string, token: string, snap: RoomSnapshot | null, voice: Voice): Transcriber {
   const on = transcriptsOn(snap);
-  const channel = voice.state === 'on' ? voice.channel : null;
+  // Team voice is private audio; transcripts only go to the open channels.
+  const channel = voice.state === 'on' && voice.channel && !isTeamVoiceChannel(voice.channel) ? voice.channel : null;
   const track = on && channel && voice.canTalk ? voice.micTrack : null;
   const live = !!track && (voice.mode === 'ptt' ? voice.talking && !voice.muted : !voice.muted);
   const [sending, setSending] = useState(0);

@@ -67,7 +67,9 @@ with remote players using controllers, OpenBOR rooms run on the server
   off. Push to talk, a talking ring, a volume per person. Players' cameras show
   on their seat cards; watchers' cameras show in the gallery strip only when
   the host allows it. With a watcher delay, watchers get neither the players'
-  voice nor their video during play.
+  voice nor their video during play. In Realm Battle team games, players can
+  also join their side's private voice channel; it's audio only, and the next
+  game gives the side a new one.
 - **Transcripts** (optional; with `WHISPER_URL`). When the host turns them on,
   what people say in voice appears in the chat as "said" lines, with a clear
   notice for everyone in voice. Only the text is kept, never the audio. The

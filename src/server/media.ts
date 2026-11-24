@@ -1,15 +1,18 @@
 // Voice and video through a self-hosted LiveKit server (Apache-2.0). Each
 // Playhall room has two LiveKit rooms, CODE:table and CODE:gallery, matching
-// the two chats. Playhall decides who may listen and talk (Room.mediaRights)
-// and signs short-lived LiveKit tokens; LiveKit carries the audio and video.
-// Its signalling (/rtc) is proxied through Playhall's own port, so one HTTPS
+// the two chats; a game with teams can also give each side a private,
+// audio-only room, named for the game so sides can't reuse the last one.
+// Playhall decides who may listen and talk (Room.voiceRight) and signs
+// short-lived LiveKit tokens; LiveKit carries the audio and video. Its
+// signalling (/rtc) is proxied through Playhall's own port, so one HTTPS
 // certificate covers both; media itself flows on LiveKit's own UDP/TCP ports.
 
 import net from 'node:net';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { AccessToken, RoomServiceClient, TrackSource } from 'livekit-server-sdk';
-import type { Channel, MediaRight } from '../shared/protocol';
+import { isTeamVoiceChannel } from '../shared/protocol';
+import type { MediaRight, VoiceChannel } from '../shared/protocol';
 
 export interface MediaConfig {
   /** Where Playhall reaches LiveKit's signalling, e.g. http://livekit:7880. */
@@ -25,7 +28,10 @@ export function mediaConfigFromEnv(): MediaConfig | null {
   return { url: url.replace(/\/$/, ''), apiKey, apiSecret };
 }
 
-export const mediaRoomName = (code: string, channel: Channel) => `${code}:${channel}`;
+/** Side channels are per game: `generation` keeps the next side out of the
+ *  last game's room, even with a token issued before that game started. */
+export const mediaRoomName = (code: string, channel: VoiceChannel, generation?: string | null) =>
+  generation && isTeamVoiceChannel(channel) ? `${code}:${channel}:${generation}` : `${code}:${channel}`;
 
 /** What someone may send: the microphone when they may talk, the camera
  *  only when they may also show video. LiveKit treats an empty source list as
@@ -57,12 +63,12 @@ export async function cameraToken(cfg: MediaConfig, p: { code: string; cameraId:
   return at.toJwt();
 }
 
-/** A LiveKit token for one person in one channel of one room. */
+/** A LiveKit token for one person in one channel of one game. */
 export async function mediaToken(cfg: MediaConfig, p: {
-  code: string; channel: Channel; userId: string; name: string;
+  code: string; channel: VoiceChannel; userId: string; name: string; generation?: string | null;
 } & MediaRight): Promise<string> {
   const at = new AccessToken(cfg.apiKey, cfg.apiSecret, { identity: p.userId, name: p.name, ttl: '10m' });
-  at.addGrant({ room: mediaRoomName(p.code, p.channel), roomJoin: true, ...mediaPermission(p), canUpdateOwnMetadata: false });
+  at.addGrant({ room: mediaRoomName(p.code, p.channel, p.generation), roomJoin: true, ...mediaPermission(p), canUpdateOwnMetadata: false });
   return at.toJwt();
 }
 
@@ -95,11 +101,14 @@ export async function proxyHttp(cfg: MediaConfig, url: string): Promise<{ status
 /** Keeps LiveKit's permissions in step with the room: when the game starts or
  *  ends, or seats or rules change, everyone in the room's voice channels gets
  *  the rights they now have (a camera no longer allowed is stopped by LiveKit),
- *  and anyone who may no longer listen is removed. */
+ *  and anyone who may no longer listen is removed. A new game gets new side
+ *  rooms, so the old ones are closed and old tokens can't bring anyone back. */
 export class MediaSync {
   private client: RoomServiceClient;
   private last = new Map<string, string>();
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private generations = new Map<string, string | null>();
+  private teamChannels = new Map<string, Set<`team-${number}`>>();
 
   constructor(cfg: MediaConfig) {
     this.client = new RoomServiceClient(cfg.url, cfg.apiKey, cfg.apiSecret);
@@ -107,7 +116,9 @@ export class MediaSync {
 
   changed(room: SyncedRoom): void {
     const code = room.rec.code;
-    const sig = JSON.stringify([room.rec.game.status, room.rec.seats, room.rec.settings, room.rec.tableCamera?.id ?? null]);
+    const sig = JSON.stringify([
+      room.rec.game.status, room.rec.seats, room.rec.settings, room.rec.tableCamera?.id ?? null, room.voiceGeneration(),
+    ]);
     if (this.last.get(code) === sig) return;
     this.last.set(code, sig);
     clearTimeout(this.timers.get(code));
@@ -115,8 +126,20 @@ export class MediaSync {
   }
 
   private async apply(code: string, room: SyncedRoom): Promise<void> {
-    for (const channel of ['table', 'gallery'] as Channel[]) {
-      const name = mediaRoomName(code, channel);
+    const generation = room.voiceGeneration();
+    const previous = this.generations.get(code);
+    const known = this.teamChannels.get(code) ?? new Set<`team-${number}`>();
+    if (previous && previous !== generation) {
+      for (const channel of known) {
+        const oldName = mediaRoomName(code, channel, previous);
+        await this.client.deleteRoom(oldName).catch((err) => console.error(`[media] couldn’t close ${oldName}:`, (err as Error).message));
+      }
+    }
+    this.generations.set(code, generation);
+    const channels: VoiceChannel[] = ['table', 'gallery', ...known, ...room.teamVoiceChannels()];
+    for (const channel of new Set(channels)) {
+      if (isTeamVoiceChannel(channel)) known.add(channel);
+      const name = mediaRoomName(code, channel, isTeamVoiceChannel(channel) ? generation : undefined);
       let people;
       try { people = await this.client.listParticipants(name); } catch { continue; } // nobody in that channel
       for (const p of people) {
@@ -127,18 +150,20 @@ export class MediaSync {
           }
           continue;
         }
-        const r = room.mediaRights(p.identity)?.[channel];
+        const r = room.voiceRight(p.identity, channel);
         try {
           if (!r?.listen) await this.client.removeParticipant(name, p.identity);
           else await this.client.updateParticipant(name, p.identity, { permission: mediaPermission(r) });
         } catch (err) { console.error(`[media] couldn’t update ${p.identity} in ${name}:`, (err as Error).message); }
       }
     }
+    this.teamChannels.set(code, known);
   }
 }
-type RightsFn = (userId: string) => Record<Channel, MediaRight> | null;
 interface SyncedRoom {
   rec: { code: string; seats: Record<string, unknown>; game: { status: string }; settings: unknown; tableCamera?: { id: string } | null };
-  mediaRights(userId: string): ReturnType<RightsFn>;
+  voiceGeneration(): string | null;
+  teamVoiceChannels(): `team-${number}`[];
+  voiceRight(userId: string, channel: VoiceChannel): MediaRight | null;
   isTableCamera(id: string): boolean;
 }
