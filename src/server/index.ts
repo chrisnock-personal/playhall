@@ -11,6 +11,7 @@ import { RoomManager } from './rooms/manager';
 import { RoomSockets } from './ws';
 import { createApp } from './http';
 import { Tournaments } from './tournaments';
+import { frontHandler } from './front';
 import { loadPlatformSettings } from './platform';
 import { initProgression } from './progression';
 import type { AdminTls } from './admin';
@@ -32,8 +33,12 @@ async function main(): Promise<void> {
   initProgression(db);
   const auth = new Auth(db, config.jwtSecret, config.adminUsernames);
   await auth.loadAdmins();
-  if (await auth.ensureDefaultAdmin()) {
-    console.log('[playhall] made the default admin account: username admin, password ' + (process.env.ADMIN_PASSWORD ? 'from ADMIN_PASSWORD' : 'admin') + '. It must choose a new password at its first sign-in.');
+  if (auth.missingEnvAdmins.length) console.warn(`[playhall] ADMIN_USERNAMES names ${auth.missingEnvAdmins.join(', ')}, which ${auth.missingEnvAdmins.length === 1 ? 'doesn’t' : 'don’t'} exist yet: register ${auth.missingEnvAdmins.length === 1 ? 'it' : 'them'}, then restart the server to make ${auth.missingEnvAdmins.length === 1 ? 'it an admin' : 'them admins'}`);
+  const firstPassword = await auth.ensureDefaultAdmin();
+  if (firstPassword !== null) {
+    console.log(firstPassword
+      ? `[playhall] made the default admin account: username admin, password ${firstPassword} (shown only this once). It must choose a new password at its first sign-in.`
+      : '[playhall] made the default admin account: username admin, password from ADMIN_PASSWORD. It must choose a new password at its first sign-in.');
   }
   if (!config.adminUsernames.length && auth.adminCount === 0) console.log('[playhall] no admins yet: set ADMIN_USERNAMES to an account\'s username to open the platform settings page');
   // The sockets need the manager and the manager reports changes to the
@@ -88,15 +93,7 @@ async function main(): Promise<void> {
   sockets.attach(server);
   // With HTTPS, one port answers both: a TLS handshake goes to the HTTPS
   // server, anything else (an old http:// link) gets a redirect to https://.
-  const front: net.Server = config.tls ? net.createServer((socket) => {
-    socket.once('data', (first) => {
-      socket.pause();
-      socket.unshift(first);
-      (first[0] === 0x16 ? server : redirect).emit('connection', socket);
-      process.nextTick(() => socket.resume());
-    });
-    socket.on('error', () => socket.destroy());
-  }) : server;
+  const front: net.Server = config.tls ? net.createServer(frontHandler(server, { emit: (e: 'connection', sk: net.Socket) => redirect.emit(e, sk) })) : server;
   const redirect = http.createServer((req, res) => {
     const host = (req.headers.host ?? `localhost:${config.port}`).replace(/[^\w.:\-\[\]]/g, '');
     res.writeHead(308, { location: `https://${host}${req.url ?? '/'}` }).end();

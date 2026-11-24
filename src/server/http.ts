@@ -14,6 +14,10 @@ import { cameraToken, mediaToken, proxyHttp, type MediaConfig } from './media';
 import type { Channel } from '../shared/protocol';
 import { adminRoutes, type AdminTls } from './admin';
 import { reportRoute } from './reports';
+import { securityHeaders } from './headers';
+
+/** The LiveKit client's HTTP checks: /rtc/validate or /rtc/v1/validate, nothing else (no dot segments). */
+export const isRtcValidate = (p: string) => p === '/rtc/validate' || p === '/rtc/v1/validate';
 import { tournamentRoutes, type Tournaments } from './tournaments';
 import { loadProgression, progressionBlock } from './progression';
 import { getPlatformSettings } from './platform';
@@ -25,6 +29,7 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
   const media = opts.media ?? null;
   const app = express();
   app.disable('x-powered-by');
+  app.use(securityHeaders);
   app.set('trust proxy', 'loopback');
   // A certificate chain and key can be bigger than other requests.
   app.use('/api/admin/tls', express.json({ limit: '256kb' }));
@@ -104,8 +109,10 @@ export function createApp(opts: { auth: Auth; rooms: RoomManager; sockets: RoomS
     const token = await cameraToken(media!, { code: room.rec.code, cameraId: k.cameraId });
     res.json({ token, room: { code: room.rec.code, name: room.rec.name, game: room.game.describeConfig(room.game.parseConfig(room.rec.settings.gameConfig)) } });
   });
+  // Only the two checks the LiveKit client makes over HTTP (#66); everything else is the WebSocket.
   app.get(/^\/rtc(\/.*)?$/, async (req, res) => {
     if (!media) { res.status(404).end(); return; }
+    if (!isRtcValidate(req.path)) { res.status(404).end(); return; }
     try { const r = await proxyHttp(media, req.originalUrl); res.status(r.status).type(r.type).send(r.body); }
     catch { res.status(502).json({ error: 'The voice server isn’t answering' }); }
   });

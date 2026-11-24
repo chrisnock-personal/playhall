@@ -26,7 +26,8 @@ jobs:
       JWT_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
       # Plain HTTP here; the container job below checks the default HTTPS.
       TLS: 'off'
-      # The smoke test registers this account and tests the platform settings with it.
+      # The smoke test tests the platform settings with this account. ADMIN_USERNAMES only
+      # names accounts that exist when the server starts (#63), so it's made before a restart.
       ADMIN_USERNAMES: smoke_admin
     steps:
       - uses: actions/checkout@v5
@@ -43,9 +44,13 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: Start the server
+      - name: Start the server (registering the smoke admin first, then restarting)
         run: |
-          node dist/server/index.js > server.log 2>&1 &
+          node dist/server/index.js > server.log 2>&1 & echo $! > server.pid
+          for _ in $(seq 1 30); do curl -sf http://localhost:8450/api/health && break; sleep 1; done
+          curl -sf -X POST -H 'Content-Type: application/json' -d '{"username":"smoke_admin","password":"smoke-admin-pw","displayName":"Smoke Admin"}' http://localhost:8450/api/auth/register > /dev/null
+          kill "$(cat server.pid)"; sleep 2
+          node dist/server/index.js >> server.log 2>&1 &
           for _ in $(seq 1 30); do curl -sf http://localhost:8450/api/health && break; sleep 1; done
       - name: End-to-end (accounts, rooms, a game over the WebSocket, results, platform settings)
         run: node scripts/smoke.mjs http://localhost:8450

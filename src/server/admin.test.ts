@@ -89,7 +89,9 @@ test('sign-ups and guests follow the platform settings', async () => {
     assert.equal((await g.json()).user.admin, false);
     const r = await post('/register', { username: 'NewBoss', password: 'long-enough-pw' });
     assert.equal(r.status, 201);
-    assert.equal((await r.json()).user.admin, true, 'an ADMIN_USERNAMES account is an admin from the start');
+    // #63: a name in ADMIN_USERNAMES that's registered after the server started is not an admin
+    // (otherwise anyone could claim it first); it becomes one at the next restart.
+    assert.equal((await r.json()).user.admin, false, 'registering a listed name doesn’t make it an admin');
   } finally {
     resetPlatformSettingsForTests();
     server.close();
