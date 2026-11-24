@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS } from '../../shared/protocol';
 import type { ClueWordsView } from '../../shared/games/cluewords';
 
 // The room gives each Clue Words side its own chat tab and its own view of the
-// board; a watcher sees the key but no team chat.
+// board; a watcher sees the key. There's no team chat.
 const users = {
   h: { id: 'h', name: 'Sam', guest: false },
   a: { id: 'a', name: 'Alex', guest: false },
@@ -35,23 +35,13 @@ const boardOf = (room: Room, id: keyof typeof users) => room.snapshotFor(users[i
 
 test('the room starts a Clue Words game with a key only its clue-givers can see', () => {
   const room = setup();
-  assert.deepEqual(room.snapshotFor(users.h.id).you.teamChat, { channel: 'team-0', label: 'Sun team' });
-  assert.deepEqual(room.snapshotFor(users.r.id).you.teamChat, { channel: 'team-1', label: 'Moon team' });
-  assert.equal(room.snapshotFor(users.w.id).you.teamChat, null);
   assert.ok(boardOf(room, 'h').cards.every((c) => c.kind !== null), 'the Sun clue-giver sees the key');
   assert.ok(boardOf(room, 'v').cards.every((c) => c.kind === null), 'the Sun guesser does not');
   assert.ok(boardOf(room, 'w').cards.every((c) => c.kind !== null), 'a watcher sees the key');
 });
 
-test('the room keeps the two teams’ chat apart', () => {
+test('no team chat: a clue-giver can’t pass answers to the guesser in private', () => {
   const room = setup();
-  assert.throws(() => room.handle(users.a, { t: 'chat', channel: 'team-0', text: 'spies' }), /No such chat/);
-  assert.throws(() => room.handle(users.w, { t: 'chat', channel: 'team-1', text: 'spies' }), /No such chat/);
-  room.handle(users.h, { t: 'chat', channel: 'team-0', text: 'sun plan' });
-  room.handle(users.a, { t: 'chat', channel: 'team-1', text: 'moon plan' });
-  const sun = room.snapshotFor(users.v.id).chat;
-  assert.ok(sun.some((l) => l.text === 'sun plan'));
-  assert.ok(!sun.some((l) => l.text === 'moon plan'));
-  const watcher = room.snapshotFor(users.w.id).chat;
-  assert.ok(!watcher.some((l) => l.channel === 'team-0' || l.channel === 'team-1'));
+  for (const id of ['h', 'v', 'a', 'r', 'w'] as const) assert.equal(room.snapshotFor(users[id].id).you.teamChat, null);
+  assert.throws(() => room.handle(users.h, { t: 'chat', channel: 'team-0', text: 'pick TIGER' }), /No such chat/);
 });

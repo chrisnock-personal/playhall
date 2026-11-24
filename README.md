@@ -85,7 +85,7 @@ with remote players using controllers, OpenBOR rooms run on the server
   shots land with a splash; each with a short sound made in the browser (no
   audio files), quieter under voice chat, off for watchers unless they turn
   it on. A speaker button in the room mutes them or sets the volume.
-- **Computer players** in every game except the camera table. The host can put
+- **Computer players** in every game except Clue Words and the camera table. The host can put
   a bot in any free seat between games, so a small group can fill a bigger
   table; chess, Letterworks, Manor Mystery, Four in a Row and checkers also
   offer gentle, fair and strong levels. A bot plays from its own seat's view,

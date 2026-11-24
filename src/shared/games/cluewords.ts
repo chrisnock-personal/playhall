@@ -3,7 +3,7 @@
 // and guessers who can only see the words. Give one word and a number, then
 // find your side's words before the other side does. Touching the spy loses.
 
-import type { GameResult, SeatDef, SeatId, TextChannel } from '../game';
+import type { GameResult, SeatDef, SeatId } from '../game';
 import { randInt, withHistory, type GameHistory } from './history';
 
 export type CwTeam = 0 | 1;
@@ -103,7 +103,7 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
       { title: 'The board', points: [
         'Twenty-five words are laid out in a five-by-five grid: nine for the Sun team, eight for the Moon team, seven neutral, and one spy.',
         'One player on each side is the clue-giver. Clue-givers (and watchers) see which word is which; everyone sees the words themselves.',
-        'Your side has its own private chat tab. The clue-giver gives the clue at the table; the guessers talk it over in team chat.',
+        'The clue-giver gives only the clue: no hints in chat or voice. There’s no private team chat, since its only use would be the clue-giver telling the guesser the answers.',
       ] },
       { title: 'A turn', points: [
         'The clue-giver says one word and a number: the word is about that many of their side’s words on the board.',
@@ -145,6 +145,7 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
       if (seat !== s.spymaster[s.turnTeam]) return { error: 'Only the clue-giver can give a clue' };
       const word = typeof a.word === 'string' ? a.word.trim().toUpperCase() : '';
       if (!/^[A-Z][A-Z'-]*$/.test(word) || word.length > 40) return { error: 'Give one word' };
+      if (s.cards.some((c) => !c.revealed && c.word === word)) return { error: 'The clue can’t be a word on the board' };
       const count = a.count;
       const max = targetOf(s.turnTeam) - s.found[s.turnTeam];
       if (typeof count !== 'number' || !Number.isInteger(count) || count < 1 || count > max) return { error: `Give a number from 1 to ${max}` };
@@ -167,7 +168,7 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
       };
       if (picked.kind === 'assassin') {
         const winner = otherTeam(s.turnTeam);
-        return { state: finish({ ...next, lines: [...next.lines, `That was the spy: ${TEAM_NAMES[winner]} wins.`] }, winner, 'the other side found the spy') };
+        return { state: finish({ ...next, lines: [...next.lines, `That was the spy: ${TEAM_NAMES[winner]} wins.`] }, winner, 'the other side revealing the spy') };
       }
       if (picked.kind === s.turnTeam) {
         const found = { ...s.found, [s.turnTeam]: s.found[s.turnTeam] + 1 } as Record<CwTeam, number>;
@@ -176,7 +177,7 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
         if (s.clue.left <= 1) return { state: endTurn(withFind, `${LABEL[seat]} used the last guess.`) };
         return { state: { ...withFind, clue: { ...s.clue, left: s.clue.left - 1 } } };
       }
-      const what = picked.kind === 'neutral' ? 'neutral' : `${TEAM_NAMES[picked.kind]}'s`;
+      const what = picked.kind === 'neutral' ? 'neutral' : `${TEAM_NAMES[picked.kind]}’s`;
       return { state: endTurn({ ...next, lines: [...next.lines, `${picked.word} was ${what}.`] }) };
     }
 
@@ -217,11 +218,5 @@ export const clueWords = withHistory<ClueWordsState, ClueWordsConfig>({
       lines: s.lines,
       result: s.result,
     };
-  },
-
-  teamChat(s, viewer): { channel: TextChannel; label: string } | null {
-    if (!viewer || !s.order.includes(viewer)) return null;
-    const t = s.team[viewer];
-    return { channel: `team-${t}`, label: `${TEAM_NAMES[t]} team` };
   },
 }, { keys: ['word', 'count', 'card'] });

@@ -43,14 +43,14 @@ test('four seats in two teams, with a 25-word board and one spy', () => {
 test('only the clue-giver may give a one-word clue with a valid number', () => {
   const ctx = context();
   let s = clueWords.create({}, 0, ctx);
-  assert.ok('error' in clueWords.act(s, 'violet', { type: 'clue', word: 'SAIL', count: 1 }, 0, ctx));
+  assert.ok('error' in clueWords.act(s, 'violet', { type: 'clue', word: 'BOAT', count: 1 }, 0, ctx));
   assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'two words', count: 1 }, 0, ctx));
-  assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'SAIL', count: 10 }, 0, ctx));
-  assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'SAIL', count: 0 }, 0, ctx));
-  s = apply(s, 'amber', { type: 'clue', word: 'sail', count: 2 }, ctx);
-  assert.deepEqual(s.clue, { by: 0, word: 'SAIL', count: 2, left: 3 });
+  assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'BOAT', count: 10 }, 0, ctx));
+  assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'BOAT', count: 0 }, 0, ctx));
+  s = apply(s, 'amber', { type: 'clue', word: 'boat', count: 2 }, ctx);
+  assert.deepEqual(s.clue, { by: 0, word: 'BOAT', count: 2, left: 3 });
   assert.deepEqual(clueWords.turn!(s), ['violet']);
-  assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'SAIL', count: 1 }, 0, ctx));
+  assert.ok('error' in clueWords.act(s, 'amber', { type: 'clue', word: 'BOAT', count: 1 }, 0, ctx));
 });
 
 test('guessers use their allowance, and a miss or stop passes the turn', () => {
@@ -60,7 +60,7 @@ test('guessers use their allowance, and a miss or stop passes the turn', () => {
   const enemy = s.cards.findIndex((c) => c.kind === 1);
   const neutral = s.cards.findIndex((c) => c.kind === 'neutral');
   s = board(s, s.cards.map((_, i) => i === own ? 0 : i === enemy ? 1 : 'neutral'));
-  s = apply(s, 'amber', { type: 'clue', word: 'SAIL', count: 1 }, ctx);
+  s = apply(s, 'amber', { type: 'clue', word: 'BOAT', count: 1 }, ctx);
   assert.ok('error' in clueWords.act(s, 'amber', { type: 'guess', card: enemy }, 0, ctx), 'the clue-giver does not guess');
 
   s = apply(s, 'violet', { type: 'guess', card: own }, ctx);
@@ -73,12 +73,12 @@ test('guessers use their allowance, and a miss or stop passes the turn', () => {
   assert.equal(s.turnTeam, 1);
   assert.equal(s.clue, null);
 
-  s = apply(s, 'teal', { type: 'clue', word: 'MOON', count: 1 }, ctx);
+  s = apply(s, 'teal', { type: 'clue', word: 'NIGHT', count: 1 }, ctx);
   s = apply(s, 'rose', { type: 'guess', card: neutral }, ctx);
   assert.equal(s.turnTeam, 0, 'a neutral word ends the turn');
   assert.equal(s.clue, null);
 
-  s = apply(s, 'amber', { type: 'clue', word: 'SUN', count: 2 }, ctx);
+  s = apply(s, 'amber', { type: 'clue', word: 'SUMMER', count: 2 }, ctx);
   s = apply(s, 'violet', { type: 'guess', card: enemy }, ctx);
   assert.equal(s.turnTeam, 1, 'the other side’s word ends the turn');
   assert.equal(s.found[1], 0, 'and does not score for the guesser');
@@ -88,7 +88,7 @@ test('a wrong number of guesses ends the turn after the allowance', () => {
   const ctx = context();
   let s = clueWords.create({}, 0, ctx);
   const own = s.cards.map((c, i) => c.kind === 0 ? i : -1).filter((i) => i >= 0);
-  s = apply(s, 'amber', { type: 'clue', word: 'SAIL', count: 1 }, ctx);
+  s = apply(s, 'amber', { type: 'clue', word: 'BOAT', count: 1 }, ctx);
   s = apply(s, 'violet', { type: 'guess', card: own[0] }, ctx);
   assert.equal(s.turnTeam, 0, 'one more guess remains');
   s = apply(s, 'violet', { type: 'guess', card: own[1] }, ctx);
@@ -107,15 +107,15 @@ test('finding every word wins as a team, and the spy loses instantly', () => {
     reason: 'finding every word on their side', teamWin: true,
   });
   assert.equal(TEAM_NAMES[0], 'Sun');
-  assert.ok('error' in clueWords.act(s, 'teal', { type: 'clue', word: 'MOON', count: 1 }, 0, ctx), 'the game is over');
+  assert.ok('error' in clueWords.act(s, 'teal', { type: 'clue', word: 'NIGHT', count: 1 }, 0, ctx), 'the game is over');
 
   let lost = clueWords.create({}, 0, ctx);
   const spy = lost.cards.findIndex((c) => c.kind === 'assassin');
-  lost = apply(lost, 'amber', { type: 'clue', word: 'SAIL', count: 1 }, ctx);
+  lost = apply(lost, 'amber', { type: 'clue', word: 'BOAT', count: 1 }, ctx);
   lost = apply(lost, 'violet', { type: 'guess', card: spy }, ctx);
   assert.deepEqual(lost.result, {
     winner: null, placings: [['teal', 'rose'], ['amber', 'violet']],
-    reason: 'the other side found the spy', teamWin: true,
+    reason: 'the other side revealing the spy', teamWin: true,
   });
 });
 
@@ -130,23 +130,24 @@ test('only clue-givers and watchers see the key; revealed words show their side'
   assert.equal(viewOf(s, null).you, null);
   assert.deepEqual(viewOf(s, 'amber').spymaster, s.spymaster);
 
-  s = apply(s, 'amber', { type: 'clue', word: 'SAIL', count: 1 }, ctx);
+  s = apply(s, 'amber', { type: 'clue', word: 'BOAT', count: 1 }, ctx);
   s = apply(s, 'violet', { type: 'guess', card: own }, ctx);
   assert.equal(viewOf(s, 'violet').cards[own].kind, 0, 'a revealed word shows what it was');
   assert.equal(viewOf(s, 'teal').cards[own].kind, 0, 'the other team sees it too');
   assert.equal(viewOf(s, 'violet').phase, 'guessing');
-  assert.deepEqual(viewOf(s, 'rose').clue, { by: 0, word: 'SAIL', count: 1, left: 1 });
+  assert.deepEqual(viewOf(s, 'rose').clue, { by: 0, word: 'BOAT', count: 1, left: 1 });
   assert.equal(viewOf(s, 'teal').target[1], targetOf(1));
 });
 
-test('each side gets its own private team chat; watchers get none', () => {
-  const s = clueWords.create({}, 0, context());
-  assert.deepEqual(clueWords.teamChat!(s, 'amber'), { channel: 'team-0', label: 'Sun team' });
-  assert.deepEqual(clueWords.teamChat!(s, 'violet'), { channel: 'team-0', label: 'Sun team' });
-  assert.deepEqual(clueWords.teamChat!(s, 'teal'), { channel: 'team-1', label: 'Moon team' });
-  assert.deepEqual(clueWords.teamChat!(s, 'rose'), { channel: 'team-1', label: 'Moon team' });
-  assert.equal(clueWords.teamChat!(s, null), null);
-  assert.equal(clueWords.teamChat!(s, 'stranger'), null);
+test('there is no team chat: the clue-giver would only use it to give answers away', () => {
+  assert.equal(clueWords.teamChat, undefined);
+});
+
+test('a clue can’t be a word still hidden on the board', () => {
+  const ctx = context();
+  const s = clueWords.create({}, 0, ctx);
+  const r = clueWords.act(s, 'amber', { type: 'clue', word: s.cards[3].word.toLowerCase(), count: 1 }, 0, ctx);
+  assert.ok('error' in r && /on the board/.test(r.error));
 });
 
 test('a move timer passes the turn, and only the side to move can time out', () => {
@@ -157,7 +158,7 @@ test('a move timer passes the turn, and only the side to move can time out', () 
   s = clueWords.timeout!(s, 'amber', 0, ctx);
   assert.equal(s.turnTeam, 1);
   assert.equal(s.clue, null);
-  s = apply(s, 'teal', { type: 'clue', word: 'MOON', count: 1 }, ctx);
+  s = apply(s, 'teal', { type: 'clue', word: 'NIGHT', count: 1 }, ctx);
   s = clueWords.timeout!(s, 'rose', 0, ctx);
   assert.equal(s.turnTeam, 0);
   assert.equal(s.clue, null);
@@ -167,10 +168,10 @@ test('replays show the watcher’s view after each clue, guess and timeout', () 
   const ctx = context();
   let s = clueWords.create({}, 0, ctx);
   const own = s.cards.findIndex((c) => c.kind === 0);
-  s = apply(s, 'amber', { type: 'clue', word: 'SAIL', count: 1 }, ctx);
+  s = apply(s, 'amber', { type: 'clue', word: 'BOAT', count: 1 }, ctx);
   s = apply(s, 'violet', { type: 'guess', card: own }, ctx);
   s = clueWords.timeout!(s, 'violet', 0, ctx);
-  s = apply(s, 'teal', { type: 'clue', word: 'MOON', count: 1 }, ctx);
+  s = apply(s, 'teal', { type: 'clue', word: 'NIGHT', count: 1 }, ctx);
   s = apply(s, 'rose', { type: 'stop' }, ctx);
   const frames = clueWords.replay!(s);
   assert.equal(frames.length, s.history!.steps.length + 1);
