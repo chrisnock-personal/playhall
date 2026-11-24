@@ -170,9 +170,10 @@ await api(`/rooms/${words.code}`, { method: 'DELETE', token: host.token });
 for (const c of [wh, wa]) c.ws.close();
 
 // Platform settings (admins only). Runs only when the smoke admin is an
-// admin: start the server with ADMIN_USERNAMES=smoke_admin (CI does), or set
-// SMOKE_ADMIN to another name in ADMIN_USERNAMES. The account is made on the
-// first run and signed in to after that.
+// admin: ADMIN_USERNAMES only names accounts that exist when the server starts
+// (#63), so register smoke_admin (password smoke-admin-pw), start the server
+// with ADMIN_USERNAMES=smoke_admin (CI does both), or set SMOKE_ADMIN to
+// another name in ADMIN_USERNAMES.
 const adminName = process.env.SMOKE_ADMIN ?? 'smoke_admin';
 const adminPw = process.env.SMOKE_ADMIN_PASSWORD ?? 'smoke-admin-pw';
 const admin = await api('/auth/register', { body: { username: adminName, password: adminPw, displayName: 'Smoke Admin' } })

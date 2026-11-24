@@ -36,11 +36,17 @@ export class Auth {
     this.envAdmins = new Set(adminUsernames.map((u) => u.trim().toLowerCase()).filter(Boolean));
   }
 
+  /** Names in ADMIN_USERNAMES with no account yet: they get nothing until they're
+   *  registered and the server is restarted (#63). */
+  missingEnvAdmins: string[] = [];
+
   /** Read who the admins are (at startup). */
   async loadAdmins(): Promise<void> {
     const { rows } = await this.db.query<{ id: string }>(
       `SELECT id FROM users WHERE kind = 'account' AND (is_admin OR username = ANY($1))`, [[...this.envAdmins]]);
     this.admins = new Set(rows.map((r) => r.id));
+    const { rows: named } = await this.db.query<{ username: string }>(`SELECT username FROM users WHERE kind = 'account' AND username = ANY($1)`, [[...this.envAdmins]]);
+    this.missingEnvAdmins = [...this.envAdmins].filter((u) => !named.some((r) => r.username === u));
     const { rows: mc } = await this.db.query<{ id: string }>(`SELECT id FROM users WHERE must_change_password`);
     this.mustChange = new Set(mc.map((r) => r.id));
     const { rows: su } = await this.db.query<{ id: string; suspended_reason: string }>(`SELECT id, suspended_reason FROM users WHERE suspended_reason IS NOT NULL`);
@@ -58,19 +64,23 @@ export class Auth {
   }
 
   /** A fresh install with no admin gets one: username "admin", password
-   *  ADMIN_PASSWORD or "admin", which must be changed at the first sign-in
-   *  (user, 2026-11-16: ship a default admin/admin). */
-  async ensureDefaultAdmin(): Promise<boolean> {
-    if (this.admins.size) return false;
+   *  ADMIN_PASSWORD, or else a random one printed once to the log (#64; never
+   *  "admin", which the first person to reach the server could claim). It must
+   *  be changed at the first sign-in (user, 2026-11-16). Returns the password
+   *  to print, '' when ADMIN_PASSWORD was used, or null when nothing was made. */
+  async ensureDefaultAdmin(): Promise<string | null> {
+    if (this.admins.size) return null;
     const { rows: taken } = await this.db.query(`SELECT 1 FROM users WHERE kind = 'account' AND username = 'admin'`);
-    if (taken.length) return false;
-    const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin', 11);
+    if (taken.length) return null;
+    const given = process.env.ADMIN_PASSWORD;
+    const password = given || crypto.randomBytes(12).toString('base64url');
+    const hash = await bcrypt.hash(password, 11);
     const { rows } = await this.db.query<{ id: string }>(
       `INSERT INTO users (kind, username, display_name, password_hash, is_admin, must_change_password)
        VALUES ('account', 'admin', 'Admin', $1, true, true) RETURNING id`, [hash]);
     this.admins.add(rows[0].id);
     this.mustChange.add(rows[0].id);
-    return true;
+    return given ? '' : password;
   }
 
   isAdmin(userId: string): boolean {
@@ -183,7 +193,8 @@ export class Auth {
         const { rows } = await this.db.query<{ id: string }>(
           `INSERT INTO users (kind, username, display_name, password_hash) VALUES ('account', $1, $2, $3) RETURNING id`,
           [username, name, hash]);
-        if (this.envAdmins.has(username)) this.admins.add(rows[0].id);
+        // ADMIN_USERNAMES never makes a new account an admin (#63): only accounts
+        // that already existed when the server started.
         const user = { id: rows[0].id, name, guest: false, admin: this.admins.has(rows[0].id) };
         res.status(201).json({ token: this.sign(user), user });
       } catch (err) {

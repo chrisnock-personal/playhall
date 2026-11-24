@@ -132,11 +132,13 @@ the pair and swaps it in with no restart.
 defaults for new rooms, the HTTPS certificate, making other accounts admins,
 and closing any room. These are kept in the database and apply to everyone;
 each person's own settings (devices, theme) stay on the Settings page. To get
-the first admin: a fresh install makes the account **admin** with password
-**admin** (or `ADMIN_PASSWORD`), which must choose its own password at its first
-sign-in before anything else opens. Or create an account, then set `ADMIN_USERNAMES` to its username
-and restart. List an account there only once it exists: while sign-ups are on,
-anyone could otherwise create an account with that name and be an admin.
+the first admin: a fresh install makes the account **admin** with the password in
+`ADMIN_PASSWORD`, or, if that isn't set, a random one printed once in the server's log
+(`podman-compose logs app`). It must choose its own password at its first sign-in
+before anything else opens. Or create an account, then set `ADMIN_USERNAMES` to its username
+and restart. Only accounts that exist when the server starts become admins this
+way, so nobody can claim a listed name by registering it first; the server's
+log says which listed names don't exist yet.
 
 To try it with data (eight players, six rooms and two months of games; prints
 the demo players' password):
@@ -154,8 +156,8 @@ has left the old container running.
 | `POSTGRES_PASSWORD` | Database password (`python3 -c "import secrets;print(secrets.token_hex(24))"`) |
 | `JWT_SECRET` | Signs sessions; at least 32 random characters or the server won't start |
 | `ALLOW_SIGNUP` | `false` stops new accounts (guests still work). Only the starting value: once an admin changes it on the platform settings page, that wins |
-| `ADMIN_PASSWORD` | The default admin's first password (default `admin`); it has to be changed at the first sign-in anyway |
-| `ADMIN_USERNAMES` | Usernames that are always admins, comma-separated (e.g. `chris`). Admins can make other accounts admins on the platform settings page |
+| `ADMIN_PASSWORD` | The default admin's first password (default: a random one, printed once in the log); it has to be changed at the first sign-in anyway |
+| `ADMIN_USERNAMES` | Usernames that are always admins, comma-separated (e.g. `chris`): register the account first, then restart. Admins can make other accounts admins on the platform settings page |
 | `PLAYHALL_PORT` | Port on the host (default 8450) |
 | `TLS` | `on` (default): HTTPS; `off`: plain HTTP, e.g. behind your own proxy that does HTTPS |
 | `TLS_HOSTS` | Extra names or addresses for the self-signed certificate, comma-separated (e.g. `playhall.home,192.168.1.50`); localhost is always in it |
