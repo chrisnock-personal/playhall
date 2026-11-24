@@ -48,8 +48,8 @@ with remote players using controllers, OpenBOR rooms run on the server
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
-- **Thirteen games**, each with its rules in a How to play tab, and replays of
-  finished games (move by move, hidden cards staying hidden).
+- **Twenty-five games**, each with its rules in a How to play tab, and replays
+  of finished games (move by move, hidden cards staying hidden).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a
   game is on).
@@ -85,17 +85,21 @@ with remote players using controllers, OpenBOR rooms run on the server
   shots land with a splash; each with a short sound made in the browser (no
   audio files), quieter under voice chat, off for watchers unless they turn
   it on. A speaker button in the room mutes them or sets the volume.
-- **Computer players** in every game but chess, Letterworks, Manor Mystery
-  and the camera table. The host can put a bot in any
-  free seat between games, so a small group can fill a bigger table. A bot
-  plays from its own seat's view, exactly what a person there would see.
-  Games with a bot don't count for the leaderboards.
-- **AI players** (Ship2Shore so far; optional). A language model on a server
-  the admin runs (an Ollama address, set on the Admin page) plays a seat: it
-  makes the social moves (who to trust, votes, who goes to the sharks) and
-  talks at the table, and the computer player's rules make the arithmetic
-  moves and step in whenever the model is slow or wrong. Nothing is sent
-  anywhere but that server.
+- **Computer players** in every game except the camera table. The host can put
+  a bot in any free seat between games, so a small group can fill a bigger
+  table; chess, Letterworks, Manor Mystery, Four in a Row and checkers also
+  offer gentle, fair and strong levels. A bot plays from its own seat's view,
+  exactly what a person there would see. Games with a bot don't count for the
+  leaderboards.
+- **AI players** (Ship2Shore, Hold'em and Manor Mystery so far; optional). A
+  language model on a server the admin runs (an Ollama address, set on the
+  Admin page) plays a seat: in Ship2Shore it makes the social moves (who to
+  trust, votes, who goes to the sharks) and talks at the table; in Hold'em it
+  makes every betting decision with table talk; in Manor Mystery it chooses
+  suggestions, cards to show and accusations, with its table lines written
+  from the move it actually made. The computer player's rules make the
+  arithmetic moves and step in whenever the model is slow or wrong. Nothing
+  is sent anywhere but that server.
 - **Points, leaderboards and stats.** 3 points for a win, 1 for a draw, 0
   for a loss. Leaderboards for this week, this month and all time (ranked from
   5 games); each player's record, results as White and Black, points per
@@ -126,6 +130,30 @@ upload it on the platform settings page (below), or put `server.crt` (the
 certificate and any intermediates, PEM) and `server.key` in that volume and
 send the app `SIGHUP` (`podman-compose kill -s HUP app`). Either way it checks
 the pair and swaps it in with no restart.
+
+### Windows and macOS
+
+Install Docker Desktop (or Podman Desktop with its Compose support), start it,
+and run these from a terminal in this folder:
+
+```sh
+cp .env.example .env    # Windows PowerShell: copy .env.example .env
+# fill in POSTGRES_PASSWORD and JWT_SECRET (at least 32 random characters)
+docker compose build
+docker compose up -d --force-recreate
+```
+
+With Podman Desktop, use `podman compose` (or `podman-compose`) in place of
+`docker compose`. As on Linux, open https://localhost:8450 and accept the
+self-signed certificate once; from another device, use the machine's LAN
+address and put it in `TLS_HOSTS` before the first run. To swap in a real
+certificate later, use `docker compose kill -s HUP app` (or the Podman
+equivalent).
+
+Voice and video are optional: set the LiveKit values in `.env`, including
+`LIVEKIT_NODE_IP` (the address browsers reach this machine on), then start with
+`docker compose --profile media up -d --force-recreate`. Open TCP 7881 and UDP
+7882 if the machine's firewall blocks them.
 
 **Platform settings.** Admins get a "Platform" link in the top bar
 (`#/admin`): sign-ups and guests on or off, voice and video on or off, the

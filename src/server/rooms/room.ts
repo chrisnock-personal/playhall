@@ -960,10 +960,16 @@ export class Room {
       // The game moved on while the model thought (a resign, the host): drop it.
       if (this.status !== 'playing' || this.rec.game.state !== state) { this.scheduleBots(); return; }
       const answer = text === null ? null : readAnswer(text, options.length);
-      const r = answer && this.game.act(state, seat, options[answer.choice - 1].action, this.hooks.now(), this.context());
+      const chosen = answer ? options[answer.choice - 1].action : null;
+      const r = answer && this.game.act(state, seat, chosen, this.hooks.now(), this.context());
       if (!r || 'error' in r) { this.ruleMove(seat); return; }
       const holder = this.rec.game.players?.[seat];
-      const said = answer.say && holder && ai.canTalk(view, seat) ? this.aiLine(seat, answer.say) : null;
+      // Games that talk about their move write the line now, from the choice
+      // the model made; others still use the line it wrote in its answer.
+      const words = ai.describeChoice
+        ? ai.describeChoice(view, seat, chosen, names)
+        : (answer?.say && ai.canTalk(view, seat) ? answer.say : null);
+      const said = words && holder ? this.aiLine(seat, words) : null;
       if (said) this.addLine({ channel: 'table', kind: 'typed', userId: holder!.userId, name: holder!.name, text: said });
       this.accept(r, seat);
     }, () => { if (live) { this.cancelBot = null; this.ruleMove(seat); } });
