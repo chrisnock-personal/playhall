@@ -64,7 +64,7 @@ test('each side gets a private team chat, but a free-for-all gets none', () => {
   assert.equal(g.teamChat!(ffa, 'amber'), null);
 });
 
-test('Mend heals a wounded team mate, not its own creature', () => {
+test('Mend heals a team mate who is more hurt than the Lumen Stag', () => {
   let s = g.create({ mode: '2v2', hand: 3 }, 0, ctx);
   s = { ...s, hands: {
     amber: [{ ...newFighter('emberfox'), hp: 20 }], violet: [{ ...newFighter('lumenstag'), hp: 10 }],
@@ -78,10 +78,10 @@ test('Mend heals a wounded team mate, not its own creature', () => {
   ] as const) s = ok(g.act(s, p, { type: 'choose', ...choice }, 0, ctx));
   assert.ok(s.rounds[0].lines.some((l) => /Mend: Violet’s Lumen Stag heals Amber’s Emberfox for 4\./.test(l)));
   assert.equal(s.hands.amber[0].hp, 10);
-  assert.equal(s.hands.violet[0].hp, 10, 'the Lumen Stag doesn’t heal itself');
+  assert.equal(s.hands.violet[0].hp, 10, 'the Lumen Stag, less hurt, isn’t healed');
 });
 
-test('Shield covers a team mate for that fight', () => {
+test('Shield covers a team mate more hurt than the Stonehorn, for that fight', () => {
   let s = g.create({ mode: '2v2', hand: 3 }, 0, ctx);
   s = { ...s, hands: {
     amber: [newFighter('stonehorn')], violet: [{ ...newFighter('emberfox'), hp: 20 }],
@@ -96,4 +96,36 @@ test('Shield covers a team mate for that fight', () => {
   assert.ok(s.rounds[0].lines.some((l) => /Shield: Amber’s Stonehorn covers Violet’s Emberfox\./.test(l)));
   assert.ok(s.rounds[0].lines.some((l) => /\(shielded\)/.test(l)));
   assert.equal(s.hands.violet[0].hp, 14, 'the covered hit did 6, not 12');
+});
+
+test('Mend heals the Lumen Stag itself when it is the most hurt on its side', () => {
+  let s = g.create({ mode: '2v2', hand: 3 }, 0, ctx);
+  s = { ...s, hands: {
+    amber: [newFighter('emberfox')], violet: [{ ...newFighter('lumenstag'), hp: 20 }],
+    teal: [newFighter('stonehorn')], rose: [newFighter('galewing')],
+  } };
+  for (const [p, choice] of [
+    ['amber', { creature: 0, style: 'ranged', target: 'teal' }],
+    ['violet', { creature: 0, style: 'ranged', target: 'teal' }],
+    ['teal', { creature: 0, style: 'ranged', target: 'violet' }],
+    ['rose', { creature: 0, style: 'ranged', target: 'violet' }],
+  ] as const) s = ok(g.act(s, p, { type: 'choose', ...choice }, 0, ctx));
+  assert.ok(s.rounds[0].lines.some((l) => /Mend: Violet’s Lumen Stag heals itself for 4\./.test(l)), s.rounds[0].lines.join('\n'));
+  assert.equal(s.hands.amber[0].hp, 28, 'the unhurt Emberfox needs nothing');
+});
+
+test('Shield stays on the Stonehorn when nobody on its side is more hurt', () => {
+  let s = g.create({ mode: '2v2', hand: 3 }, 0, ctx);
+  s = { ...s, hands: {
+    amber: [newFighter('stonehorn')], violet: [newFighter('emberfox')],
+    teal: [newFighter('galewing')], rose: [newFighter('tidecaller')],
+  } };
+  for (const [p, choice] of [
+    ['amber', { creature: 0, style: 'melee', target: 'teal' }],
+    ['violet', { creature: 0, style: 'ranged', target: 'teal' }],
+    ['teal', { creature: 0, style: 'ranged', target: 'amber' }],
+    ['rose', { creature: 0, style: 'ranged', target: 'amber' }],
+  ] as const) s = ok(g.act(s, p, { type: 'choose', ...choice }, 0, ctx));
+  assert.ok(!s.rounds[0].lines.some((l) => /^Shield: .* covers /.test(l)), 'no cover line');
+  assert.ok(s.rounds[0].lines.some((l) => /\(shielded\)/.test(l)), 'the Stonehorn’s own hit is halved');
 });
