@@ -156,3 +156,15 @@ test('bots and AI players answer when someone asks what orders they had', async 
   assert.ok(after.some((l) => /(Navy|U-boat|Lisbon)/.test(l) && !/swear/.test(l) && !/what/.test(l)), `the bot answered: ${after.join(' | ')}`);
   assert.ok(after.includes('Two Navy orders, I swear.'), 'the AI player answered in its own words');
 });
+
+test('bot levels (#62): the host picks gentle or strong where the game has them; the name says so', () => {
+  const { room, rec } = setup('fourinarow');
+  room.handle(host, { t: 'addBot', seat: 'teal', level: 'gentle' });
+  assert.equal(rec.seats.teal?.level, 'gentle');
+  assert.match(rec.seats.teal?.name ?? '', /\(gentle bot\)$/);
+  // A game whose bots play one way: no level.
+  const other = setup('hearts');
+  other.room.handle(host, { t: 'addBot', seat: 'teal', level: 'strong' });
+  assert.equal(other.rec.seats.teal?.level, undefined);
+  assert.match(other.rec.seats.teal?.name ?? '', /\(bot\)$/);
+});

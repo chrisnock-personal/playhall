@@ -91,3 +91,31 @@ test('round robin: draws count half, the organiser can settle a match, the table
   const table = ts.view(t).standings;
   assert.equal(table.reduce((n, s) => n + s.points, 0), 6, 'each round: a game (1 point between two) and a bye (1)');
 });
+
+test('organiser tools: withdrawing a player, more time, late Swiss entries, and nobody turning up', async () => {
+  const { ts, rooms } = fakes();
+  const t = await ts.create(me('org'), { name: 'Swiss night', gameId: 'chess', format: 'swiss', rounds: 3, graceMinutes: 5 });
+  for (const p of ['a', 'b', 'c', 'd']) await ts.enter(me(p), t, true);
+  await ts.start(me('org'), t, () => 0.5);
+  // A late entry before round 2.
+  await ts.enter(me('e'), t, true);
+  assert.ok(t.seeds.includes('e'));
+  // More time pushes the deadlines back.
+  const before = { ...t.deadlines };
+  await ts.moreTime(me('org'), t);
+  for (const k of Object.keys(before)) assert.ok(t.deadlines[k] > before[k]);
+  // Withdraw a: their match goes to their opponent.
+  const m = t.rounds[0].find((x) => x.a === 'a' || x.b === 'a')!;
+  await ts.withdraw(me('org'), t, 'a');
+  assert.equal(m.how, 'forfeit');
+  assert.notEqual(m.result === 'a' ? m.a : m.b, 'a');
+  // Nobody in the other room by the deadline: both lose (no points).
+  await ts.checkDeadlines(Date.now() + 60 * 60_000);
+  const other = t.rounds[0].find((x) => x !== m)!;
+  assert.equal(other.result, 'none');
+  // Round 2 is paired without a, and with e.
+  assert.equal(t.rounds.length, 2);
+  const r2 = t.rounds[1].flatMap((x) => [x.a, x.b]);
+  assert.ok(!r2.includes('a') && r2.includes('e'));
+  assert.ok(rooms.length >= 3);
+});

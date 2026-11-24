@@ -4,12 +4,16 @@ import type { Voice } from './useVoice';
 import { VideoTile } from './VideoTile';
 import { Avatar, Icon } from '../ui';
 import { useGames } from '../useGames';
+import { useState } from 'react';
+import { LEVELLED, type BotLevel } from '../../shared/bots';
 
 export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video, onVideo }: {
   /** Set when the panel is compact only for the game: opens it out again. */
   state: Panel3; onCycle(): void; onExpand?(): void; stage: StageProps; game?: GameClient;
   voice: Voice; video: VideoSize; onVideo(v: VideoSize): void;
 }) {
+  // How strong new bots play (#62); remembered for this visit.
+  const [botLevel, setBotLevel] = useState<BotLevel>('fair');
   const { snap, send } = stage;
   const filled = snap.seats.filter((s) => s.userId).length;
   const canSit = (seatFree: boolean) => seatFree && snap.game.status !== 'playing' && !snap.you.seat && !snap.you.locked
@@ -75,7 +79,16 @@ export function SeatsPanel({ state, onCycle, onExpand, stage, game, voice, video
               {game?.seatExtra?.(stage, s.id)}
             </div>
             {canSit(!s.userId) && <button className="btn small primary wide" onClick={() => send({ t: 'sit', seat: s.id })}>Sit here</button>}
-            {canAddBot(!s.userId) && <button className="btn small wide" onClick={() => send({ t: 'addBot', seat: s.id })}><Icon name="bot" size={16} />Add a bot</button>}
+            {canAddBot(!s.userId) && (
+              <span className="bot-add">
+                <button className="btn small wide" onClick={() => send({ t: 'addBot', seat: s.id, level: botLevel })}><Icon name="bot" size={16} />Add a bot</button>
+                {LEVELLED.includes(snap.room.gameId) && (
+                  <select className="mini-select" aria-label="How strong" value={botLevel} onChange={(e) => setBotLevel(e.target.value as BotLevel)}>
+                    <option value="gentle">Gentle</option><option value="fair">Fair</option><option value="strong">Strong</option>
+                  </select>
+                )}
+              </span>
+            )}
             {canAddBot(!s.userId) && snap.room.aiPlayers && <button className="btn small wide" onClick={() => send({ t: 'addBot', seat: s.id, ai: true })}><Icon name="spark" size={16} />Add an AI player</button>}
             {s.bot && snap.you.host && snap.game.status !== 'playing' && (
               <button className="btn small wide" onClick={() => send({ t: 'unseat', userId: s.userId! })}>{s.ai ? 'Remove the AI player' : 'Remove the bot'}</button>

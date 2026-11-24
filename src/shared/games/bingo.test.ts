@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bingo as g, makeTicket, rowsDone, callWords, type BingoState } from './bingo';
+import { bingo as g, makeCard75, makeTicket, rowsDone, callWords, type BingoState } from './bingo';
 
 function seeded(seed: number) { return () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; }
 const ctx = { seats: ['amber', 'teal'], random: seeded(7) };
@@ -43,4 +43,33 @@ test('prizes in order: one line, two lines, then a full house ends it; auto-mark
   assert.equal(rowsDone(s.tickets.amber, s.marked.amber), 3);
   assert.equal(s.result.winner, 'amber');
   assert.deepEqual(s.result.placings, [['amber'], ['teal']]);
+});
+
+test('75-ball: a 5×5 card with a free centre; lines across, down and diagonally', () => {
+  const card = makeCard75(seeded(5));
+  assert.equal(card.length, 5);
+  assert.equal(card[2][2], null);
+  card.forEach((row) => row.forEach((n, c) => { if (n !== null) assert.equal(Math.floor((n - 1) / 15), c, 'B I N G O columns'); }));
+  // The diagonal through the free centre.
+  const diag = [card[0][0], card[1][1], card[3][3], card[4][4]] as number[];
+  assert.equal(rowsDone([card], diag), 1);
+  assert.equal(callWords(12, 75), 'B 12');
+});
+
+test('a 75-ball game: calls 1-75, ending on a full card', () => {
+  const ctx75 = { seats: ['amber'], random: seeded(9) };
+  let s = g.create({ speed: 4, tickets: 1, balls: 75 }, 0, ctx75);
+  assert.equal(s.calls.length, 75);
+  s = ok(g.act(s, 'amber', { type: 'auto', on: true }, 0, ctx75));
+  while (!s.result) s = g.tick(s, g.nextDeadline(s)!)!;
+  assert.equal(s.prizes.at(-1)!.stage, 'full house');
+});
+
+test('pausing stops the calls; starting them again carries on', () => {
+  let s = g.create(g.defaultConfig, 0, ctx);
+  s = ok(g.act(s, 'amber', { type: 'pause' }, 0, ctx));
+  assert.equal(g.nextDeadline(s), null);
+  assert.equal(g.tick(s, 10_000_000), null);
+  s = ok(g.act(s, 'teal', { type: 'resume' }, 50_000, ctx));
+  assert.equal(g.nextDeadline(s), 56_000);
 });

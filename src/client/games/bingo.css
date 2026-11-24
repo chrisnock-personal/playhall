@@ -22,3 +22,6 @@ button.bg-cell { cursor: default; }
 .bg-prize { background: rgba(255,255,255,.08); padding: 4px 10px; border-radius: 999px; }
 .bg-auto { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .bg-ball, .bg-cell.ready { animation: none; } }
+.bg-board.b75 { grid-template-columns: repeat(15, 1fr); width: min(100%, 560px); }
+.bg-ticket.card75 { grid-template-columns: repeat(5, minmax(40px, 56px)); }
+.bg-cell.free { background: #d6336c; color: #fff; font-size: 11px; display: grid; place-items: center; }

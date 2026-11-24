@@ -6,6 +6,7 @@
 import { Chess, type Move } from 'chess.js';
 import type { SeatId } from '../game';
 import type { ChessView } from './chess';
+import type { BotLevel } from '../bots';
 
 const VALUE: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
 // Piece placement from White's side (a8..h1 rows), a simplified table set.
@@ -73,7 +74,7 @@ function negamax(c: Chess, depth: number, alpha: number, beta: number): number {
 }
 
 /** The move this bot picks in a position (exported for tests). */
-export function chooseChessMove(fen: string, random: () => number = Math.random, depth = 2): { from: string; to: string; promotion?: string } | null {
+export function chooseChessMove(fen: string, random: () => number = Math.random, depth = 2, noise = 20): { from: string; to: string; promotion?: string } | null {
   const c = new Chess(fen);
   const moves = order(c.moves({ verbose: true }));
   if (!moves.length) return null;
@@ -83,7 +84,7 @@ export function chooseChessMove(fen: string, random: () => number = Math.random,
     c.move(m);
     // A little noise (up to a fifth of a pawn) between moves that are about as
     // good; moves more than that worse than the best so far are cut short.
-    const v = -negamax(c, depth - 1, -Infinity, -(bestScore - 20)) + random() * 20;
+    const v = -negamax(c, depth - 1, -Infinity, -(bestScore - noise)) + random() * noise;
     c.undo();
     if (v > bestScore + 0.001) { bestScore = v; best = [m]; } else if (Math.abs(v - bestScore) < 0.001) best.push(m);
   }
@@ -91,9 +92,10 @@ export function chooseChessMove(fen: string, random: () => number = Math.random,
   return { from: m.from, to: m.to, ...(m.promotion ? { promotion: m.promotion } : {}) };
 }
 
-export function chessBot(view: unknown, seat: SeatId, random: () => number): unknown | null {
+export function chessBot(view: unknown, seat: SeatId, random: () => number, _words?: unknown, level: BotLevel = 'fair'): unknown | null {
   const v = view as ChessView;
   if (v.result || v.turn !== seat) return null;
-  const m = chooseChessMove(v.fen, random);
+  // Gentle: one move ahead and plenty of noise (it misses things); strong: no noise.
+  const m = level === 'gentle' ? chooseChessMove(v.fen, random, 1, 250) : chooseChessMove(v.fen, random, 2, level === 'strong' ? 1 : 20);
   return m ? { type: 'move', ...m } : null;
 }

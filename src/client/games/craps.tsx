@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { BETS, BET_NAMES, ODDS, cantBet, type Bet, type CrapsView } from '../../shared/games/craps';
+import { BET_NAMES, ODDS, PLACE_PAYS, POINTS, cantBet, type Bet, type CrapsView } from '../../shared/games/craps';
 import type { GameClient, StageProps } from './types';
 import { COLOURS as KIT, Die, Disc, GameActions, MoveTimer } from '../kit/kit';
 import './casino.css';
 
 const act = (send: StageProps['send'], action: unknown) => send({ t: 'act', action });
 const VALUES = [5, 25, 100];
-const HINT: Record<Bet, (point: number | null) => string> = {
+const MAIN: Bet[] = ['pass', 'dontpass', 'odds', 'field', 'come', 'dontcome'];
+const HINT: Partial<Record<Bet, (point: number | null) => string>> = {
+  come: () => 'Like the pass line, from the next roll',
+  dontcome: () => 'Like don’t pass, from the next roll',
   pass: () => 'Wins on 7 or 11, then on the point',
   dontpass: () => 'Wins on 2 or 3, then on a 7',
   odds: (p) => (p ? `Pays ${ODDS[p][0]} to ${ODDS[p][1]} on the ${p}` : 'Once there’s a point'),
@@ -40,15 +43,32 @@ function CrapsStage({ snap, send, receivedAt }: StageProps) {
         </div>
 
         <div className="cp-layout">
-          {BETS.map((b) => {
+          {MAIN.map((b) => {
             const why = v && me ? cantBet(v, me, b, value) : 'Not playing';
             return (
               <button key={b} className={`cp-bet ${b}`} disabled={!betting || !!why} title={why ?? undefined}
                 onClick={() => act(send, { type: 'bet', bet: b, amount: value })}>
                 <strong>{BET_NAMES[b]}</strong>
-                <span className="small">{HINT[b](v?.point ?? null)}</span>
+                <span className="small">{HINT[b]?.(v?.point ?? null)}</span>
                 {mine && mine[b] > 0 && <span className="rl-chip">{mine[b]}</span>}
                 <span className="rl-others">{(v?.order ?? []).filter((p) => p !== me && v!.bets[p][b]).map((p) => <Disc key={p} colour={p} size={8} />)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="cp-places" role="group" aria-label="Place bets">
+          {POINTS.map((n) => {
+            const b = `place${n}` as Bet;
+            const why = v && me ? cantBet(v, me, b, value) : 'Not playing';
+            const come = mine ? (mine[`cp${n}`] ?? 0) + (mine[`dcp${n}`] ?? 0) : 0;
+            return (
+              <button key={n} className={`cp-place${v?.point === n ? ' point' : ''}`} disabled={!betting || !!why} title={`Place ${n}: pays ${PLACE_PAYS[n][0]} to ${PLACE_PAYS[n][1]}`}
+                onClick={() => act(send, { type: 'bet', bet: b, amount: value })}>
+                <strong>{n}</strong>
+                <span className="small">{PLACE_PAYS[n][0]}:{PLACE_PAYS[n][1]}</span>
+                {mine && mine[b] > 0 && <span className="rl-chip">{mine[b]}</span>}
+                {come > 0 && <span className="cp-come" title="Your come bets on this number">C {come}</span>}
               </button>
             );
           })}

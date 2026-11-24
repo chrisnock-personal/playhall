@@ -16,7 +16,7 @@ const LEAD_IN_MS = 5000;
 /** A ticket: three rows of nine columns, null where there's no number. */
 export type Ticket = (number | null)[][];
 
-export interface BingoConfig { speed: number; tickets: number }
+export interface BingoConfig { speed: number; tickets: number; /** 90-ball (UK) or 75-ball (US). */ balls?: 90 | 75 }
 
 export interface BingoState {
   order: SeatId[];
@@ -27,6 +27,8 @@ export interface BingoState {
   called: number;
   nextAt: number;
   marked: Record<SeatId, number[]>;
+  /** The calls are stopped for now (#53). */
+  paused?: boolean;
   auto: Record<SeatId, boolean>;
   prizes: { stage: Stage; winners: SeatId[]; at: number }[];
   log: { seat: SeatId; text: string }[];
@@ -42,6 +44,7 @@ export interface BingoView {
   auto: boolean;
   called: number[];
   nextAt: number | null;
+  paused: boolean;
   /** The prize being played for now. */
   stage: Stage | null;
   prizes: BingoState['prizes'];
@@ -59,7 +62,8 @@ const CALLS: Record<number, string> = {
   77: 'Sunset strip', 80: 'Eight and blank', 85: 'Staying alive', 86: 'Between the sticks', 88: 'Two fat ladies', 89: 'Nearly there', 90: 'Top of the shop',
 };
 /** The caller's words: "Two little ducks, 22", or "On its own, 6". */
-export function callWords(n: number): string {
+export function callWords(n: number, balls: 90 | 75 = 90): string {
+  if (balls === 75) return `${bingoLetter(n)} ${n}`;
   if (CALLS[n]) return `${CALLS[n]}, ${n}`;
   if (n < 10) return `On its own, number ${n}`;
   return `${String(n)[0]} and ${String(n)[1]}, ${n}`;
@@ -99,11 +103,29 @@ export function makeTicket(random: () => number): Ticket {
   }
 }
 
-/** Full rows on a player's best ticket, given what they've marked. */
+/** A 75-ball card (#53): five columns B I N G O (1-15, 16-30, 31-45, 46-60, 61-75), the centre free. */
+export function makeCard75(random: () => number): Ticket {
+  const cols = [0, 1, 2, 3, 4].map((c) => shuffle([...Array(15).keys()].map((k) => c * 15 + k + 1), random).slice(0, 5).sort((a, b) => a - b));
+  return [0, 1, 2, 3, 4].map((r) => cols.map((col, c) => (r === 2 && c === 2 ? null : col[r])));
+}
+export const bingoLetter = (n: number) => 'BINGO'[Math.floor((n - 1) / 15)];
+
+/** Lines done on a player's best ticket: full rows (and, on a 75-ball card, columns and diagonals; the centre is free). */
 export function rowsDone(tickets: Ticket[], marked: number[]): number {
   const m = new Set(marked);
-  return Math.max(...tickets.map((t) => t.filter((row) => row.every((n) => n === null || m.has(n))).length));
+  const done = (cells: (number | null)[]) => cells.every((n) => n === null || m.has(n));
+  return Math.max(...tickets.map((t) => {
+    let lines = t.filter(done).length;
+    if (t.length === 5) {
+      for (let c = 0; c < 5; c++) if (done(t.map((row) => row[c]))) lines++;
+      if (done(t.map((row, i) => row[i]))) lines++;
+      if (done(t.map((row, i) => row[4 - i]))) lines++;
+    }
+    return lines;
+  }));
 }
+/** Every number on the ticket marked (the full house), whatever the lines. */
+const allDone = (tickets: Ticket[], marked: number[]) => tickets.some((t) => t.flat().every((n) => n === null || marked.includes(n)));
 const numbersOf = (tickets: Ticket[]) => tickets.flatMap((t) => t.flat().filter((n): n is number => n !== null));
 
 const stageOf = (s: BingoState): Stage | null => (s.result ? null : STAGES[s.prizes.length] ?? null);
@@ -113,7 +135,7 @@ const need = (stage: Stage) => STAGES.indexOf(stage) + 1;
 function award(s: BingoState): BingoState {
   const stage = stageOf(s);
   if (!stage) return s;
-  const winners = s.order.filter((p) => rowsDone(s.tickets[p], s.marked[p]) >= need(stage));
+  const winners = s.order.filter((p) => (stage === 'full house' ? allDone(s.tickets[p], s.marked[p]) : rowsDone(s.tickets[p], s.marked[p]) >= need(stage)));
   if (!winners.length) return s;
   const prizes = [...s.prizes, { stage, winners, at: s.called }];
   const log = [...s.log, { seat: winners[0], text: `${winners.length > 1 ? 'shared' : 'won'} ${stage}` }].slice(-40);
@@ -142,11 +164,13 @@ export const bingo: GameModule<BingoState, BingoConfig> = {
     sections: [
       { title: 'Your ticket', points: [
         'Your ticket has three rows of five numbers between 1 and 90. Each column holds one group of ten (1-9, 10-19… up to 80-90).',
+        '75-ball (if the host picks it): a card of five columns, B I N G O (1-15, 16-30, 31-45, 46-60, 61-75), with a free square in the middle. A line can be a row, a column or a diagonal.',
         'The host can give everyone two tickets; your best ticket counts.',
       ] },
       { title: 'The calls', points: [
         'Numbers are called every few seconds, with the traditional calls (“Two little ducks, 22”). The board shows every number called so far.',
         'Tap a called number on your ticket to mark it. Or turn on auto-mark and they’re marked for you.',
+        'Anyone playing can pause the calls (a cup of tea!) and start them again. You can also have the calls read aloud.',
       ] },
       { title: 'Prizes', points: [
         'One line: the first to mark a whole row. Two lines: the first with two whole rows on one ticket. Full house: all fifteen numbers, which ends the game.',
@@ -160,21 +184,21 @@ export const bingo: GameModule<BingoState, BingoConfig> = {
   defaultConfig: { speed: 6, tickets: 1 },
   parseConfig: (raw) => {
     const c = (raw ?? {}) as Partial<BingoConfig>;
-    return { speed: SPEEDS.includes(Number(c.speed)) ? Number(c.speed) : 6, tickets: Number(c.tickets) === 2 ? 2 : 1 };
+    return { speed: SPEEDS.includes(Number(c.speed)) ? Number(c.speed) : 6, tickets: Number(c.tickets) === 2 ? 2 : 1, balls: Number(c.balls) === 75 ? 75 : 90 };
   },
-  describeConfig: (c) => `90-ball · a call every ${c.speed} s${c.tickets === 2 ? ' · two tickets each' : ''}`,
+  describeConfig: (c) => `${c.balls === 75 ? '75' : '90'}-ball · a call every ${c.speed} s${c.tickets === 2 ? ` · two ${c.balls === 75 ? 'cards' : 'tickets'} each` : ''}`,
 
   create(config, now, ctx) {
     const order = SEATS.filter((p) => ctx.seats.includes(p));
     const none = <T,>(v: T) => Object.fromEntries(order.map((p) => [p, v])) as Record<SeatId, T>;
     return {
-      order, config, tickets: Object.fromEntries(order.map((p) => [p, Array.from({ length: config.tickets }, () => makeTicket(ctx.random))])),
-      calls: shuffle([...Array(91).keys()].slice(1), ctx.random), called: 0, nextAt: now + LEAD_IN_MS,
+      order, config, tickets: Object.fromEntries(order.map((p) => [p, Array.from({ length: config.tickets }, () => (config.balls === 75 ? makeCard75(ctx.random) : makeTicket(ctx.random)))])),
+      calls: shuffle([...Array((config.balls === 75 ? 75 : 90) + 1).keys()].slice(1), ctx.random), called: 0, nextAt: now + LEAD_IN_MS,
       marked: none<number[]>([]), auto: none(false), prizes: [], log: [], result: null,
     };
   },
 
-  act(s, seat, raw) {
+  act(s, seat, raw, now) {
     if (s.result) return { error: 'The game is over' };
     if (!s.order.includes(seat)) return { error: 'You’re not in this game' };
     const a = raw as { type?: string; n?: number; on?: boolean };
@@ -182,6 +206,15 @@ export const bingo: GameModule<BingoState, BingoConfig> = {
       const order = s.order.filter((p) => p !== seat);
       if (!order.length) return { state: { ...s, result: { winner: null, placings: [[seat]], reason: 'resignation', aborted: true } } };
       return { state: { ...s, order, log: [...s.log, { seat, text: 'left the game' }].slice(-40) } };
+    }
+    // Anyone playing can stop the calls for a moment (#53), and start them again.
+    if (a?.type === 'pause') {
+      if (s.paused) return { error: 'The calls are already paused' };
+      return { state: { ...s, paused: true, log: [...s.log, { seat, text: 'paused the calls' }].slice(-40) } };
+    }
+    if (a?.type === 'resume') {
+      if (!s.paused) return { error: 'The calls aren’t paused' };
+      return { state: { ...s, paused: false, nextAt: now + s.config.speed * 1000, log: [...s.log, { seat, text: 'started the calls again' }].slice(-40) } };
     }
     if (a?.type === 'auto') return { state: award(withAuto({ ...s, auto: { ...s.auto, [seat]: !!a.on } })) };
     if (a?.type !== 'mark') return { error: 'Mark a number' };
@@ -197,12 +230,12 @@ export const bingo: GameModule<BingoState, BingoConfig> = {
   noTurns: true,
   waitingFor: (s) => (s.result ? [] : s.order.filter((p) => !s.auto[p])),
   tick(s, now) {
-    if (s.result || now < s.nextAt || s.called >= s.calls.length) return null;
+    if (s.result || s.paused || now < s.nextAt || s.called >= s.calls.length) return null;
     const n = s.calls[s.called];
-    const next = withAuto({ ...s, called: s.called + 1, nextAt: now + s.config.speed * 1000, log: [...s.log, { seat: s.order[0], text: callWords(n) }].slice(-40) });
+    const next = withAuto({ ...s, called: s.called + 1, nextAt: now + s.config.speed * 1000, log: [...s.log, { seat: s.order[0], text: callWords(n, s.config.balls ?? 90) }].slice(-40) });
     return award(next);
   },
-  nextDeadline: (s) => (s.result ? null : s.nextAt),
+  nextDeadline: (s) => (s.result || s.paused ? null : s.nextAt),
   result: (s) => s.result,
 
   view(s, _now, viewer): BingoView {
@@ -210,7 +243,7 @@ export const bingo: GameModule<BingoState, BingoConfig> = {
     return {
       order: s.order, you: seated ? viewer : null, config: s.config,
       tickets: seated ? s.tickets[viewer!] : null, marked: seated ? s.marked[viewer!] : [], auto: seated ? s.auto[viewer!] : false,
-      called: s.calls.slice(0, s.called), nextAt: s.result ? null : s.nextAt, stage: stageOf(s), prizes: s.prizes,
+      called: s.calls.slice(0, s.called), nextAt: s.result || s.paused ? null : s.nextAt, paused: !!s.paused, stage: stageOf(s), prizes: s.prizes,
       toGo: Object.fromEntries(s.order.map((p) => [p, Math.min(...s.tickets[p].map((t) => t.flat().filter((n) => n !== null && !s.marked[p].includes(n)).length))])),
       log: s.log, result: s.result,
     };

@@ -160,7 +160,7 @@ export type ClientMessage =
   | { t: 'start' }
   | { t: 'seat'; userId: string; seat: SeatId }
   | { t: 'unseat'; userId: string }
-  | { t: 'addBot'; seat: SeatId; ai?: boolean }
+  | { t: 'addBot'; seat: SeatId; ai?: boolean; level?: 'gentle' | 'fair' | 'strong' }
   | { t: 'makeHost'; userId: string }
   | { t: 'kick'; userId: string }
   | { t: 'settings'; settings: Partial<RoomSettings> }

@@ -86,5 +86,13 @@ export const chineseCheckersClient: GameClient = {
     const v = props.snap.game.view as CheckersView | null;
     return v && seatId in v.homeCount ? <span className="piece-count">{v.homeCount[seatId]}/10 home</span> : <Disc colour={seatId} size={20} />;
   },
-  ConfigPicker: () => <p className="hint">2, 3, 4 or 6 players (bots can fill seats). Race your marbles to the opposite point.</p>,
+  ConfigPicker: ({ value, onChange, disabled }) => {
+    const teams = !!(value as { teams?: boolean } | undefined)?.teams;
+    return (
+      <div className="hint">
+        <p>2, 3, 4 or 6 players (bots can fill seats). Race your marbles to the opposite point.</p>
+        <label className="check"><input type="checkbox" disabled={disabled} checked={teams} onChange={(e) => onChange({ teams: e.target.checked })} /> Teams: partners in opposite points (four or six players)</label>
+      </div>
+    );
+  },
 };

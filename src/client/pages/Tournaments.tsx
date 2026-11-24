@@ -169,6 +169,16 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
         </a>
       )}
 
+      {t.status === 'running' && t.config.format === 'swiss' && t.rounds.length === 1 && !entered && !session.user.guest && (
+        <section className="card"><p>Late entries are open until round 2: you’d start on no points.</p><button className="btn small primary" onClick={() => post('entry', { entered: true })}>Enter late</button></section>
+      )}
+      {organiser && t.status === 'running' && (
+        <section className="card tn-org">
+          <strong>Organiser</strong>
+          <button className="btn small" onClick={() => post('more-time')}>Everyone gets 10 more minutes to turn up</button>
+          <span className="muted small">Withdraw a player from the table below; they lose their remaining games.</span>
+        </section>
+      )}
       {t.status === 'signup' && (
         <section className="card">
           <h2>Entries ({t.players.length})</h2>
@@ -197,9 +207,9 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
                     {!m.b ? <span><strong>{name(m.a)}</strong> <span className="muted">has a bye</span></span> : (
                       <>
                         <span className={m.result === 'a' ? 'won' : ''}>{name(m.a)}</span>
-                        <span className="muted tn-score">{m.result === 'a' ? '1 – 0' : m.result === 'b' ? '0 – 1' : m.result === 'draw' ? '½ – ½' : 'v'}</span>
+                        <span className="muted tn-score">{m.result === 'a' ? '1 – 0' : m.result === 'b' ? '0 – 1' : m.result === 'draw' ? '½ – ½' : m.result === 'none' ? '0 – 0' : 'v'}</span>
                         <span className={m.result === 'b' ? 'won' : ''}>{name(m.b)}</span>
-                        {m.how === 'forfeit' && <span className="muted small"> (forfeit)</span>}
+                        {m.how === 'forfeit' && <span className="muted small"> ({m.result === 'none' ? 'neither came' : 'forfeit'})</span>}
                         {m.how === 'organiser' && <span className="muted small"> (settled by the organiser)</span>}
                         {m.room && <a className="btn tiny" href={`#/r/${m.room}`}>{m.result ? 'Room' : 'Watch'}</a>}
                         {organiser && !m.result && i === current && (
@@ -227,7 +237,7 @@ function TournamentDetail({ session, code }: { session: Session; code: string })
             <tbody>
               {t.standings.map((s, i) => (
                 <tr key={s.id} className={s.out ? 'out' : ''}>
-                  <td>{i + 1}</td><td className="l"><Avatar name={s.name} id={s.id} size={20} /> {s.name}{s.out ? <span className="muted small"> (out)</span> : ''}</td>
+                  <td>{i + 1}</td><td className="l"><Avatar name={s.name} id={s.id} size={20} /> {s.name}{s.out ? <span className="muted small"> (out)</span> : ''}{t.withdrawn.includes(s.id) ? <span className="muted small"> (withdrawn)</span> : organiser && t.status === 'running' && !s.out ? <button className="btn tiny tn-withdraw" onClick={() => post('withdraw', { playerId: s.id })}>Withdraw</button> : null}</td>
                   <td>{s.played}</td><td className="pts">{s.points}</td>{t.config.format !== 'knockout' && <td>{s.tiebreak}</td>}
                 </tr>
               ))}

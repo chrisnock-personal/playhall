@@ -6,7 +6,7 @@
 // a bigger move, and swaps tiles when it can't find a word.
 
 import type { SeatId } from '../game';
-import type { BotWords } from '../bots';
+import type { BotLevel, BotWords } from '../bots';
 import { CENTRE, RACK, SIZE, scorePlacement, type LetterworksView, type Placement, type Tile } from './letterworks';
 
 interface Found { tiles: Placement[]; score: number }
@@ -86,8 +86,15 @@ export function findMoves(board: (Tile | null)[], rack: string[], words: BotWord
 }
 
 /** Choose a move: good but not always the best, and not wasting an S or a blank on a small score. */
-export function chooseMove(found: Found[], rack: string[], random: () => number): Found | null {
+export function chooseMove(found: Found[], rack: string[], random: () => number, level: BotLevel = 'fair'): Found | null {
   if (!found.length) return null;
+  if (level === 'strong') return [...found].sort((a, b) => b.score - a.score)[0];
+  if (level === 'gentle') {
+    // Gentle: short, everyday words from the middle of the list.
+    const short = found.filter((f) => f.tiles.length <= 4).sort((a, b) => b.score - a.score);
+    const pool = (short.length ? short : found).slice(Math.floor((short.length || found.length) * 0.3), Math.max(1, Math.floor((short.length || found.length) * 0.7)));
+    return pool.length ? pool[Math.floor(random() * pool.length)] : found[0];
+  }
   const value = (f: Found) => {
     const spent = f.tiles.filter((t) => t.blank).length * 25 + f.tiles.filter((t) => t.letter === 'S' && !t.blank).length * 8;
     return f.score - (rack.length - f.tiles.length < 7 ? spent : 0);
@@ -98,11 +105,11 @@ export function chooseMove(found: Found[], rack: string[], random: () => number)
   return pool[Math.floor(random() ** 2 * pool.length)];
 }
 
-export function letterworksBot(view: unknown, seat: SeatId, random: () => number, words?: BotWords): unknown | null {
+export function letterworksBot(view: unknown, seat: SeatId, random: () => number, words?: BotWords, level: BotLevel = 'fair'): unknown | null {
   const v = view as LetterworksView;
   if (v.result || v.turn !== seat || !v.rack) return null;
   if (!words) return { type: 'pass' };
-  const move = chooseMove(findMoves(v.board, v.rack, words), v.rack, random);
+  const move = chooseMove(findMoves(v.board, v.rack, words), v.rack, random, level);
   if (move) return { type: 'play', tiles: move.tiles };
   // No word: swap the awkward tiles while the bag can take them, else pass.
   if (v.bag >= RACK) {

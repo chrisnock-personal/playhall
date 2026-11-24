@@ -15,7 +15,8 @@ export interface Match {
   /** null: a bye for a. */
   b: string | null;
   room: string | null;
-  result: 'a' | 'b' | 'draw' | null;
+  /** 'none': neither turned up (no points for either). */
+  result: 'a' | 'b' | 'draw' | 'none' | null;
   /** How it was decided: by playing, a bye, a forfeit, or the organiser. */
   how: 'game' | 'bye' | 'forfeit' | 'organiser' | null;
 }
@@ -168,6 +169,7 @@ export interface TournamentView {
   config: TournamentConfig;
   status: 'signup' | 'running' | 'done';
   players: TPlayer[];
+  withdrawn: string[];
   rounds: (Match & { deadline: number | null })[][];
   standings: Standing[];
   winner: TPlayer | null;

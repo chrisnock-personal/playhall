@@ -762,3 +762,4 @@ button.pile:not(:disabled) { cursor: pointer; } button.pile:not(:disabled):hover
 .game-pick.locked { opacity: .5; cursor: not-allowed; }
 .pill.locked-note { background: var(--surface-2); color: var(--muted); }
 .nav-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: #d64545; color: #fff; font: 700 11px var(--body); vertical-align: 1px; }
+.bot-add { display: flex; gap: 4px; align-items: center; } .bot-add .btn { flex: 1; }
