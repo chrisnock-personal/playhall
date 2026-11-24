@@ -1,7 +1,9 @@
 // Messages between the browser and the room over the WebSocket (/ws), and
 // the snapshot of a room each person is sent after every change.
-import type { GameResult, SeatId } from './game';
+import type { GameResult, SeatId, TextChannel } from './game';
 
+export type { TextChannel } from './game';
+/** Voice and video channels. Team channels are text only. */
 export type Channel = 'table' | 'gallery';
 
 export interface RoomSettings {
@@ -73,7 +75,7 @@ export interface MemberView {
 
 export interface ChatLine {
   id: number;
-  channel: Channel;
+  channel: TextChannel;
   /** typed in the chat, said in voice (transcribed), or from the room. */
   kind: 'typed' | 'said' | 'system';
   userId: string | null;
@@ -140,8 +142,10 @@ export interface RoomSnapshot {
     userId: string;
     host: boolean;
     seat: SeatId | null;
-    canRead: Channel[];
-    canWrite: Channel[];
+    canRead: TextChannel[];
+    canWrite: TextChannel[];
+    /** This player's private team chat, when the game has teams (Realm Battle). */
+    teamChat: { channel: TextChannel; label: string } | null;
     /** Seconds behind live that this person sees the game (watchers only). */
     delay: number;
     /** Voice and video rights in each channel (the server enforces them). */
@@ -156,7 +160,7 @@ export type ClientMessage =
   | { t: 'sit'; seat: SeatId }
   | { t: 'stand' }
   | { t: 'hand'; up: boolean }
-  | { t: 'chat'; channel: Channel; text: string }
+  | { t: 'chat'; channel: TextChannel; text: string }
   | { t: 'act'; action: unknown }
   /** After a game, a seated player asks for (or takes back) a rematch. */
   | { t: 'rematch'; want: boolean }

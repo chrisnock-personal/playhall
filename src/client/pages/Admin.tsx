@@ -466,7 +466,7 @@ function ReportsCard({ session }: { session: Session }) {
           {r.chat.length > 0 && (
             <details>
               <summary>The room’s chat before the report ({r.chat.length} lines)</summary>
-              {r.chat.map((l, i) => <p key={i} className="chat-line"><span className="muted">{new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {l.channel === 'gallery' ? '(gallery) ' : ''}</span><strong>{l.name}</strong>: {l.text}</p>)}
+              {r.chat.map((l, i) => <p key={i} className="chat-line"><span className="muted">{new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {l.channel === 'table' ? '' : `(${l.channel}) `}</span><strong>{l.name}</strong>: {l.text}</p>)}
             </details>
           )}
           {r.resolved ? (

@@ -35,7 +35,7 @@ export function Replay({ session, onSignOut, id }: { session: Session; onSignOut
       queue: [],
       game: { status: 'playing', view: data.frames[step], result: last ? data.result : null, turnSeats: [], moveDeadline: null, leaving: {} },
       lastResult: null, rematch: null, chat: [],
-      you: { userId: '', host: false, seat: null, canRead: [], canWrite: [], delay: 0,
+      you: { userId: '', host: false, seat: null, canRead: [], canWrite: [], teamChat: null, delay: 0,
         media: { table: { listen: false, talk: false, video: false }, gallery: { listen: false, talk: false, video: false } } },
       serverNow: Date.now(),
     };

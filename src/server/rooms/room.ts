@@ -9,7 +9,7 @@ import { GAMES } from '../../shared/games';
 import { BOTS, BOT_ID_PREFIX, BOT_TALK, LEVELLED, botName, isBotId } from '../../shared/bots';
 import { AI_GAMES, aiPrompt, aiReplyPrompt, readAnswer, readSay } from '../../shared/ai';
 import { placingsOf } from '../../shared/scoring';
-import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId } from '../../shared/game';
+import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId, type TextChannel } from '../../shared/game';
 import type {
   Channel, ChatLine, ClientMessage, GameStatus, LastResult, MediaRight, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
 } from '../../shared/protocol';
@@ -62,6 +62,9 @@ export interface RoomRecord {
      *  forfeit when it runs out); a seat filled for someone who never came
      *  (the demo's games) doesn't. Missing in older saves = none yet. */
     joined?: SeatId[];
+    /** Chat line ids from this game onwards. Team channels are numbered by
+     *  side, so a new game must not show the last one's private lines. */
+    teamChatSince?: number;
     /** When the server last had this game loaded and running (kept fresh by
      *  the room manager), so time it spent down or unloaded isn't charged
      *  to anyone's clock or move timer when it's loaded again. */
@@ -158,6 +161,8 @@ export class Room {
     for (const s of game.seats) if (!(s.id in rec.seats)) rec.seats[s.id] = null;
     this.chatLines = history.slice(-CHAT_KEEP);
     this.nextChatId = (this.chatLines.at(-1)?.id ?? 0) + 1;
+    // Older saves have no boundary; keep their team chat closed on load.
+    if (rec.game.state && rec.game.teamChatSince === undefined) rec.game.teamChatSince = this.nextChatId;
     this.resume();
     this.armTimer();
     this.scheduleBots();
@@ -348,15 +353,29 @@ export class Room {
     return this.rec.game.status;
   }
 
-  canRead(userId: string): Channel[] {
-    const seated = this.seatOf(userId) !== null;
-    const galleryHidden = seated && this.rec.settings.hideGalleryFromPlayers && this.status === 'playing';
-    return galleryHidden ? ['table'] : ['table', 'gallery'];
+  /** A game with teams can offer its players one private text channel (#68).
+   *  Watchers and free-for-alls never get one. */
+  private teamChatFor(userId: string): { channel: TextChannel; label: string } | null {
+    if (!this.rec.game.state) return null;
+    // Only someone who played that seat in this game: after it ends, a
+    // newcomer sitting there mustn't read the side's lines from it.
+    const seat = this.seatOf(userId);
+    if (!seat || this.rec.game.players?.[seat]?.userId !== userId) return null;
+    return this.game.teamChat?.(this.rec.game.state, seat) ?? null;
   }
 
-  canWrite(userId: string): Channel[] {
+  canRead(userId: string): TextChannel[] {
     const seated = this.seatOf(userId) !== null;
-    if (seated) return ['table'];
+    const galleryHidden = seated && this.rec.settings.hideGalleryFromPlayers && this.status === 'playing';
+    const open: TextChannel[] = galleryHidden ? ['table'] : ['table', 'gallery'];
+    const team = this.teamChatFor(userId);
+    return team ? [...open, team.channel] : open;
+  }
+
+  canWrite(userId: string): TextChannel[] {
+    const seated = this.seatOf(userId) !== null;
+    const team = this.teamChatFor(userId);
+    if (seated) return team ? ['table', team.channel] : ['table'];
     const table = this.isHost(userId) || this.rec.settings.watchersWriteTable || this.status !== 'playing';
     return table ? ['table', 'gallery'] : ['gallery'];
   }
@@ -497,10 +516,12 @@ export class Room {
     this.hooks.changed();
   }
 
-  private chat(user: RoomUser, channel: Channel, text: unknown): void {
-    if (channel !== 'table' && channel !== 'gallery') throw new RoomError('No such chat');
+  private chat(user: RoomUser, channel: TextChannel, text: unknown): void {
+    const team = this.teamChatFor(user.id)?.channel;
+    if (channel !== 'table' && channel !== 'gallery' && channel !== team) throw new RoomError('No such chat');
     if (!this.canWrite(user.id).includes(channel)) {
-      throw new RoomError(channel === 'table' ? 'Watchers can’t write at the table during play' : 'Players can’t write in the gallery');
+      throw new RoomError(channel === 'table' ? 'Watchers can’t write at the table during play'
+        : channel === 'gallery' ? 'Players can’t write in the gallery' : 'Only your team can write here');
     }
     const body = typeof text === 'string' ? text.trim() : '';
     if (!body) return;
@@ -736,7 +757,7 @@ export class Room {
       host: { name: this.rec.hostName, seat: this.seatOf(this.rec.hostId) },
     };
     const joined = seated.map((s) => s.id).filter((id) => this.present.has(players[id].userId));
-    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, aliveAt: now };
+    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, teamChatSince: this.nextChatId, aliveAt: now };
     this.lastResult = null;
     this.rematch.clear();
     this.aiTalk.clear();
@@ -1165,14 +1186,18 @@ export class Room {
       rematch: this.status === 'over' ? { allowed: this.playersCanRematch, agreed: this.rematchAgreed() } : null,
       game: this.gameFor(userId, now),
       // Delayed watchers get the table (the players' talk) late too; the gallery stays live.
+      // Team channels are numbered by side, so only the current game's lines
+      // are visible: the next side to sit there mustn't read its predecessor.
       chat: this.chatLines.filter((l) => canRead.includes(l.channel)
-        && !(l.channel === 'table' && delayMs && l.at > now - delayMs)),
+        && !(l.channel === 'table' && delayMs && l.at > now - delayMs)
+        && (!l.channel.startsWith('team-') || l.id >= (this.rec.game.teamChatSince ?? Infinity))),
       you: {
         userId,
         host: this.isHost(userId),
         seat: this.seatOf(userId),
         canRead,
         canWrite: this.canWrite(userId),
+        teamChat: this.teamChatFor(userId),
         delay: this.delayFor(userId),
         media: this.mediaRights(userId) ?? { table: NO_MEDIA, gallery: NO_MEDIA },
         locked: this.hooks.canPlay?.(userId, this.rec.gameId) ?? null,
