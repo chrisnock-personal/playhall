@@ -31,11 +31,12 @@ the server.
 Our own takes on three party genres, with our own names, words and cards:
 **Clue Words** is in (2026-11-24: a 5×5 team word game for four, two
 clue-givers who see the key, one-word-and-number clues, a spy that loses the
-game, a team chat the clue-giver reads but can't write, and replays). Still open: a fill-in-the-blank
-game (working name Fill the Blank: a family deck by default, an adult deck a
-host can choose), and **What Am I?** is in (2026-11-24: everyone sees your word
-but you; ask the table yes/no questions, then guess — with family word
-categories, host-added words and ranked guesses).
+game, a team chat the clue-giver reads but can't write, and replays), **What Am I?**
+(in 2026-11-24: everyone sees your word but you; ask the table yes/no questions,
+then guess — with family word categories, host-added words and ranked guesses)
+and **Fill the Blank** (in 2026-11-24: a family deck by default, host-added
+question and answer cards, hidden hands and anonymous read-outs; no adult deck).
+All three party games are in.
 
 ### Landgrab (2026-11-16, #49)
 
@@ -182,3 +183,11 @@ Under our own names and artwork, like the others ([games.md](games.md)).
   category (animals, food, jobs, story characters or a mix) and can add their
   own words. Watchers see every word, and replays show the watcher's view.
   Later: bots, AI and an adult deck.
+
+- **Fill the Blank (#47), done 2026-11-24:** a 3-8 player saying game. A judge
+  reads a question with a blank; everyone else slips in one card from a hidden
+  hand of five, and the cards are read out with letters instead of names before
+  the judge picks a favourite. One point a round, one round per player, most
+  points wins with shared places on ties. The family deck is built in and the
+  host can add their own question and answer cards; no adult deck, bots or AI.
+  Watchers get the read-out but never a hand, and replays show the watcher's view.
