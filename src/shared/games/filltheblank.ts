@@ -57,7 +57,7 @@ const ANSWERS = [
   'a bag of popcorn', 'a tin of paint', 'the school choir', 'a very long scarf', 'a plastic flamingo',
   'an angry pickle', 'a magic pencil', 'a bowl of custard', 'a tiny trampoline', 'a lost shoe',
   'a duck on a skateboard', 'a plate of spaghetti', 'a snowman in July', 'a broken pencil', 'a borrowed moustache',
-  'a quiz with no answers', 'a pillow fort', 'a upside-down map', 'a jar of buttons', 'a tiny drum',
+  'a quiz with no answers', 'a pillow fort', 'an upside-down map', 'a jar of buttons', 'a tiny drum',
   'the last slice of cake', 'a nervous penguin', 'a pile of leaves', 'a disco nap', 'a wooden spoon',
   'a cloud shaped like a fish', 'a surprise party', 'a detective’s notebook', 'a tall glass of lemonade', 'a second cup of coffee',
 ];
@@ -190,8 +190,11 @@ function advance(s: FillBlankState, ctx: { random(): number }): FillBlankState {
   };
 }
 
-function reveal(s: FillBlankState): FillBlankState {
-  return { ...s, phase: 'judge', log: [...s.log, 'All the cards are in — judge, pick your favourite.'] };
+/** All the cards are in: shuffle them for the read-out. They were stored in
+ *  the order played, which the log shows by name, so unshuffled letters
+ *  would tell the judge who wrote each one. */
+function reveal(s: FillBlankState, ctx: { random(): number }): FillBlankState {
+  return { ...s, phase: 'judge', plays: shuffle(s.plays, ctx.random), log: [...s.log, 'All the cards are in — judge, pick your favourite.'] };
 }
 
 function playCard(s: FillBlankState, seat: SeatId, index: number, ctx: { random(): number; names?: Record<SeatId, string> }): FillBlankState {
@@ -204,7 +207,7 @@ function playCard(s: FillBlankState, seat: SeatId, index: number, ctx: { random(
     plays: [...s.plays, { by: seat, text: card }],
     log: [...s.log, `${nameOf(ctx, seat)} slipped in a card.`],
   };
-  return due(next).length ? next : reveal(next);
+  return due(next).length ? next : reveal(next, ctx);
 }
 
 function judgePick(s: FillBlankState, index: number, ctx: { random(): number; names?: Record<SeatId, string> }): FillBlankState {

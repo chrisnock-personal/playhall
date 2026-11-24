@@ -21,11 +21,13 @@ function apply(s: FillBlankState, seat: string, action: unknown, ctx: GameContex
 
 const viewOf = (s: FillBlankState, viewer: string | null) => fillTheBlank.view(s, 0, viewer) as FillBlankView;
 
-function playRound(s: FillBlankState, ctx: GameContext, pick = 0) {
+/** Everyone plays their first card; the judge picks `winner`'s (the
+ *  read-out is shuffled, so look the card up by its author). */
+function playRound(s: FillBlankState, ctx: GameContext, winner: string) {
   const judge = s.judge;
   for (const p of s.order.filter((seat) => seat !== judge)) s = apply(s, p, { type: 'play', card: 0 }, ctx);
   assert.equal(s.phase, 'judge');
-  return apply(s, judge, { type: 'pick', play: pick }, ctx);
+  return apply(s, judge, { type: 'pick', play: s.plays.findIndex((p) => p.by === winner) }, ctx);
 }
 
 test('host settings: seats, own question and answer cards are cleaned', () => {
@@ -105,7 +107,7 @@ test('cards are played privately, read out anonymously and judged', () => {
   assert.ok(s.log.every((line) => !line.includes(s.plays[0].text)), 'no card text in the log before judging');
 
   assert.ok('error' in fillTheBlank.act(s, 'teal', { type: 'pick', play: 0 }, 0, ctx));
-  s = apply(s, 'amber', { type: 'pick', play: 1 }, ctx);
+  s = apply(s, 'amber', { type: 'pick', play: s.plays.findIndex((p) => p.by === 'violet') }, ctx);
   assert.equal(s.points.violet, 1, 'the chosen card wins a point');
   assert.equal(s.points.teal, 0);
   assert.equal(s.round, 2);
@@ -135,7 +137,7 @@ test('most points wins after one round per player, with ties sharing a place', (
   const ctx = context(config({ players: 3 }));
   const c = config({ players: 3 });
   let s = fillTheBlank.create(c, 0, ctx);
-  for (let round = 0; round < 3; round++) s = playRound(s, ctx);
+  for (const winner of ['teal', 'amber', 'amber']) s = playRound(s, ctx, winner);
   assert.equal(s.result?.winner, 'amber');
   assert.deepEqual(s.result?.placings, [['amber'], ['teal'], ['violet']]);
   assert.match(s.result!.reason, /most funny answers/);
@@ -143,7 +145,7 @@ test('most points wins after one round per player, with ties sharing a place', (
   assert.deepEqual(viewOf(s, null).points, { amber: 2, teal: 1, violet: 0 });
 
   const tied = fillTheBlank.create(c, 0, context(c));
-  const withTie = playRound({ ...tied, round: 3, judge: 'violet', points: { amber: 0, teal: 1, violet: 0 } }, context(c));
+  const withTie = playRound({ ...tied, round: 3, judge: 'violet', points: { amber: 0, teal: 1, violet: 0 } }, context(c), 'amber');
   assert.deepEqual(withTie.result?.placings, [['amber', 'teal'], ['violet']]);
   assert.equal(withTie.result?.winner, null);
 });
@@ -162,4 +164,19 @@ test('replays show the watcher’s anonymous view after each card and pick', () 
   assert.ok(frames.every((f) => f.hand === null), 'no hidden hands in a replay');
   assert.ok(frames.every((f) => f.plays.every((p) => typeof p.text === 'string')), 'read-outs are replayable');
   assert.deepEqual(fillTheBlank.replay!({ ...s, history: undefined }), []);
+});
+
+test('the read-out is shuffled, so its letters don’t follow the order cards went in', () => {
+  // The log names players in the order they played; over a few games the
+  // read-out must not always come back in that order.
+  let differs = 0;
+  for (let seed = 1; seed <= 12; seed++) {
+    const ctx: GameContext = { seats: ['amber', 'teal', 'violet', 'rose'], random: seeded(seed) };
+    let s = fillTheBlank.create(config(), 0, ctx);
+    const playedOrder = ['rose', 'teal', 'violet'];
+    for (const p of playedOrder) s = apply(s, p, { type: 'play', card: 0 }, ctx);
+    assert.deepEqual([...s.plays.map((p) => p.by)].sort(), [...playedOrder].sort(), 'every card is read out once');
+    if (s.plays.map((p) => p.by).join() !== playedOrder.join()) differs++;
+  }
+  assert.ok(differs >= 6, `read-out order matched the play order too often (${12 - differs} of 12)`);
 });
