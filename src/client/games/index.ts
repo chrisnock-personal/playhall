@@ -24,6 +24,7 @@ import { chineseCheckersClient } from './chinesecheckers';
 import { rouletteClient } from './roulette';
 import { crapsClient } from './craps';
 import { bridgeClient } from './bridge';
+import { realmBattleClient } from './realmbattle';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -51,4 +52,5 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [rouletteClient.id]: rouletteClient,
   [crapsClient.id]: crapsClient,
   [bridgeClient.id]: bridgeClient,
+  [realmBattleClient.id]: realmBattleClient,
 };

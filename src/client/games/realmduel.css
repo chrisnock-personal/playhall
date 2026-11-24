@@ -90,3 +90,12 @@ button.rd-pick:not(:disabled):hover .rd-card { transform: translateY(-3px); }
   .rd-stats dt { font-size: 8px; } .rd-stats dd { font-size: 11px; }
   .rd-reveal-side { width: calc(50% - 22px); }
 }
+
+/* Realm Battle (#34) */
+.rb-side { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.rb-player { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 12px; border: 1px solid transparent; }
+.rb-player.aimed { border-color: #f0a53c; box-shadow: 0 0 0 2px rgba(240,165,60,.3); }
+.rb-player.out { opacity: .45; }
+.rb-side.mates { opacity: .95; }
+.rb-log { text-align: left; font-size: 13px; max-height: 130px; overflow: auto; background: rgba(0,0,0,.2); border-radius: 10px; padding: 8px 12px; }
+.rb-log p { margin: 2px 0; }
