@@ -211,6 +211,25 @@ const ShipOrders: FC = () => (
   </Fig>
 );
 
+const WhatWords: FC = () => (
+  <Fig caption="Everyone else sees your word, but you don't — until your turn ends. Watchers see them all.">
+    <svg viewBox="0 0 210 90" width="220" role="img" aria-label="Three word cards: two show words, the asker's card is masked">
+      {[
+        { x: 5, name: 'Amber', word: 'PENGUIN', fill: '#f3e4bd', ink: '#29251b' },
+        { x: 75, name: 'Violet', word: 'Your word', fill: '#44546b', ink: '#e7ecf4' },
+        { x: 145, name: 'Teal', word: 'TACO', fill: '#f3e4bd', ink: '#29251b' },
+      ].map((c) => (
+        <g key={c.name}>
+          <rect x={c.x} y={12} width={62} height={58} rx={8} fill={c.fill} />
+          <text x={c.x + 31} y={32} textAnchor="middle" fontSize={9} fill={c.ink} fontWeight="bold">{c.name}</text>
+          <text x={c.x + 31} y={53} textAnchor="middle" fontSize={9} fill={c.ink}>{c.word}</text>
+        </g>
+      ))}
+      <text x={105} y={83} textAnchor="middle" fontSize={9} fill="var(--muted)">ask the table, then guess</text>
+    </svg>
+  </Fig>
+);
+
 const ClueBoard: FC = () => {
   // The key a clue-giver sees: nine Sun, eight Moon, seven neutral, one spy.
   const kinds = [
@@ -308,6 +327,7 @@ const PICTURES: Record<string, Record<string, FC>> = {
   bridge: { 'The auction': BridgeBid },
   realmbattle: { 'A round': BattleRound },
   cluewords: { 'The board': ClueBoard },
+  whatami: { 'The word': WhatWords },
   filltheblank: { 'A round': FillRound },
 };
 

@@ -26,6 +26,7 @@ import { crapsClient } from './craps';
 import { bridgeClient } from './bridge';
 import { realmBattleClient } from './realmbattle';
 import { clueWordsClient } from './cluewords';
+import { whatAmIClient } from './whatami';
 import { fillTheBlankClient } from './filltheblank';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
@@ -56,6 +57,7 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [bridgeClient.id]: bridgeClient,
   [realmBattleClient.id]: realmBattleClient,
   [clueWordsClient.id]: clueWordsClient,
+  [whatAmIClient.id]: whatAmIClient,
   [fillTheBlankClient.id]: fillTheBlankClient,
 };
 

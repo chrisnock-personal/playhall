@@ -26,6 +26,7 @@ import { craps } from './craps';
 import { bridge } from './bridge';
 import { realmBattle } from './realmbattle';
 import { clueWords } from './cluewords';
+import { whatAmI } from './whatami';
 import { fillTheBlank } from './filltheblank';
 import { BOTS } from '../bots';
 
@@ -59,6 +60,7 @@ export const GAMES: Record<string, GameModule<any, any>> = {
   [bridge.id]: bridge,
   [realmBattle.id]: realmBattle,
   [clueWords.id]: clueWords,
+  [whatAmI.id]: whatAmI,
   [fillTheBlank.id]: fillTheBlank,
 };
 
