@@ -7,13 +7,19 @@
 export type SeatId = string;
 
 /** Chat channels: the room's two open channels, plus a team's private one
- *  (`team-0`, `team-1`) in games that have teams (Realm Battle, #68). Voice
- *  stays on the two open channels; `Channel` in protocol.ts is those two. */
+ *  (`team-0`, `team-1`) in games that have teams (Realm Battle, #68). The
+ *  open channels carry voice and video too; a game may also give its sides a
+ *  private audio-only channel (`VoiceChannel` in protocol.ts). */
 export type TextChannel = 'table' | 'gallery' | `team-${number}`;
 
 /** A player's private team channel. `readOnly`: they read it but can't write
  *  (Clue Words' clue-giver, who may give nothing but the clue). */
 export interface TeamChat { channel: TextChannel; label: string; readOnly?: boolean }
+
+/** A game's private voice channel for one side. Audio only: cameras always
+ *  go to the table or gallery. The room gives each game its own LiveKit room
+ *  so the next side in those seats can't join the last game's channel. */
+export interface TeamVoice { channel: `team-${number}`; label: string }
 
 export interface SeatDef {
   id: SeatId;
@@ -136,6 +142,9 @@ export interface GameModule<S = unknown, C = unknown> {
   /** A game with teams can give each side a private text channel. The room
    *  uses this to allow and filter chat; watchers and free-for-alls get null. */
   teamChat?(state: S, viewer: SeatId | null): TeamChat | null;
+  /** A game can also give each side a private, audio-only voice channel. The
+   *  room uses the same player-only, per-game rules as team chat. */
+  teamVoice?(state: S, viewer: SeatId | null): TeamVoice | null;
 }
 
 /** The seats in use for a (raw) config. */

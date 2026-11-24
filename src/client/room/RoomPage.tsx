@@ -78,7 +78,7 @@ function Room({ snap, conn, session, voice }: { snap: RoomSnapshot; conn: Return
   const stageProps: StageProps = { snap, receivedAt: conn.receivedAt, send: conn.send, voice, token: session.token };
   const tx = useTranscriber(snap.room.code, session.token, snap, voice);
   // Table sounds (#29): quieter under voice chat, quieter still while someone talks.
-  const talking = voice.state === 'on' && !!voice.channel && voice.speaking[voice.channel].length > 0;
+  const talking = voice.state === 'on' && !!voice.channel && (voice.speaking[voice.channel]?.length ?? 0) > 0;
   useTableSounds(snap, conn.receivedAt, voice.state !== 'on' ? 1 : talking ? 0.35 : 0.6);
 
   // While you're in one channel's voice, also show the other channel's video

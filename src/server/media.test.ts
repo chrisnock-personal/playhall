@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TrackSource } from 'livekit-server-sdk';
-import { CAMERA_PREFIX, cameraPermission, cameraToken, mediaPermission, mediaToken, publishSources } from './media';
+import { CAMERA_PREFIX, cameraPermission, cameraToken, mediaPermission, mediaRoomName, mediaToken, publishSources } from './media';
 import { Auth } from './auth';
 
 const cfg = { url: 'http://livekit:7880', apiKey: 'key', apiSecret: 'x'.repeat(32) };
@@ -27,6 +27,19 @@ test('tokens carry the rights: a watcher can talk but not send the camera', asyn
   assert.deepEqual(player.canPublishSources, ['microphone', 'camera']);
   const listener = await grantOf({ listen: true, talk: false, video: false });
   assert.equal(listener.canPublish, false);
+});
+
+test('side voice tokens use a per-game room and carry the microphone only', async () => {
+  const jwt = await mediaToken(cfg, {
+    code: 'ABC123', channel: 'team-0', generation: 'game-7', userId: 'u1', name: 'Sam',
+    listen: true, talk: true, video: false,
+  });
+  const grant = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString()).video;
+  assert.equal(grant.room, 'ABC123:team-0:game-7');
+  assert.notEqual(mediaRoomName('ABC123', 'team-0', 'game-7'), mediaRoomName('ABC123', 'team-0', 'game-8'), 'the next side gets another room');
+  assert.equal(mediaRoomName('ABC123', 'team-0'), 'ABC123:team-0', 'no generation for an old-style token');
+  assert.equal(grant.canSubscribe, true);
+  assert.deepEqual(grant.canPublishSources, ['microphone'], 'no camera in a team voice room');
 });
 
 test('the table camera’s token: sends only its camera to the table; hears and sees nothing', async () => {

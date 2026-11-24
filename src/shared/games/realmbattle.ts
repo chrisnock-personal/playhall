@@ -7,7 +7,7 @@
 // player) with creatures standing wins. Uses Realm Duel's creatures, damage
 // and elements (realmduel.ts).
 
-import type { GameResult, SeatDef, SeatId, TextChannel } from '../game';
+import type { GameResult, SeatDef, SeatId, TeamVoice, TextChannel } from '../game';
 import {
   CREATURES, MEND, POISON_DAMAGE, POISON_ROUNDS, STYLES, STYLE_NAME, UNDERTOW_CHANCE, GUST_CHANCE,
   bestStyle, damage, deal, type Fighter, type FighterView, type Style,
@@ -197,7 +197,7 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
       { title: 'Everything else', points: [
         'The creatures, damage, elements and abilities are Realm Duel’s (see its rules).',
         'In team games, Mend heals and Shield covers whoever is most hurt on your side, your own creature included (on a tie, your own). In a free-for-all they work on yourself as in Realm Duel.',
-        'Team mates have their own private chat tab, visible only to that team.',
+        'Team mates have their own private chat tab and voice channel, visible only to that team and to that game.',
         'A player with no creatures standing is out. The last team (or player) with creatures standing wins; in teams, everyone on the winning team scores the win.',
         `After ${MAX_ROUNDS} rounds, the side with more creatures standing (then more Health) wins.`,
         'If the room has a move timer and you run out of time, your healthiest creature attacks the weakest enemy with its strongest style.',
@@ -272,6 +272,14 @@ export const realmBattle = withHistory<BattleState, BattleConfig>({
     if (!viewer || !s.order.includes(viewer) || s.config.mode === 'ffa') return null;
     const team = s.team[viewer];
     return { channel: `team-${team}`, label: `${TEAM_NAMES[team]} team` };
+  },
+
+  /** A side's private voice channel, alongside its text chat (#82). Only
+   *  Realm Battle asks for one: other team games keep the open channels. */
+  teamVoice(s, viewer): TeamVoice | null {
+    if (!viewer || !s.order.includes(viewer) || s.config.mode === 'ffa') return null;
+    const team = s.team[viewer];
+    return { channel: `team-${team}`, label: `${TEAM_NAMES[team]} team voice` };
   },
 }, { keys: ['creature', 'style', 'target'] });
 

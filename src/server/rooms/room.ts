@@ -9,9 +9,9 @@ import { GAMES } from '../../shared/games';
 import { BOTS, BOT_ID_PREFIX, BOT_TALK, LEVELLED, botName, isBotId } from '../../shared/bots';
 import { AI_GAMES, aiPrompt, aiReplyPrompt, readAnswer, readSay } from '../../shared/ai';
 import { placingsOf } from '../../shared/scoring';
-import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId, type TeamChat, type TextChannel } from '../../shared/game';
+import { seatsIn, type ActResult, type GameContext, type GameModule, type GameResult, type SeatDef, type SeatId, type TeamChat, type TeamVoice, type TextChannel } from '../../shared/game';
 import type {
-  Channel, ChatLine, ClientMessage, GameStatus, LastResult, MediaRight, MemberView, RoomSettings, RoomSnapshot, RoomSummary,
+  Channel, ChatLine, ClientMessage, GameStatus, LastResult, MediaRight, MemberView, RoomSettings, RoomSnapshot, RoomSummary, VoiceChannel,
 } from '../../shared/protocol';
 
 const NO_MEDIA: MediaRight = { listen: false, talk: false, video: false };
@@ -65,6 +65,9 @@ export interface RoomRecord {
     /** Chat line ids from this game onwards. Team channels are numbered by
      *  side, so a new game must not show the last one's private lines. */
     teamChatSince?: number;
+    /** Unique LiveKit room generation for this game's private team voice.
+     *  Older saves fall back to their start time and chat boundary. */
+    voiceId?: string | null;
     /** When the server last had this game loaded and running (kept fresh by
      *  the room manager), so time it spent down or unloaded isn't charged
      *  to anyone's clock or move timer when it's loaded again. */
@@ -353,15 +356,64 @@ export class Room {
     return this.rec.game.status;
   }
 
+  /** The seat this person actually played in the game being shown. */
+  private playedSeat(userId: string): SeatId | null {
+    const state = this.rec.game.state;
+    if (!state) return null;
+    // After the game, a newcomer in the same seat didn't play this side.
+    const seat = this.seatOf(userId);
+    if (!seat || this.rec.game.players?.[seat]?.userId !== userId) return null;
+    return seat;
+  }
+
   /** A game with teams can offer its players one private text channel (#68).
    *  Watchers and free-for-alls never get one. */
   private teamChatFor(userId: string): TeamChat | null {
-    if (!this.rec.game.state) return null;
-    // Only someone who played that seat in this game: after it ends, a
-    // newcomer sitting there mustn't read the side's lines from it.
-    const seat = this.seatOf(userId);
-    if (!seat || this.rec.game.players?.[seat]?.userId !== userId) return null;
-    return this.game.teamChat?.(this.rec.game.state, seat) ?? null;
+    const seat = this.playedSeat(userId);
+    const state = this.rec.game.state;
+    if (!seat || !state) return null;
+    return this.game.teamChat?.(state, seat) ?? null;
+  }
+
+  /** A game can also give its players one private, audio-only side channel
+   *  (#82). It follows the team chat's rules: only someone who played that
+   *  seat, and only while they're here. */
+  teamVoiceFor(userId: string): TeamVoice | null {
+    if (!this.present.has(userId)) return null;
+    const seat = this.playedSeat(userId);
+    const state = this.rec.game.state;
+    if (!seat || !state) return null;
+    return this.game.teamVoice?.(state, seat) ?? null;
+  }
+
+  /** Unique room name suffix for this game's team voice. Side numbers are
+   *  reused, so without it an old token could rejoin the next game's side. */
+  voiceGeneration(): string | null {
+    const g = this.rec.game;
+    if (!g.state || !g.players) return null;
+    return g.voiceId ?? `${g.startedAt ?? 0}:${g.teamChatSince ?? 0}`;
+  }
+
+  /** Side channels in the current game, so media sync checks them too. */
+  teamVoiceChannels(): `team-${number}`[] {
+    const state = this.rec.game.state;
+    if (!state || !this.game.teamVoice) return [];
+    const out = new Set<`team-${number}`>();
+    for (const [seat] of Object.entries(this.rec.game.players ?? {})) {
+      const voice = this.game.teamVoice(state, seat);
+      if (voice) out.add(voice.channel);
+    }
+    return [...out];
+  }
+
+  /** Rights for any voice channel, including a game's private side channel. */
+  voiceRight(userId: string, channel: VoiceChannel): MediaRight | null {
+    if (channel === 'table' || channel === 'gallery') return this.mediaRights(userId)?.[channel] ?? null;
+    if (!this.present.has(userId)) return null;
+    const voice = this.teamVoiceFor(userId);
+    const chat = this.teamChatFor(userId);
+    if (!voice || !chat || voice.channel !== channel || chat.channel !== channel) return null;
+    return { listen: true, talk: !chat.readOnly, video: false };
   }
 
   canRead(userId: string): TextChannel[] {
@@ -757,7 +809,10 @@ export class Room {
       host: { name: this.rec.hostName, seat: this.seatOf(this.rec.hostId) },
     };
     const joined = seated.map((s) => s.id).filter((id) => this.present.has(players[id].userId));
-    this.rec.game = { status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined, teamChatSince: this.nextChatId, aliveAt: now };
+    this.rec.game = {
+      status: 'playing', state: this.game.create(config, now, ctx), startedAt: now, players, result: null, moveDeadline: null, joined,
+      teamChatSince: this.nextChatId, voiceId: this.hooks.newId?.() ?? `${now}:${this.nextChatId}`, aliveAt: now,
+    };
     this.lastResult = null;
     this.rematch.clear();
     this.aiTalk.clear();
@@ -1198,6 +1253,7 @@ export class Room {
         canRead,
         canWrite: this.canWrite(userId),
         teamChat: this.teamChatFor(userId),
+        teamVoice: this.teamVoiceFor(userId),
         delay: this.delayFor(userId),
         media: this.mediaRights(userId) ?? { table: NO_MEDIA, gallery: NO_MEDIA },
         locked: this.hooks.canPlay?.(userId, this.rec.gameId) ?? null,
