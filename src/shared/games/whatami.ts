@@ -27,9 +27,9 @@ export const SEATS: SeatDef[] = [
 /** Our own family-friendly words. No adult deck; hosts can add their own. */
 const WORDS: Record<Exclude<Category, 'mixed'>, string[]> = {
   animals: ['ELEPHANT', 'KANGAROO', 'DOLPHIN', 'PENGUIN', 'GIRAFFE', 'TORTOISE', 'BUTTERFLY', 'OCTOPUS', 'HAMSTER', 'EAGLE', 'CROCODILE', 'OWL'],
-  food: ['PIZZA', 'TACO', 'PANCAKE', 'POPCORN', 'ICECREAM', 'SUSHI', 'WAFFLE', 'CHOCOLATE', 'BANANA', 'CARROT', 'MUFFIN', 'NOODLES'],
+  food: ['PIZZA', 'TACO', 'PANCAKE', 'POPCORN', 'ICE CREAM', 'SUSHI', 'WAFFLE', 'CHOCOLATE', 'BANANA', 'CARROT', 'MUFFIN', 'NOODLES'],
   jobs: ['TEACHER', 'DOCTOR', 'CHEF', 'PILOT', 'FARMER', 'ARTIST', 'PLUMBER', 'DENTIST', 'ASTRONAUT', 'LIBRARIAN', 'BAKER', 'ENGINEER'],
-  characters: ['CINDERELLA', 'SNOWWHITE', 'RAPUNZEL', 'ROBINHOOD', 'DRACULA', 'FRANKENSTEIN', 'MOBYDICK', 'PINOCCHIO', 'ALADDIN', 'HERCULES', 'PETERPAN', 'ODYSSEUS'],
+  characters: ['CINDERELLA', 'SNOW WHITE', 'RAPUNZEL', 'ROBIN HOOD', 'DRACULA', 'FRANKENSTEIN', 'MOBY DICK', 'PINOCCHIO', 'ALADDIN', 'HERCULES', 'PETER PAN', 'ODYSSEUS'],
 };
 
 export interface WhatAmIConfig {
@@ -94,10 +94,11 @@ export const wordsFor = (config: WhatAmIConfig): string[] => {
   return [...new Set([...built, ...config.custom])];
 };
 
-function drawWords(config: WhatAmIConfig, count: number, random: () => number): Record<SeatId, string> {
+/** A word for each seat that's playing: the seats in `order`, which can have
+ *  gaps (three players at Amber, Teal and Rose in a four-seat game). */
+function drawWords(config: WhatAmIConfig, order: SeatId[], random: () => number): Record<SeatId, string> {
   const pool = [...wordsFor(config)];
   const words: Record<SeatId, string> = {};
-  const order = [...SEATS].slice(0, count).map((s) => s.id);
   for (const seat of order) {
     const i = randInt(random, pool.length);
     words[seat] = pool[i];
@@ -105,6 +106,9 @@ function drawWords(config: WhatAmIConfig, count: number, random: () => number): 
   }
   return words;
 }
+
+/** Letters only, so SNOW WHITE, Snow-White and snowwhite are the same guess. */
+const letters = (w: string) => w.toUpperCase().replace(/[^A-Z]/g, '');
 
 const nameOf = (ctx: { names?: Record<SeatId, string> }, seat: SeatId) => ctx.names?.[seat] ?? seat;
 const ANSWER_LABEL: Record<Answer, string> = { yes: 'yes', no: 'no', maybe: 'maybe' };
@@ -171,7 +175,7 @@ export const whatAmI = withHistory<WhatAmIState, WhatAmIConfig>({
       ] },
       { title: 'Asking and answering', points: [
         'On your turn, type one short question and the other players answer yes, no or maybe with buttons. Talk it over in table chat or voice as well.',
-        'After everyone has answered, ask another question or guess your word. A wrong guess costs you nothing but time.',
+        'After everyone has answered, ask another question or guess your word. A wrong guess counts as a question. Spaces and hyphens in a guess don’t matter.',
         'If the move timer runs out, your turn is skipped and your word is revealed to you.',
       ] },
       { title: 'Scores', points: [
@@ -203,7 +207,7 @@ export const whatAmI = withHistory<WhatAmIState, WhatAmIConfig>({
   create(config, _now, ctx) {
     const order = ctx.seats.slice(0, config.players);
     return {
-      config, order, words: drawWords(config, order.length, ctx.random),
+      config, order, words: drawWords(config, order, ctx.random),
       round: 1, guesser: order[0], phase: 'question', question: null, answers: {}, roundQuestions: 0,
       correct: {}, revealed: [], log: [`${nameOf(ctx, order[0])} goes first. Everyone else can see their word.`], result: null,
     };
@@ -240,8 +244,10 @@ export const whatAmI = withHistory<WhatAmIState, WhatAmIConfig>({
       if (s.phase !== 'question' || !s.roundQuestions) return { error: 'Ask a question first' };
       const word = typeof a.word === 'string' ? a.word.trim().toUpperCase().replace(/\s+/g, ' ') : '';
       if (!word || word.length > 24) return { error: 'Guess one word' };
-      if (word !== s.words[seat]) {
-        return { state: { ...s, log: [...s.log, `${nameOf(ctx, seat)} guesses ${word} — no.`] } };
+      if (letters(word) !== letters(s.words[seat])) {
+        // A wrong guess counts as a question, or guessing every word in the
+        // category after one question would always win.
+        return { state: { ...s, roundQuestions: s.roundQuestions + 1, log: [...s.log, `${nameOf(ctx, seat)} guesses ${word} — no. That counts as a question.`] } };
       }
       return { state: nextTurn({
         ...s, correct: { ...s.correct, [seat]: s.roundQuestions },

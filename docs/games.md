@@ -195,7 +195,8 @@ yet. Both team mates score the win.
 **What Am I?** (#48, 3-8 players, a talking party game: everyone sees your word
 but you. On your turn you ask a short question, the others answer yes, no or
 maybe with buttons and talk it over at the table, then you guess. Each player
-has one turn; a correct guess takes a place by how few questions it took, with
+has one turn; a correct guess takes a place by how few questions it took (a wrong
+guess counts as one), with
 a shared place on a tie. Watchers see every word. The host picks a family word
 category or adds their own words; no bots or AI yet). It has replays and a
 rules picture.

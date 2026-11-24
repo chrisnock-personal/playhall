@@ -79,9 +79,10 @@ test('questions, answers and guesses follow the turn', () => {
 
   s = apply(s, 'amber', { type: 'guess', word: 'NOT THE WORD' }, ctx);
   assert.equal(s.correct.amber, undefined, 'a wrong guess does not score');
+  assert.equal(s.roundQuestions, 2, 'a wrong guess counts as a question');
   assert.equal(s.round, 1);
-  s = apply(s, 'amber', { type: 'guess', word: s.words.amber }, ctx);
-  assert.equal(s.correct.amber, 1, 'one question to guess');
+  s = apply(s, 'amber', { type: 'guess', word: s.words.amber.toLowerCase() }, ctx);
+  assert.equal(s.correct.amber, 2, 'one question and one wrong guess');
   assert.equal(s.round, 2);
   assert.equal(s.guesser, 'teal');
   assert.equal(s.phase, 'question');
@@ -153,4 +154,20 @@ test('replays show the watcher’s view after each question, answer and guess', 
   assert.deepEqual(frames.at(-1), viewOf(s, null));
   assert.ok((frames[0] as WhatAmIView).words.amber, 'watchers saw every word from the first frame');
   assert.deepEqual(whatAmI.replay!({ ...s, history: undefined }), [], 'older saves have no replay');
+});
+
+test('three players in a four-seat game each get a word, gaps and all', () => {
+  const s = whatAmI.create({ players: 4, category: 'animals', custom: [] }, 0, { seats: ['amber', 'teal', 'rose'], random: () => 0.3 } as never);
+  assert.deepEqual(Object.keys(s.words).sort(), ['amber', 'rose', 'teal']);
+  assert.ok(Object.values(s.words).every((w) => typeof w === 'string' && w.length > 0));
+});
+
+test('a guess matches whatever its spaces, hyphens and case', () => {
+  const ctx = { seats: ['amber', 'teal', 'violet'], random: () => 0 } as never;
+  let s = whatAmI.create({ players: 3, category: 'characters', custom: [] }, 0, ctx);
+  s = { ...s, words: { ...s.words, amber: 'SNOW WHITE' } };
+  s = apply(s, 'amber', { type: 'question', text: 'Am I a princess?' }, ctx);
+  for (const p of ['teal', 'violet']) s = apply(s, p, { type: 'answer', answer: 'yes' }, ctx);
+  s = apply(s, 'amber', { type: 'guess', word: 'snow-white' }, ctx);
+  assert.equal(s.correct.amber, 1);
 });
