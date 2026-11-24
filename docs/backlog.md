@@ -191,3 +191,14 @@ Under our own names and artwork, like the others ([games.md](games.md)).
   points wins with shared places on ties. The family deck is built in and the
   host can add their own question and answer cards; no adult deck, bots or AI.
   Watchers get the read-out but never a hand, and replays show the watcher's view.
+
+- **Tournament tables and pairs (#59), done 2026-11-24:** Swiss tournaments can
+  seat 3-6 entries at a table (any game with that many seats), with points for
+  first, second and so on chosen by the host (3-2-1-0 by default). Each round
+  groups entries by score into tables, avoids tables that have already met and
+  gives leftovers a bye; the bracket and pair formats still use 1-½-0. Results
+  come from a game's finishing places as well as its winner; the organiser can
+  settle a whole table by picking the winner, and forfeits and withdrawals place
+  the rest. Spades can be run as pairs: partners are found by account name before
+  entering, sit across from each other, and score and stand together as one
+  entry (both accounts see the tournament and keep the result).

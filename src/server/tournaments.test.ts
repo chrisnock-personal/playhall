@@ -22,12 +22,19 @@ function fakes() {
   };
   const ts = new Tournaments(db, manager as unknown as RoomManager);
   ts.stop();
-  /** Finish the game in room `code`: `winner` is a user id, or null for a draw. */
-  const finish = async (code: string, winner: string | null) => {
+  /** Finish the game in room `code`: `winner` is a user id, or null for a draw.
+   *  Tables (#59) finish with placings of user ids, grouped by finishing place. */
+  const finish = async (code: string, winner: string | null, opts?: { placings?: string[][]; teamWin?: boolean; nobodyWins?: boolean }) => {
     const r = rooms.find((x) => x.code === code)!;
     const players = Object.fromEntries(Object.entries(r.seated).map(([seat, p]) => [seat, { userId: p.id, name: p.id, guest: false }]));
     const seat = winner ? Object.keys(r.seated).find((s) => r.seated[s].id === winner)! : null;
-    manager.onGameOver!({ rec: { code } as never, result: { winner: seat, reason: 'test' }, players, state: null, counted: true, note: null } as FinishedGame);
+    const seatOf = (id: string) => Object.keys(r.seated).find((s) => r.seated[s].id === id)!;
+    const result = {
+      winner: opts?.placings ? null : seat, reason: 'test',
+      ...(opts?.placings ? { placings: opts.placings.map((group) => group.map(seatOf)), teamWin: !!opts.teamWin } : {}),
+      ...(opts?.nobodyWins ? { nobodyWins: true } : {}),
+    };
+    manager.onGameOver!({ rec: { code } as never, result, players, state: null, counted: true, note: null } as FinishedGame);
     await new Promise((res) => setTimeout(res, 5));
   };
   return { ts, rooms, finish };
@@ -35,11 +42,16 @@ function fakes() {
 
 const me = (id: string) => ({ id, name: id });
 
-test('settings are checked: a two-player game, a format, sensible rounds', () => {
+test('settings are checked: table size, a format, sensible rounds', () => {
   assert.ok('config' in checkTournament({ name: 'Club night', gameId: 'chess', format: 'swiss', rounds: 3 }));
-  assert.match((checkTournament({ name: 'x', gameId: 'ship2shore', format: 'knockout' }) as { error: string }).error, /two-player/);
+  assert.match((checkTournament({ name: 'x', gameId: 'ship2shore', format: 'knockout' }) as { error: string }).error, /5 to 6 players/);
   assert.match((checkTournament({ name: 'x', gameId: 'chess', format: 'league' }) as { error: string }).error, /format/);
   assert.match((checkTournament({ name: 'x', gameId: 'chess', format: 'swiss', rounds: 0 }) as { error: string }).error, /rounds/);
+  assert.ok('config' in checkTournament({ name: 'Table night', gameId: 'ludo', format: 'swiss', rounds: 2, tableSize: 3, placePoints: [3, 2, 1] }));
+  assert.match((checkTournament({ name: 'x', gameId: 'ludo', format: 'knockout', tableSize: 3 }) as { error: string }).error, /need Swiss/);
+  assert.match((checkTournament({ name: 'x', gameId: 'chess', format: 'swiss', rounds: 2, tableSize: 3 }) as { error: string }).error, /needs 2 to 2/);
+  assert.match((checkTournament({ name: 'x', gameId: 'spades', format: 'swiss', rounds: 2, teamSize: 2, tableSize: 3 }) as { error: string }).error, /Spades/);
+  assert.match((checkTournament({ name: 'x', gameId: 'ludo', format: 'swiss', rounds: 2, tableSize: 3, placePoints: [1, 9, 0] }) as { error: string }).error, /points by place/);
 });
 
 test('a knockout from entries to a winner: rooms opened with both players seated, a draw replayed, a forfeit', async () => {
@@ -118,4 +130,93 @@ test('organiser tools: withdrawing a player, more time, late Swiss entries, and 
   const r2 = t.rounds[1].flatMap((x) => [x.a, x.b]);
   assert.ok(!r2.includes('a') && r2.includes('e'));
   assert.ok(rooms.length >= 3);
+});
+
+test('a table tournament seats the whole table and scores by finishing place', async () => {
+  const { ts, rooms, finish } = fakes();
+  const t = await ts.create(me('org'), { name: 'Ludo night', gameId: 'ludo', format: 'swiss', rounds: 2, tableSize: 3, placePoints: [3, 2, 1] });
+  for (const p of ['a', 'b', 'c', 'd', 'e', 'f']) await ts.enter(me(p), t, true);
+  await assert.rejects(ts.start(me('a'), t), /organiser/);
+  await ts.start(me('org'), t, () => 0.5);
+  assert.equal(rooms.length, 2, 'two tables');
+  assert.equal(Object.keys(rooms[0].seated).length, 3, 'all three seats filled');
+  assert.equal(new Set(Object.values(rooms[0].seated).map((p) => p.id)).size, 3);
+  const m = t.rounds[0][0];
+  const table = m.table!;
+  await finish(m.room!, null, { placings: [[table[0]], [table[1]], [table[2]]] });
+  assert.equal(m.result, 'table');
+  assert.equal(m.how, 'game');
+  const view = ts.view(t);
+  assert.equal(view.standings.find((s) => s.id === table[0])!.points, 3);
+  assert.equal(view.standings.find((s) => s.id === table[1])!.points, 2);
+  assert.equal(view.standings.find((s) => s.id === table[2])!.points, 1);
+  assert.equal(view.standings.find((s) => s.id === t.rounds[0][1].table![0])!.points, 0);
+  const other = t.rounds[0][1];
+  const otherTable = other.table!;
+  await finish(other.room!, null, { placings: [[otherTable[0]], [otherTable[1]], [otherTable[2]]] });
+  assert.equal(t.rounds.length, 2, 'round 2 is paired by score');
+});
+
+test('the organiser can settle a whole table by picking the winner', async () => {
+  const { ts } = fakes();
+  const t = await ts.create(me('org'), { name: 'Settled', gameId: 'ludo', format: 'swiss', rounds: 1, tableSize: 3, placePoints: [3, 2, 1] });
+  for (const p of ['a', 'b', 'c']) await ts.enter(me(p), t, true);
+  await ts.start(me('org'), t, () => 0.5);
+  await assert.rejects(ts.award(me('a'), t, 0, 0, 'table', t.rounds[0][0].a), /organiser/);
+  await assert.rejects(ts.award(me('org'), t, 0, 0, 'table', 'nobody'), /Pick an entry/);
+  const m = t.rounds[0][0];
+  await ts.award(me('org'), t, 0, 0, 'table', m.table![1]);
+  assert.deepEqual(m.placings, [[m.table![1]], [m.table![0], m.table![2]]]);
+  assert.equal(m.result, 'table');
+  assert.equal(m.how, 'organiser');
+  assert.equal(t.status, 'done');
+  const view = ts.view(t);
+  assert.equal(view.standings.find((s) => s.id === m.table![1])!.points, 3);
+  assert.equal(view.winner?.id, m.table![1]);
+});
+
+test('organiser withdrawal and deadlines place the rest of a table', async () => {
+  const { ts, rooms } = fakes();
+  const t = await ts.create(me('org'), { name: 'Table', gameId: 'ludo', format: 'swiss', rounds: 1, tableSize: 3, placePoints: [3, 2, 1] });
+  for (const p of ['a', 'b', 'c']) await ts.enter(me(p), t, true);
+  await ts.start(me('org'), t, () => 0.5);
+  const m = t.rounds[0][0];
+  await ts.withdraw(me('org'), t, m.table![2]);
+  assert.deepEqual(m.placings, [[m.table![0], m.table![1]], [m.table![2]]]);
+  assert.equal(m.how, 'forfeit');
+  assert.equal(t.status, 'done');
+
+  const t2 = await ts.create(me('org'), { name: 'Deadline', gameId: 'ludo', format: 'swiss', rounds: 1, tableSize: 3, placePoints: [3, 2, 1] });
+  for (const p of ['d', 'e', 'f']) await ts.enter(me(p), t2, true);
+  await ts.start(me('org'), t2, () => 0.5);
+  const m2 = t2.rounds[0][0];
+  rooms.at(-1)!.here.add(m2.table![0]);
+  await ts.checkDeadlines(Date.now() + 60 * 60_000);
+  assert.deepEqual(m2.placings, [[m2.table![0]], [m2.table![1], m2.table![2]]]);
+  assert.equal(m2.how, 'forfeit');
+});
+
+test('Spades pair entries sit as partners and a team win goes to the entry', async () => {
+  const { ts, rooms, finish } = fakes();
+  const t = await ts.create(me('org'), { name: 'Pairs', gameId: 'spades', format: 'swiss', rounds: 1, teamSize: 2, tableSize: 4, placePoints: [3, 2] });
+  await ts.enter(me('a'), t, true, me('a2'));
+  await ts.enter(me('b'), t, true, me('b2'));
+  await assert.rejects(ts.enter(me('c'), t, true), /partner/);
+  assert.equal(t.players.length, 2, 'two entries, four accounts');
+  await ts.start(me('org'), t, () => 0.5);
+  const seated = rooms[0].seated;
+  assert.deepEqual(Object.keys(seated).sort(), ['amber', 'rose', 'teal', 'violet']);
+  assert.deepEqual([seated.amber.id, seated.violet.id].sort(), ['a', 'a2'], 'partners sit across');
+  assert.deepEqual([seated.teal.id, seated.rose.id].sort(), ['b', 'b2']);
+  const m = t.rounds[0][0];
+  await finish(m.room!, null, { placings: [['a', 'a2'], ['b', 'b2']], teamWin: true });
+  assert.deepEqual(m.placings, [[m.a], [m.b]]);
+  const view = ts.view(t);
+  assert.equal(view.standings.length, 2);
+  assert.equal(view.standings[0].name, 'a & a2');
+  assert.equal(view.standings[0].points, 3);
+  assert.equal(view.winner?.id, m.a);
+  // The other side of the pair is “in” too, for alerts and history.
+  assert.ok(ts.summaries('a2')[0].entered);
+  assert.equal(ts.summaries('b2')[0].entered, true);
 });
