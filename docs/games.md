@@ -133,10 +133,10 @@ Every game ships its own **How to play** (the goal and short sections on
 turns, moves and endings), shown in the room's Rules tab and in the lobby.
 
 More candidates (Letterworks, Manor Mystery, a creature card duel) are in
-[backlog.md](backlog.md). Since then: **Realm Duel** (two players, the six
-starter creatures, secret simultaneous picks; [creature-duel.md](creature-duel.md))
-is in.
-[backlog.md](backlog.md).
+[backlog.md](backlog.md). Since then: **Realm Duel** (two players drafting from
+30 creatures, then secret simultaneous picks;
+[creature-duel.md](creature-duel.md)) and **Realm Battle** (two teams or a
+free-for-all, drafting from the same pool) are in.
 **Manor Mystery** is in (3-6 players, the murder at Blackthorn Hall; rules as
 built in [manor-mystery.md](manor-mystery.md)).
 **Ship2Shore** is in (5-11 players, a WW2 hidden-role game aboard the SS

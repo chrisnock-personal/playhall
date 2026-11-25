@@ -3,7 +3,7 @@ import { CREATURES, STYLES, attackValue, type Style } from '../../shared/games/r
 import { STYLE_NAME, TEAM_NAMES, type BattleView } from '../../shared/games/realmbattle';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, PlayerStrip } from '../kit/kit';
-import { CardBack, CreatureCard } from './realmduel';
+import { CardBack, CreatureCard, DraftPanel } from './realmduel';
 import './realmduel.css';
 
 const nameOf = (snap: StageProps['snap'], seat: string) => snap.seats.find((s) => s.id === seat)?.name ?? COLOURS[seat]?.label ?? seat;
@@ -17,7 +17,15 @@ function BattleStage({ snap, send, receivedAt }: StageProps) {
   const [target, setTarget] = useState<string | null>(null);
   const round = v?.round ?? 1;
   useEffect(() => { setCreature(null); setStyle(null); setTarget(null); }, [round]);
-  if (!v) return <div className="board-stage"><p className="rd-intro">Realm Battle: pick a creature, a style and a target; everyone fights at once.</p><GameActions snap={snap} send={send} /></div>;
+  if (!v) return <div className="board-stage"><p className="rd-intro">Realm Battle: draft creatures, then pick one, a style and a target each round.</p><GameActions snap={snap} send={send} /></div>;
+  if (playing && v.phase === 'draft' && v.draft) return (
+    <div className="board-stage">
+      <div className="rd-table rb-table">
+        <DraftPanel snap={snap} send={send} draft={v.draft} />
+        <GameActions snap={snap} send={send} />
+      </div>
+    </div>
+  );
 
   const myTeam = me !== null ? v.team[me] : 0;
   const foes = v.order.filter((p) => v.team[p] !== myTeam);
@@ -53,7 +61,7 @@ function BattleStage({ snap, send, receivedAt }: StageProps) {
               <strong>Round {last.n}</strong>
               {last.lines.map((l, i) => <p key={i}>{l}</p>)}
             </div>
-          ) : <p className="rd-intro">Everyone secretly picks a creature, an attack style and who to attack; then they all fight at once, fastest first.</p>}
+          ) : <p className="rd-intro">Everyone secretly picks one of their drafted creatures, an attack style and who to attack; then they all fight at once, fastest first.</p>}
           {playing && !v.result && <p className="rd-status" role="status">{me && v.locked[me] ? `Waiting for ${v.order.filter((p) => !v.locked[p] && !v.out.includes(p)).map((p) => nameOf(snap, p)).join(', ')}…` : me && !v.out.includes(me) ? `Round ${round}: choose a creature, a style and a target.` : `Round ${round}.`}</p>}
         </section>
 
@@ -116,6 +124,7 @@ export const realmBattleClient: GameClient = {
   tab: { label: 'Rounds', Component: RoundsTab },
   seatExtra: (props, seatId) => {
     const v = props.snap.game.view as BattleView | null;
+    if (v?.phase === 'draft' && v.draft) return <span className="piece-count">{v.draft.taken[seatId]?.length ?? 0} of {v.draft.each} drafted</span>;
     if (!v || !(seatId in v.hands)) return <Disc colour={seatId} size={20} />;
     const left = v.hands[seatId].filter((f) => !f || f.hp > 0).length;
     return <span className="piece-count">{v.out.includes(seatId) ? 'Out' : `${left} standing`}</span>;
@@ -129,7 +138,7 @@ export const realmBattleClient: GameClient = {
           <option value="3v3">3 against 3 (+ Lime v Blue)</option>
           <option value="ffa">Free-for-all (3 or 4 players)</option>
         </select></label>{' '}
-        <label><select disabled={disabled} value={c.hand} onChange={(e) => onChange({ ...c, hand: Number(e.target.value) })}><option value={3}>3 creatures each</option><option value={2}>2 creatures each</option></select></label>
+        <label><select disabled={disabled} value={c.hand} onChange={(e) => onChange({ ...c, hand: Number(e.target.value) })}><option value={3}>Draft 3 creatures each</option><option value={2}>Draft 2 creatures each</option></select></label>
         <p>Bots can fill any seat.</p>
       </div>
     );

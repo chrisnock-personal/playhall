@@ -219,6 +219,12 @@ const SCENES = {
   async realmduel() {
     const { page: p } = await room('realmduel', 'Sam', { name: 'Realm Duel' });
     await bots(p, 1); await start(p);
+    // The draft comes first: Sam takes three creatures in snake order.
+    for (let k = 0; k < 3; k++) {
+      await until(p, async () => (await p.locator('button.rd-draft-tile.can').count()) > 0, async () => false, 20000);
+      if (k === 0) await shot(p, '24-realm-draft.png');
+      await p.locator('button.rd-draft-tile.can').first().click(); await sleep(400);
+    }
     for (let k = 0; k < 3; k++) {
       await until(p, async () => (await p.locator('button.rd-pick:not([disabled])').count()) > 0, async () => false, 20000);
       if (k === 2) {

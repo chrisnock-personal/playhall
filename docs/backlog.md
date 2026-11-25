@@ -56,7 +56,7 @@ three people.
 ### Realm Duel team battles (2026-11-16, #34)
 
 2v2 and 3v3 team battles (and free-for-all) alongside the 1v1 duel: each
-player brings a hand, picks a creature, a style and a target on the other
+player drafts a hand, then picks a creature, a style and a target on the other
 team; attacks resolve in Agility order across all fighters; a team wins when
 the other has nobody standing (`teamWin`). Room for abilities that help a
 team mate. Bots and AI players can fill seats on either team.
@@ -103,10 +103,11 @@ players' browsers and the state streamed back.
 A short guided first game for each game, and pictures in the rules (drawn
 from the kit). Every game already has its How to play.
 
-### Realm Duel in full
+### Realm Duel in full — done 2026-11-24 (#82)
 
-The 30-creature pool and the draft mode (players take turns picking from a
-shared pool of 10): [creature-duel.md](creature-duel.md).
+The 30-creature pool and the always-on snake draft (players take turns picking
+from one shared pool, with no creature on two sides) are built for both Realm
+Duel and Realm Battle: [creature-duel.md](creature-duel.md).
 
 ### Reporting (#21)
 
@@ -163,9 +164,9 @@ Under our own names and artwork, like the others ([games.md](games.md)).
 
 - **Pictures in the rules (#69), done 2026-11-24:** the remaining built-in games now have pictures in How to play — chess's pieces, Snakes and Ladders, Ludo, Sea Battle, Blackjack, Colour Clash, Hold'em hand rankings, Manor Mystery's notebook, Who Dat, Poophead's special cards, Chinese checkers' hop chain, Roulette's bets, Bridge's auction, Realm Battle and Ship2Shore's order headings. Every built-in game has one now.
 
-- **Realm Battle teams (#68), part done 2026-11-24:** in team games Mend heals and Shield covers (for that fight) whoever on the side is most hurt by share of Health, the creature itself included and kept on a tie; free-for-all keeps Realm Duel's abilities. Each side also has a private text chat tab, filtered by the room so the other team and watchers can't read it, and so the next side to take those seats can't read the last game's lines. Still to do from #68: the 30-creature pool/draft shared with Realm Duel.
+- **Realm Battle teams (#68), part done 2026-11-24:** in team games Mend heals and Shield covers (for that fight) whoever on the side is most hurt by share of Health, the creature itself included and kept on a tie; free-for-all keeps Realm Duel's abilities. Each side also has a private text chat tab, filtered by the room so the other team and watchers can't read it, and so the next side to take those seats can't read the last game's lines. The 30-creature pool/draft shared with Realm Duel is done too (see Realm Duel in full, #82).
 
-- **Realm Battle team voice (#82), done 2026-11-24:** each side also has an audio-only voice channel beside its chat tab, with the same player-only, per-game rules: watchers and the other side can't join, and each game gets a new LiveKit room so the next side to take those seats can't use the last game's channel. A new game closes the old side rooms. The 30-creature pool/draft from #82 is still to do.
+- **Realm Battle team voice (#82), done 2026-11-24:** each side also has an audio-only voice channel beside its chat tab, with the same player-only, per-game rules: watchers and the other side can't join, and each game gets a new LiveKit room so the next side to take those seats can't use the last game's channel. A new game closes the old side rooms.
 
 - **Clue Words (#46), done 2026-11-24:** our own four-player team word game.
   Amber and Violet (Sun) play Teal and Rose (Moon) on a 5×5 board of nine Sun

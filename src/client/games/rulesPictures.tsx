@@ -282,6 +282,17 @@ const FillRound: FC = () => (
   </Fig>
 );
 
+/** The pre-fight draft (#82): one shared pool, picked one at a time. */
+const DraftPool: FC = () => (
+  <Fig caption="Everyone picks from one pool, in snake order. A creature another player took is crossed out; nobody gets the same one.">
+    <span className="rp-pool">
+      {(['fire', 'water', 'earth', 'air', 'light', 'shadow'] as const).map((e, i) => (
+        <span key={e} className={`rp-pool-card${i === 2 ? ' taken' : ''}`}><ElementIcon element={e} size={22} /><small>{e}</small></span>
+      ))}
+    </span>
+  </Fig>
+);
+
 const PICTURES: Record<string, Record<string, FC>> = {
   chess: { 'How the pieces move': ChessMoves },
   fourinarow: { 'How a game ends': FourInARow },
@@ -308,6 +319,7 @@ const PICTURES: Record<string, Record<string, FC>> = {
   },
   letterworks: { 'Your turn': () => <Fig caption="Each tile is worth its number of points; words read across or down and must join what’s on the board."><span className="rp-tiles">{['W', 'O', 'R', 'D'].map((l) => <Tile key={l} letter={l} />)}</span><span className="muted small"> = {['W', 'O', 'R', 'D'].reduce((n, l) => n + VALUES[l], 0)} points before bonuses</span></Fig> },
   realmduel: {
+    'Draft and creatures': DraftPool,
     Elements: () => (
       <Fig caption="Each beats the next: Fire › Air › Earth › Water › Fire. Light and Shadow beat each other. A hit on an element you beat does 50% more.">
         <span className="rp-elements">
@@ -325,7 +337,7 @@ const PICTURES: Record<string, Record<string, FC>> = {
   roulette: { Betting: RouletteBets },
   craps: { 'The rolls': () => <Fig caption="A 7 or 11 on the come-out roll is a natural: the pass line wins."><span className="rp-dice"><Die value={5} size={44} /><Die value={2} size={44} /></span></Fig> },
   bridge: { 'The auction': BridgeBid },
-  realmbattle: { 'A round': BattleRound },
+  realmbattle: { 'The draft': DraftPool, 'A round': BattleRound },
   cluewords: { 'The board': ClueBoard },
   whatami: { 'The word': WhatWords },
   filltheblank: { 'A round': FillRound },

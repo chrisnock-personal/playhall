@@ -11,11 +11,16 @@ const seq = (...xs: number[]) => () => (xs.length ? xs.shift()! : 0.99);
 const ctx = (random: () => number = Math.random) => ({ seats: ['amber', 'teal'], random });
 const ok = (r: ReturnType<typeof realmDuel.act>): RealmState => { if ('error' in r) throw new Error(r.error); return r.state; };
 const err = (r: ReturnType<typeof realmDuel.act>) => ('error' in r ? r.error : null);
-/** A game with these hands. */
+/** A game with these hands, past the draft (as an old save or a test setup). */
 function game(amber: CreatureId[], teal: CreatureId[]): RealmState {
   const s = realmDuel.create({ hand: 3 }, 0, ctx());
   const hands = { amber: amber.map(newFighter), teal: teal.map(newFighter) };
-  return { ...s, hands, dealt: hands };
+  return { ...s, phase: 'fight', hands, dealt: hands };
+}
+/** Finish a draft with the given kinds, one pick per turn. */
+function draftAll(s: RealmState, kinds: CreatureId[]): RealmState {
+  for (const kind of kinds) s = ok(realmDuel.act(s, realmDuel.turn!(s)[0], { type: 'draft', kind }, 0, ctx()));
+  return s;
 }
 /** Both choose, amber first; returns the state after the round. */
 function round(s: RealmState, a: [number, Style], t: [number, Style], random: () => number = seq()): RealmState {
@@ -24,16 +29,40 @@ function round(s: RealmState, a: [number, Style], t: [number, Style], random: ()
 }
 const C = CREATURES;
 
-test('the deal: three different creatures each by default, all six as an option', () => {
+test('the draft: one pool of 30, snake order, no duplicates, the chosen hand sizes', () => {
   const s = realmDuel.create(realmDuel.parseConfig({}), 0, ctx());
-  for (const p of ['amber', 'teal']) {
-    assert.equal(s.hands[p].length, 3);
-    assert.equal(new Set(s.hands[p].map((f) => f.kind)).size, 3);
-    assert.ok(s.hands[p].every((f) => f.hp === C[f.kind].hp));
-  }
-  assert.equal(realmDuel.create(realmDuel.parseConfig({ hand: 6 }), 0, ctx()).hands.teal.length, 6);
+  assert.equal(s.phase, 'draft');
+  assert.equal(s.draft!.pool.length, 30);
+  assert.deepEqual(s.draft!.order, ['amber', 'teal', 'teal', 'amber', 'amber', 'teal']);
+  assert.equal(s.hands.amber.length, 0);
+  assert.ok(err(realmDuel.act(s, 'teal', { type: 'draft', kind: 'emberfox' }, 0, ctx())), 'not your turn');
+  const first = ok(realmDuel.act(s, 'amber', { type: 'draft', kind: 'emberfox' }, 0, ctx()));
+  assert.ok(err(realmDuel.act(first, 'teal', { type: 'draft', kind: 'emberfox' }, 0, ctx())), 'already taken');
+  const done = draftAll(first, ['tidecaller', 'galewing', 'stonehorn', 'lumenstag', 'duskmaw']);
+  assert.equal(done.phase, 'fight');
+  assert.deepEqual(done.draft!.taken, {
+    amber: ['emberfox', 'stonehorn', 'lumenstag'], teal: ['tidecaller', 'galewing', 'duskmaw'],
+  });
+  assert.deepEqual(done.hands.amber.map((f) => f.kind), done.draft!.taken.amber);
+  assert.deepEqual(done.dealt.teal.map((f) => f.kind), done.draft!.taken.teal);
+  assert.ok(done.hands.amber.every((f) => f.hp === C[f.kind].hp));
+  const six = realmDuel.create(realmDuel.parseConfig({ hand: 6 }), 0, ctx());
+  assert.equal(six.draft!.order.length, 12);
   assert.deepEqual(realmDuel.parseConfig({ hand: 99 }), { hand: 3 });
-  assert.equal(deal(6, Math.random).length, CREATURE_IDS.length);
+  const oldDeal = deal(CREATURE_IDS.length, Math.random);
+  assert.equal(oldDeal.length, 30, 'the old deal helper still draws from the whole roster');
+  assert.equal(new Set(oldDeal.map((f) => f.kind)).size, 30);
+});
+
+test('a draft timeout picks a strong available creature and keeps the turn moving', () => {
+  let s = realmDuel.create(realmDuel.parseConfig({}), 0, ctx());
+  s = realmDuel.timeout!(s, 'amber', 0, ctx());
+  assert.equal(s.draft!.taken.amber[0], 'dawnsentinel');
+  assert.deepEqual(realmDuel.turn!(s), ['teal']);
+  const v = realmDuel.view(s, 0, 'amber') as RealmView;
+  assert.equal(v.phase, 'draft');
+  assert.equal(v.draft!.next, 'teal');
+  assert.equal(v.hands.amber.length, 0);
 });
 
 test('damage maths: attack values, defence, intellect, a floor of 1', () => {
@@ -252,6 +281,7 @@ test('replay: the deal, a frame per round, everything shown at the end', () => {
   s = round(s, [0, 'ranged'], [0, 'ranged']);
   const mid = realmDuel.replay!(s) as RealmView[];
   assert.equal(mid.length, 2);
+  assert.equal(mid[0].phase, 'fight', 'a replay opens on the dealt hands, not the draft');
   assert.deepEqual(mid[0].hands.amber, [null, null], 'a watcher sees face-down cards at first');
   assert.equal(mid[1].hands.amber[0]?.kind, 'emberfox');
   assert.equal(mid[1].hands.amber[1], null);
@@ -272,6 +302,11 @@ test('fuzz: 500 random games all end without errors, health never out of range',
   for (let g = 0; g < 500; g++) {
     const c = ctx(random);
     let s = realmDuel.create({ hand: g % 4 === 0 ? 6 : 3 }, 0, c);
+    while (s.phase === 'draft') {
+      const seat = realmDuel.turn!(s)[0];
+      const kind = s.draft!.pool[Math.floor(random() * s.draft!.pool.length)];
+      s = ok(realmDuel.act(s, seat, { type: 'draft', kind }, 0, c));
+    }
     for (let i = 0; i < 200 && !s.result; i++) {
       if (random() < 0.05) { s = realmDuel.timeout!(s, realmDuel.turn!(s)[0], 0, c); continue; }
       for (const seat of realmDuel.turn!(s)) {

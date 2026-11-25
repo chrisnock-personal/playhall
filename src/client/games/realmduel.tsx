@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import {
-  CREATURES, STYLES, STYLE_NAME, attackValue,
-  type CreatureId, type Element, type FighterView, type Pick, type RealmView, type RoundView, type Style,
+  CREATURE_IDS, CREATURES, STYLES, STYLE_NAME, attackValue,
+  type CreatureId, type DraftView, type Element, type FighterView, type Pick, type RealmView, type RoundView, type Style,
 } from '../../shared/games/realmduel';
 import type { GameClient, StageProps } from './types';
 import { COLOURS, Disc, GameActions, PlayerStrip } from '../kit/kit';
@@ -35,12 +35,33 @@ export function ElementIcon({ element, size = 20 }: { element: Element; size?: n
   );
 }
 
+/** The 24 drafted creatures get their own simple silhouette: the same ink and
+ *  element colour as the six starters, with horns and tail varied by id. */
+function genericArt(kind: CreatureId, c: string, dark: string, eye: string): ReactElement {
+  const n = [...kind].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  const horns = n % 3;
+  const tail = n % 2 ? 'M58 34c10-2 14-8 12-14-1 8-7 10-13 9z' : 'M58 38c9 3 14 9 12 15-3-7-9-9-14-8z';
+  return (
+    <>
+      <path d={tail} fill={c} opacity=".8" />
+      <ellipse cx="40" cy="36" rx="19" ry="14" fill={c} />
+      <circle cx="40" cy="20" r="9" fill={c} />
+      {horns === 0 ? <path d="M34 14l-3-9 8 6zM46 14l3-9-8 6z" fill={dark} />
+        : horns === 1 ? <path d="M40 11l-3-10 3 6 3-6z" fill={dark} />
+          : <><path d="M32 14l-6-8 9 5zM48 14l6-8-9 5z" fill={dark} /></>}
+      <path d="M28 38l8 4 4-6 4 6 8-4" fill="none" stroke={dark} strokeWidth="2" strokeLinecap="round" opacity=".7" />
+      <ellipse cx="36" cy="20" rx="2" ry="1.6" fill={eye} /><ellipse cx="44" cy="20" rx="2" ry="1.6" fill={eye} />
+      <path d="M37 26l3 3 3-3z" fill={dark} />
+    </>
+  );
+}
+
 /** Simple silhouettes, Playhall's own, in the element's colour. */
 function CreatureArt({ kind }: { kind: CreatureId }) {
   const c = ELEMENT[CREATURES[kind].element].colour;
   const dark = 'rgba(0,0,0,.38)';
   const eye = '#FBF8F1';
-  const art: Record<CreatureId, ReactElement> = {
+  const art: Partial<Record<CreatureId, ReactElement>> = {
     emberfox: (
       <>
         <path d="M58 46c10-2 16-10 14-20-3 6-8 8-12 8z" fill={c} opacity=".7" />
@@ -103,7 +124,7 @@ function CreatureArt({ kind }: { kind: CreatureId }) {
   return (
     <svg className="rd-art" viewBox="0 0 80 56" aria-hidden="true">
       <rect x="0" y="0" width="80" height="56" fill={c} opacity=".14" />
-      {art[kind]}
+      {art[kind] ?? genericArt(kind, c, dark, eye)}
     </svg>
   );
 }
@@ -163,6 +184,57 @@ export function CreatureCard({ f, compact, from }: { f: FighterView; compact?: b
 
 const nameOf = (snap: StageProps['snap'], seat: string) => snap.seats.find((s) => s.id === seat)?.name ?? COLOURS[seat]?.label ?? seat;
 
+/** One creature in the shared pool. Picks are open: everyone sees every card
+ *  and who took it, but only the seat whose turn it is may click one. */
+function DraftTile({ kind, taken, can, onClick }: { kind: CreatureId; taken: boolean; can: boolean; onClick(): void }) {
+  const c = CREATURES[kind];
+  return (
+    <button className={`rd-draft-tile${taken ? ' taken' : ''}${can ? ' can' : ''}`} disabled={!can} onClick={onClick}
+      aria-label={`${c.name}, ${ELEMENT[c.element].name}, ${c.abilityName}${taken ? ', already taken' : ''}`}>
+      <CreatureArt kind={kind} />
+      <strong>{c.name}</strong>
+      <span className="rd-draft-meta">{ELEMENT[c.element].name} · {c.hp} HP</span>
+      {taken && <span className="rd-draft-tag">Taken</span>}
+    </button>
+  );
+}
+
+/** The pre-fight draft, shared by Realm Duel and Realm Battle (#82). */
+export function DraftPanel({ snap, send, draft }: { snap: StageProps['snap']; send: StageProps['send']; draft: DraftView }) {
+  const me = snap.you.seat;
+  const yourTurn = !!me && draft.next === me;
+  const seats = Object.keys(draft.taken);
+  const takenBy = new Map(seats.flatMap((p) => draft.taken[p].map((k) => [k, p] as const)));
+  return (
+    <section className="rd-draft" aria-label="Creature draft">
+      <div className="rd-draft-head">
+        <div>
+          <h2>Draft your creatures</h2>
+          <p className="muted">{draft.next ? `${nameOf(snap, draft.next)} picks now` : 'Draft complete'}{yourTurn ? ' — that’s you' : ''}. Take {draft.each} creatures in turn; each can be picked once.</p>
+        </div>
+        {yourTurn && <span className="rd-draft-turn">Your turn · {draft.need[me!]} left</span>}
+      </div>
+      <div className="rd-draft-picks">
+        {seats.map((p) => (
+          <div key={p} className="rd-draft-seat">
+            <strong>{nameOf(snap, p)}</strong>
+            <span className="muted">{draft.taken[p].length} / {draft.each}</span>
+            <div className="rd-draft-chips">{draft.taken[p].length
+              ? draft.taken[p].map((k, i) => <span key={i} className="rd-draft-chip">{CREATURES[k].name}</span>)
+              : <span className="muted small">No picks yet</span>}</div>
+          </div>
+        ))}
+      </div>
+      <div className="rd-draft-pool" role="group" aria-label="Available creatures">
+        {CREATURE_IDS.map((k) => (
+          <DraftTile key={k} kind={k} taken={takenBy.has(k)} can={yourTurn && !takenBy.has(k)}
+            onClick={() => send({ t: 'act', action: { type: 'draft', kind: k } })} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /** One side of the last round's reveal. */
 function RevealSide({ seat, pick, first, snap }: { seat: string; pick: Pick; first: boolean; snap: StageProps['snap'] }) {
   const c = CREATURES[pick.kind];
@@ -221,6 +293,15 @@ function RealmStage(props: StageProps) {
     else if (me) status = `Round ${round}: choose a creature and an attack style, then Lock in.${v.locked[top] ? ` ${nameOf(snap, top)} has locked in.` : ''}`;
     else status = `Round ${round}: ${[bottom, top].map((p) => `${nameOf(snap, p)} ${v.locked[p] ? 'has locked in' : 'is choosing'}`).join(', ')}.`;
   }
+
+  if (playing && v?.phase === 'draft' && v.draft) return (
+    <div className="board-stage">
+      <div className="rd-table">
+        <DraftPanel snap={snap} send={send} draft={v.draft} />
+        <GameActions snap={snap} send={send} />
+      </div>
+    </div>
+  );
 
   return (
     <div className="board-stage">
@@ -300,6 +381,7 @@ export const realmDuelClient: GameClient = {
   tab: { label: 'Rounds', Component: RoundsTab },
   seatExtra: (props, seatId) => {
     const v = props.snap.game.view as RealmView | null;
+    if (v?.phase === 'draft' && v.draft) return <span className="piece-count">{v.draft.taken[seatId]?.length ?? 0} of {v.draft.each} drafted</span>;
     const hand = v?.hands[seatId];
     if (!hand) return <Disc colour={seatId} size={20} />;
     const up = hand.filter((f) => !f || f.hp > 0).length;
@@ -308,8 +390,8 @@ export const realmDuelClient: GameClient = {
   ConfigPicker: ({ value, onChange, disabled }) => (
     <label className="field"><span>Creatures each</span>
       <select value={(value as { hand?: number })?.hand ?? 3} disabled={disabled} onChange={(e) => onChange({ hand: Number(e.target.value) })}>
-        <option value={3}>Three, drawn at random from the six</option>
-        <option value={6}>All six</option>
+        <option value={3}>Draft three each</option>
+        <option value={6}>Draft six each</option>
       </select>
     </label>
   ),
