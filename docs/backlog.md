@@ -5,6 +5,15 @@ from this list. The phases themselves are in [design.md](design.md#phases).
 
 ## Still open
 
+### Bounty Board (2026-11-25, #95)
+
+Chess with a Wild West bounty shop: capturing pays dollars, dollars buy
+gadgets that change how a piece moves, and checkmate still ends the game.
+One-page design: [bounty-board.md](bounty-board.md). Rules prototype built
+2026-11-25 (`src/shared/games/bountyboard.ts`, bot, tests, plain board UI).
+Next: simulate the economy with bots (payday, bounties and prices), test
+buying after moving instead of before, then do the Wild West art and sounds.
+
 ### Chinese checkers (2026-11-16, #41)
 
 The star-board hopping race for 2, 3, 4 or 6 players: ten marbles each, move

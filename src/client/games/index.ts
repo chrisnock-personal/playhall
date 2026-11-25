@@ -28,6 +28,7 @@ import { realmBattleClient } from './realmbattle';
 import { clueWordsClient } from './cluewords';
 import { whatAmIClient } from './whatami';
 import { fillTheBlankClient } from './filltheblank';
+import { bountyBoardClient } from './bountyboard';
 
 export const GAME_CLIENTS: Record<string, GameClient> = {
   [chessClient.id]: chessClient,
@@ -59,6 +60,7 @@ export const GAME_CLIENTS: Record<string, GameClient> = {
   [clueWordsClient.id]: clueWordsClient,
   [whatAmIClient.id]: whatAmIClient,
   [fillTheBlankClient.id]: fillTheBlankClient,
+  [bountyBoardClient.id]: bountyBoardClient,
 };
 
 // Pictures for the rules (#57).

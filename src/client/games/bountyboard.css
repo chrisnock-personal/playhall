@@ -1,0 +1,42 @@
+/* The prototype board: string pieces with gadget badges, no artwork yet. */
+.bb-piece {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: clamp(14px, 2.6vw, 30px);
+  line-height: 1;
+  box-shadow: 0 2px 5px #0006;
+}
+.bb-piece.white { background: #f4e3c2; color: #6b3b1d; border: 2px solid #a87543; }
+.bb-piece.black { background: #4b3629; color: #f4e3c2; border: 2px solid #2a1b13; }
+.bb-badges {
+  position: absolute;
+  right: -6%;
+  bottom: -8%;
+  display: flex;
+  gap: 1px;
+}
+.bb-badges em {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: #d9a441;
+  color: #24160d;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+.bb-money { font-variant-numeric: tabular-nums; }
+.bb-shop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.bb-log { margin: 0; padding-left: 22px; }
+.bb-log li { margin: 3px 0; font-size: 0.9em; }

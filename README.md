@@ -7,7 +7,7 @@ else pulls up a chair and watches.** Each room has a host, players (the game
 decides how many seats) and watchers, with a table chat for everyone and a
 gallery chat the players can't read during a game.
 
-Twenty-eight games: chess, checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
+Twenty-nine games: chess, Bounty Board (chess with a bounty shop; prototype art), checkers, Four in a Row, Snakes and Ladders, Ludo, Sea
 Battle, Blackjack, Colour Clash, Texas Hold'em, Hearts, Spades, Thirty-One, Gin Rummy, Bingo, Chinese checkers, Roulette, Craps, Bridge, Poophead (the
 shedding game also known as Palace), Letterworks (a crossword tile game),
 Realm Duel (a creature card duel with a 30-creature draft) and Realm Battle (its team version, drafting from the same pool), Manor Mystery (a country-house murder
@@ -49,7 +49,7 @@ with remote players using controllers, OpenBOR rooms run on the server
 - **Chess.** Moves are checked on the server; clocks with increments,
   draw offers, resigning, promotion, checkmate, stalemate, repetition and the
   50-move rule. The board is lichess's chessground.
-- **Twenty-eight games**, each with its rules in a How to play tab, and replays
+- **Twenty-nine games**, each with its rules in a How to play tab, and replays
   of finished games (move by move, hidden cards staying hidden).
 - **Chat.** Table (everyone reads it; watchers write only between games unless
   the host allows it) and Gallery (watchers only; hidden from players while a

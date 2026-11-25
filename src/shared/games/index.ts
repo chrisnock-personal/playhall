@@ -28,6 +28,7 @@ import { realmBattle } from './realmbattle';
 import { clueWords } from './cluewords';
 import { whatAmI } from './whatami';
 import { fillTheBlank } from './filltheblank';
+import { bountyBoard } from './bountyboard';
 import { BOTS } from '../bots';
 
 // Every built-in game, by id. Adding a game = writing its module here and its
@@ -62,6 +63,7 @@ export const GAMES: Record<string, GameModule<any, any>> = {
   [clueWords.id]: clueWords,
   [whatAmI.id]: whatAmI,
   [fillTheBlank.id]: fillTheBlank,
+  [bountyBoard.id]: bountyBoard,
 };
 
 export function gameList() {

@@ -10,6 +10,7 @@ import { ship2shoreBot } from './games/ship2shore.bot';
 import { chineseCheckersBot, checkersBot, fourBot, ludoBot, snakesBot, whoDatBot } from './games/board.bots';
 import { blackjackBot, clashBot, heartsBot, pokerBot, realmBot, seaBot, poopheadBot, spadesBot, thirtyOneBot, ginBot, bingoBot, rouletteBot, crapsBot, realmBattleBot } from './games/card.bots';
 import { chessBot } from './games/chess.bot';
+import { bountyBoardBot } from './games/bountyboard.bot';
 import { letterworksBot } from './games/letterworks.bot';
 import { manorBot } from './games/manormystery.bot';
 import { bridgeBot } from './games/bridge.bot';
@@ -22,7 +23,7 @@ export interface BotWords { isWord(word: string): boolean; isPrefix(start: strin
 export type BotLevel = 'gentle' | 'fair' | 'strong';
 export const BOT_LEVELS: BotLevel[] = ['gentle', 'fair', 'strong'];
 /** Games whose bots play differently at each level (the others play one way). */
-export const LEVELLED = ['chess', 'letterworks', 'manormystery', 'fourinarow', 'checkers'];
+export const LEVELLED = ['chess', 'letterworks', 'manormystery', 'fourinarow', 'checkers', 'bountyboard'];
 export type Bot = (view: unknown, seat: string, random: () => number, words?: BotWords, level?: BotLevel) => unknown | null;
 
 /** The games that have bots, by game id. */
@@ -52,6 +53,7 @@ export const BOTS: Record<string, Bot> = {
   craps: crapsBot,
   realmbattle: realmBattleBot,
   chinesecheckers: chineseCheckersBot,
+  bountyboard: bountyBoardBot,
 };
 
 /** Answering at the table: games where players ask each other things
