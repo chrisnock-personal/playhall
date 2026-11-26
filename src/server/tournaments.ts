@@ -23,6 +23,15 @@ export const MAX_PLAYERS = 64;
 const SWEEP_MS = 30_000;
 const GRACE_CHOICES = [5, 10, 15, 30];
 
+type AwardResult = 'a' | 'b' | 'draw' | 'table';
+const AWARD_RESULTS: readonly AwardResult[] = ['a', 'b', 'draw', 'table'];
+
+/** The HTTP body is untrusted: only whole, non-negative coordinates count (#89). */
+function awardCoordinate(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
+}
+
 interface T {
   id: string; code: string; name: string; gameId: string;
   organiser: TPlayer; config: TournamentConfig; status: TournamentView['status'];
@@ -344,7 +353,7 @@ export class Tournaments {
   }
 
   /** Organiser: settle a match by hand (someone can't play, say). */
-  async award(user: TPlayer, t: T, round: number, index: number, result: 'a' | 'b' | 'draw' | 'table', winner?: string): Promise<void> {
+  async award(user: TPlayer, t: T, round: number, index: number, result: AwardResult, winner?: string): Promise<void> {
     if (t.organiser.id !== user.id) throw new Error('Only the organiser can do that');
     const m = t.rounds[round]?.[index];
     if (!m || !m.b) throw new Error('No such match');
@@ -503,7 +512,13 @@ export function tournamentRoutes(opts: { auth: Auth; tournaments: Tournaments })
     if (!t) { res.status(404).json({ error: 'No such tournament' }); return; }
     const b = req.body ?? {};
     try {
-      await tournaments.award(who(req), t, Number(b.round), Number(b.index), b.result, typeof b.winner === 'string' ? b.winner : undefined);
+      const round = awardCoordinate(b.round);
+      const index = awardCoordinate(b.index);
+      if (round === null) throw new Error('Pick a valid round');
+      if (index === null) throw new Error('Pick a valid match');
+      const result = AWARD_RESULTS.find((x) => x === b.result);
+      if (!result) throw new Error('Pick a valid result: a, b, draw or table');
+      await tournaments.award(who(req), t, round, index, result, typeof b.winner === 'string' ? b.winner : undefined);
       res.json({ tournament: tournaments.view(t) });
     } catch (err) { fail(res, err); }
   });

@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Tournaments, checkTournament } from './tournaments';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import express, { type NextFunction, type Request, type Response } from 'express';
+import { Tournaments, checkTournament, tournamentRoutes } from './tournaments';
+import type { Auth } from './auth';
 import type { RoomManager } from './rooms/manager';
 import type { FinishedGame } from './rooms/room';
 import type { Db } from './db';
@@ -38,6 +42,24 @@ function fakes() {
     await new Promise((res) => setTimeout(res, 5));
   };
   return { ts, rooms, finish };
+}
+
+/** The award route behind a signed-in organiser, as the browser reaches it. */
+async function awardServer(ts: Tournaments, code: string) {
+  const app = express();
+  app.use(express.json());
+  const auth = {
+    requireUser(req: Request, _res: Response, next: NextFunction) {
+      req.user = { id: 'org', name: 'org', guest: false, admin: false };
+      next();
+    },
+  } as unknown as Auth;
+  app.use(tournamentRoutes({ auth, tournaments: ts }));
+  const server = http.createServer(app);
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/tournaments/${code}/award`;
+  const post = (body: unknown) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return { post, close: () => server.close() };
 }
 
 const me = (id: string) => ({ id, name: id });
@@ -219,4 +241,56 @@ test('Spades pair entries sit as partners and a team win goes to the entry', asy
   // The other side of the pair is “in” too, for alerts and history.
   assert.ok(ts.summaries('a2')[0].entered);
   assert.equal(ts.summaries('b2')[0].entered, true);
+});
+
+test('POST /award refuses unknown results and bad round/index before touching a match (#89)', async () => {
+  const { ts } = fakes();
+  const t = await ts.create(me('org'), { name: 'League', gameId: 'chess', format: 'roundrobin' });
+  for (const p of ['a', 'b', 'c', 'd']) await ts.enter(me(p), t, true);
+  await ts.start(me('org'), t, () => 0.5);
+  const [m1, m2] = t.rounds[0];
+  const { post, close } = await awardServer(ts, t.code);
+  try {
+    const bad: [Record<string, unknown>, RegExp][] = [
+      [{ round: 0, index: 0, result: 'x' }, /valid result/],
+      [{ round: 0, index: 0, result: 'none' }, /valid result/],
+      [{ round: -1, index: 0, result: 'a' }, /valid round/],
+      [{ round: 0.5, index: 0, result: 'a' }, /valid round/],
+      [{ round: '', index: 0, result: 'a' }, /valid round/],
+      [{ round: 0, index: 1.5, result: 'a' }, /valid match/],
+      [{ round: 0, index: null, result: 'a' }, /valid match/],
+    ];
+    for (const [body, message] of bad) {
+      const res = await post(body);
+      assert.equal(res.status, 400, JSON.stringify(body));
+      assert.match((await res.json() as { error: string }).error, message);
+      assert.equal(m1.result, null, 'bad input must not settle the match');
+      assert.equal(m2.result, null);
+    }
+    const draw = await post({ round: 0, index: 0, result: 'draw' });
+    assert.equal(draw.status, 200);
+    assert.equal(m1.result, 'draw');
+    const win = await post({ round: 0, index: 1, result: 'a' });
+    assert.equal(win.status, 200);
+    assert.equal(m2.result, 'a');
+    assert.equal(m2.how, 'organiser');
+    assert.deepEqual(m2.placings, [[m2.a], [m2.b]]);
+  } finally { close(); }
+});
+
+test('POST /award still accepts a table result with a winner (#89)', async () => {
+  const { ts } = fakes();
+  const t = await ts.create(me('org'), { name: 'Settled', gameId: 'ludo', format: 'swiss', rounds: 1, tableSize: 3, placePoints: [3, 2, 1] });
+  for (const p of ['a', 'b', 'c']) await ts.enter(me(p), t, true);
+  await ts.start(me('org'), t, () => 0.5);
+  const m = t.rounds[0][0];
+  const { post, close } = await awardServer(ts, t.code);
+  try {
+    const res = await post({ round: 0, index: 0, result: 'table', winner: m.table![1] });
+    assert.equal(res.status, 200);
+    assert.equal(m.result, 'table');
+    assert.deepEqual(m.placings, [[m.table![1]], [m.table![0], m.table![2]]]);
+    const view = (await res.json() as { tournament: { rounds: { result: string | null }[][] } }).tournament;
+    assert.equal(view.rounds[0][0].result, 'table');
+  } finally { close(); }
 });
