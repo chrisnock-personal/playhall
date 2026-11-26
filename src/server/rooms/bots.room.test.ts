@@ -203,3 +203,41 @@ test('practice (#57): gentle bots fill the seats the game needs, at least one op
   poker.room.fillWithBots();
   assert.equal(Object.values(poker.rec.seats).filter((h) => h?.bot).length, 1, 'Hold’em starts with two');
 });
+
+/** Two people and two bots in Hearts: only the people vote on a rematch. */
+function seatedWithBots() {
+  const t = setup('hearts');
+  t.room.handle(host, { t: 'sit', seat: 'amber' });
+  t.room.handle(alex, { t: 'sit', seat: 'teal' });
+  for (const seat of ['violet', 'rose']) t.room.handle(host, { t: 'addBot', seat });
+  t.room.handle(host, { t: 'start' });
+  t.room.handle(alex, { t: 'act', action: { type: 'resign' } });
+  assert.equal(t.rec.game.status, 'over');
+  return t;
+}
+
+test('rematch with bots (#91): the two humans agreeing starts the next game', () => {
+  const { room, rec, lines } = seatedWithBots();
+  assert.deepEqual(room.snapshotFor(host.id).rematch, { allowed: true, agreed: [] }, 'bots don’t appear in the vote');
+
+  room.handle(host, { t: 'rematch', want: true });
+  assert.deepEqual(room.snapshotFor(alex.id).rematch?.agreed, ['h']);
+  assert.equal(rec.game.status, 'over', 'the other human still has to agree');
+
+  room.handle(alex, { t: 'rematch', want: true });
+  assert.equal(rec.game.status, 'playing');
+  assert.equal(room.snapshotFor(host.id).rematch, null);
+  assert.equal(Object.values(rec.game.players ?? {}).filter((p) => p.bot).length, 2, 'the bots stay for the next game');
+  assert.ok(lines.includes('Everyone agreed to a rematch'));
+});
+
+test('rematch with bots (#91): one human declining keeps the game over', () => {
+  const { room, rec } = seatedWithBots();
+  room.handle(host, { t: 'rematch', want: true });
+  room.handle(alex, { t: 'rematch', want: false });
+  assert.deepEqual(room.snapshotFor(host.id).rematch?.agreed, ['h']);
+  assert.equal(rec.game.status, 'over', 'a single declining human blocks the rematch');
+
+  room.handle(alex, { t: 'rematch', want: true });
+  assert.equal(rec.game.status, 'playing', 'the game starts once they change their mind');
+});
