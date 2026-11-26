@@ -268,6 +268,11 @@ const battleWithHistory = withHistory<BattleState, BattleConfig>({
     const a = raw as { type?: string; creature?: unknown; style?: unknown; target?: unknown; kind?: unknown };
     const drafting = s.phase === 'draft' && !!s.draft;
     if (a?.type === 'resign') {
+      // A seat already out (or with nothing standing) must not be appended to
+      // `out` again: the reversed groups become placings, so a duplicate
+      // would put the same player in two places (#92).
+      if (s.out.flat().includes(seat)) return { error: 'You’ve already resigned' };
+      if (!drafting && !alive(s).includes(seat)) return { error: 'You have no creatures left' };
       if (drafting) {
         const gone = [...s.out.flat(), seat];
         const next: BattleState = { ...s, draft: draftAdvance(s.draft!, gone), out: [...s.out, [seat]] };
