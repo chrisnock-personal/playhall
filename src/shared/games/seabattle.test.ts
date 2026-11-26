@@ -79,3 +79,47 @@ test('placing your own fleet: checked on the server', () => {
   s = ok(seaBattle.act(s, 'amber', { type: 'ready' }, 0, ctx));
   assert.ok('error' in seaBattle.act(s, 'amber', { type: 'place', ships: own }, 0, ctx), 'no moving ships once ready');
 });
+
+test('cellsFor only returns squares on the board', () => {
+  assert.deepEqual(cellsFor(23, 4, false), [23, 24, 25, 26], 'across');
+  assert.deepEqual(cellsFor(23, 4, true), [23, 33, 43, 53], 'down');
+  assert.equal(cellsFor(-11, 2, false), null, 'negative row and column, across');
+  assert.equal(cellsFor(-1, 2, false), null, 'negative column, across');
+  assert.equal(cellsFor(-10, 2, true), null, 'negative row, down');
+  assert.equal(cellsFor(-11, 2, true), null, 'negative row and column, down');
+  assert.equal(cellsFor(99, 2, false), null, 'past the right edge');
+  assert.equal(cellsFor(99, 2, true), null, 'past the bottom edge');
+  assert.equal(cellsFor(100, 2, false), null, 'past the board');
+  assert.equal(cellsFor(0.5, 2, false), null, 'not a square');
+});
+
+test('ships starting off the board are rejected by checkFleet and place', () => {
+  const valid = [
+    { name: 'Carrier', cells: cellsFor(0, 5, false)! },
+    { name: 'Battleship', cells: cellsFor(20, 4, true)! },
+    { name: 'Cruiser', cells: cellsFor(22, 3, false)! },
+    { name: 'Submarine', cells: cellsFor(55, 3, true)! },
+    { name: 'Destroyer', cells: cellsFor(98, 2, false)! },
+  ];
+  assert.equal(checkFleet(valid), null, 'a full fleet across and down');
+  let placed = seaBattle.create({}, 0, ctx);
+  placed = ok(seaBattle.act(placed, 'amber', { type: 'place', ships: valid }, 0, ctx));
+  assert.deepEqual(placed.fleets.amber.map((s) => s.name), valid.map((s) => s.name));
+
+  const offBoard = [
+    [-11, -10], // the repro: starts before the board, across
+    [-1, 0],    // starts in column -1, across
+    [-10, 0],   // starts in row -1, down
+    [-21, -11], // starts before the board, down
+    [100, 101], // starts past the board, across
+  ];
+  for (const cells of offBoard) {
+    const ships = [...valid.slice(0, 4), { name: 'Destroyer', cells }];
+    assert.match(checkFleet(ships)!, /on the board/, `checkFleet ${cells}`);
+    const s = seaBattle.create({}, 0, ctx);
+    const fleet = s.fleets.amber;
+    const result = seaBattle.act(s, 'amber', { type: 'place', ships }, 0, ctx);
+    assert.ok('error' in result && /on the board/.test(result.error), `place ${cells}`);
+    assert.equal(s.fleets.amber, fleet, 'the fleet is left untouched');
+  }
+});

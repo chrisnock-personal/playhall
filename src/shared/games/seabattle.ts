@@ -41,11 +41,14 @@ export interface SeaView {
 
 const other = (s: SeatId) => (s === 'amber' ? 'teal' : 'amber');
 
-/** The squares a ship of `size` covers from `start` (its top or left end). */
+/** The squares a ship of `size` covers from `start` (its top or left end),
+ *  or null if it would run off the board. */
 export function cellsFor(start: number, size: number, vertical: boolean): number[] | null {
+  if (!Number.isInteger(start) || start < 0 || start >= SIZE * SIZE) return null;
   const r = Math.floor(start / SIZE), c = start % SIZE;
   if (vertical ? r + size > SIZE : c + size > SIZE) return null;
-  return Array.from({ length: size }, (_, i) => (vertical ? (r + i) * SIZE + c : start + i));
+  const cells = Array.from({ length: size }, (_, i) => (vertical ? (r + i) * SIZE + c : start + i));
+  return cells.some((cell) => cell < 0 || cell >= SIZE * SIZE) ? null : cells;
 }
 
 /** A whole fleet as a player placed it: every ship once, straight, on the
@@ -57,6 +60,7 @@ export function checkFleet(ships: unknown): string | null {
     const ship = ships.find((s) => s && s.name === name) as Ship | undefined;
     if (!ship || !Array.isArray(ship.cells) || ship.cells.length !== size) return `Place the ${name}`;
     const sorted = [...ship.cells].sort((a, b) => a - b);
+    if (sorted.some((c) => !Number.isInteger(c) || c < 0 || c >= SIZE * SIZE)) return `The ${name} must be on the board`;
     const vertical = sorted.length > 1 && sorted[1] - sorted[0] === SIZE;
     const want = cellsFor(sorted[0], size, vertical);
     if (!want || want.some((c, i) => c !== sorted[i])) return `The ${name} must be in a straight line on the board`;
