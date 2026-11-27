@@ -241,3 +241,13 @@ test('rematch with bots (#91): one human declining keeps the game over', () => {
   room.handle(alex, { t: 'rematch', want: true });
   assert.equal(rec.game.status, 'playing', 'the game starts once they change their mind');
 });
+
+test('rematch with bots (#91): no rematch once a removed bot leaves too few players', () => {
+  const { room, rec, lines } = seatedWithBots();
+  const bot = rec.seats.rose!.userId;
+  room.handle(host, { t: 'unseat', userId: bot });
+  room.handle(host, { t: 'rematch', want: true });
+  room.handle(alex, { t: 'rematch', want: true });
+  assert.equal(rec.game.status, 'over', 'three players can’t start Hearts');
+  assert.ok(!lines.includes('Everyone agreed to a rematch'));
+});
