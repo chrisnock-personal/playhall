@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { realmBattle as g, alive, autoChoice, enemiesOf, type BattleState } from './realmbattle';
 import { CREATURE_IDS, newFighter, type CreatureId } from './realmduel';
+import { score } from '../scoring';
 
 const ok = (r: ReturnType<typeof g.act>): BattleState => { if ('error' in r) throw new Error(r.error); return r.state; };
 const err = (r: ReturnType<typeof g.act>) => ('error' in r ? r.error : null);
@@ -59,6 +60,26 @@ test('resigning during the draft skips that seat and can end the battle', () => 
   s = ok(g.act(s, 'rose', { type: 'resign' }, 0, ctx));
   assert.equal(s.result?.teamWin, true);
   assert.deepEqual(s.result?.placings?.[0], ['amber', 'violet']);
+});
+
+test('a second resignation during the draft is rejected, without an extra placing', () => {
+  const finished = (s: BattleState): BattleState => {
+    s = ok(g.act(s, 'violet', { type: 'draft', kind: 'mossback' }, 0, ctx));
+    s = ok(g.act(s, 'rose', { type: 'draft', kind: 'zephyrkite' }, 0, ctx));
+    return ok(g.act(s, 'rose', { type: 'resign' }, 0, ctx));
+  };
+  const open = () => ok(g.act(g.create({ mode: '2v2', hand: 3 }, 0, ctx), 'amber', { type: 'draft', kind: 'emberfox' }, 0, ctx));
+  const control = finished(ok(g.act(open(), 'teal', { type: 'resign' }, 0, ctx)));
+
+  let s = ok(g.act(open(), 'teal', { type: 'resign' }, 0, ctx));
+  assert.equal(err(g.act(s, 'teal', { type: 'resign' }, 0, ctx)), 'You’ve already resigned');
+  assert.deepEqual(s.out, [['teal']]);
+  assert.deepEqual(g.turn!(s), ['violet'], 'the duplicate did not skip another turn');
+  s = finished(s);
+  assert.deepEqual(s.result, control.result);
+  assert.deepEqual(s.result?.placings, [['amber', 'violet'], ['rose'], ['teal']]);
+  assert.deepEqual(score(s.result!, s.order), score(control.result!, control.order));
+  assert.equal(score(s.result!, s.order).teal.place, 3, 'a resignation appears in one place only');
 });
 
 test('a draft timeout picks a strong available creature for the seat due', () => {
@@ -125,6 +146,29 @@ test('the last team standing wins, both partners scoring', () => {
   s = ok(g.act(s, 'rose', { type: 'resign' }, 0, ctx));
   assert.deepEqual(s.result?.placings?.[0], ['amber', 'violet']);
   assert.equal(s.result?.teamWin, true);
+});
+
+test('a second resignation in a fight is rejected, without a worse placing or score', () => {
+  const control = ok(g.act(ok(g.act(start(), 'violet', { type: 'resign' }, 0, ctx)), 'amber', { type: 'resign' }, 0, ctx));
+
+  let s = ok(g.act(start(), 'violet', { type: 'resign' }, 0, ctx));
+  assert.equal(err(g.act(s, 'violet', { type: 'resign' }, 0, ctx)), 'You’ve already resigned');
+  assert.deepEqual(s.out, [['violet']]);
+  s = ok(g.act(s, 'amber', { type: 'resign' }, 0, ctx));
+  assert.deepEqual(s.result, control.result);
+  assert.deepEqual(s.result?.placings, [['teal', 'rose'], ['amber'], ['violet']]);
+  const scored = score(s.result!, s.order);
+  assert.deepEqual(scored, score(control.result!, control.order));
+  assert.equal(scored.violet.place, 3);
+  assert.equal(scored.violet.points, 0);
+  assert.equal(scored.amber.place, 2);
+  assert.equal(scored.amber.points, 0, 'a shared team win gives no second-place point');
+});
+
+test('a seat with no creatures standing cannot resign', () => {
+  const s = start();
+  const beaten = { ...s, hands: { ...s.hands, violet: s.hands.violet.map((f) => ({ ...f, hp: 0 })) } };
+  assert.equal(err(g.act(beaten, 'violet', { type: 'resign' }, 0, ctx)), 'You have no creatures left');
 });
 
 test('each side gets a private team chat and voice, but a free-for-all gets none', () => {
