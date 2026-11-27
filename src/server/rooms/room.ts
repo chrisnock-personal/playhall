@@ -776,7 +776,11 @@ export class Room {
     if (this.rematch.has(user.id)) return;
     this.rematch.add(user.id);
     const needed = this.rematchNeeded();
-    if (needed.length >= this.minPlayers && needed.every((id) => this.rematch.has(id))) {
+    // Bots never vote: every seated human must agree. Bots do count towards the
+    // players the game needs, so compare every seated player with the minimum,
+    // or the room would announce a rematch that start() then refuses.
+    const seated = this.seatDefs.filter((s) => this.rec.seats[s.id]).length;
+    if (needed.length > 0 && seated >= this.minPlayers && needed.every((id) => this.rematch.has(id))) {
       this.system('Everyone agreed to a rematch');
       this.start();
       return;
